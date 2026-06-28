@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+node_modules/
+.next/
+out/
+dist/
+coverage/
+tmp/
+*.log
+*.exe
+*.test
+*.tsbuildinfo
+vendor/
+.DS_Store
