@@ -5,7 +5,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,6 +46,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 	}))
 
 	r.Get("/healthz", h.health)
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/school-profile", h.schoolProfile)
 		r.Get("/majors", h.majors)
@@ -61,6 +66,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/majors", h.requireCSRF(h.requireAnyRole(h.createMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.updateMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/school-profile", h.requireCSRF(h.requireAnyRole(h.updateSchoolProfile, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Get("/users", h.requireAnyRole(h.users, models.RoleSuperadmin))
 			protected.Post("/users", h.requireCSRF(h.requireAnyRole(h.createUser, models.RoleSuperadmin)))
 		})
@@ -300,6 +306,66 @@ func (h *Handler) updateSchoolProfile(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "profil sekolah berhasil diperbarui"})
 }
 
+func (h *Handler) uploadImage(w http.ResponseWriter, r *http.Request) {
+	const maxUploadSize = 5 << 20
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "ukuran gambar maksimal 5MB")
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "file gambar wajib diunggah")
+		return
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	read, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		httpx.Error(w, http.StatusBadRequest, "gagal membaca gambar")
+		return
+	}
+
+	contentType := http.DetectContentType(buffer[:read])
+	extension, ok := allowedImageExtension(contentType)
+	if !ok {
+		httpx.Error(w, http.StatusBadRequest, "format gambar harus jpg, png, atau webp")
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal memproses gambar")
+		return
+	}
+
+	targetDir := filepath.Join("uploads", "images")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal membuat folder upload")
+		return
+	}
+
+	filename := fmt.Sprintf("%d-%s%s", time.Now().UnixNano(), safeFilename(header.Filename), extension)
+	targetPath := filepath.Join(targetDir, filename)
+	destination, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menyimpan gambar")
+		return
+	}
+	defer destination.Close()
+
+	if _, err := io.Copy(destination, file); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menulis gambar")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, map[string]string{
+		"url": absoluteUploadURL(r, "/uploads/images/"+filename),
+	})
+}
+
 func (h *Handler) users(w http.ResponseWriter, r *http.Request) {
 	users, err := h.repo.Users(r.Context())
 	if err != nil {
@@ -426,4 +492,40 @@ func parseID(value string) (int64, error) {
 		return 0, errors.New("invalid id")
 	}
 	return id, nil
+}
+
+func allowedImageExtension(contentType string) (string, bool) {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg", true
+	case "image/png":
+		return ".png", true
+	case "image/webp":
+		return ".webp", true
+	default:
+		return "", false
+	}
+}
+
+func safeFilename(value string) string {
+	name := strings.TrimSuffix(filepath.Base(value), filepath.Ext(value))
+	name = strings.ToLower(name)
+	replacer := strings.NewReplacer(" ", "-", "_", "-", ".", "-", "/", "-", "\\", "-")
+	name = replacer.Replace(name)
+	if len(name) > 42 {
+		name = name[:42]
+	}
+	name = strings.Trim(name, "-")
+	if name == "" {
+		return "image"
+	}
+	return name
+}
+
+func absoluteUploadURL(r *http.Request, path string) string {
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host + path
 }

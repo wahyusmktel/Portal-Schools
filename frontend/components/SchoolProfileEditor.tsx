@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Save } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
+import { ImagePlus, Save } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import type { SchoolProfile } from "@/types/content";
@@ -22,6 +23,42 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [principalImageFile, setPrincipalImageFile] = useState<File | null>(null);
+  const [principalImagePreview, setPrincipalImagePreview] = useState(profile.principalImage);
+
+  useEffect(() => {
+    return () => {
+      if (principalImagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(principalImagePreview);
+      }
+    };
+  }, [principalImagePreview]);
+
+  function onPrincipalImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setNotice({ type: "error", message: "File harus berupa gambar." });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice({ type: "error", message: "Ukuran gambar maksimal 5MB." });
+      return;
+    }
+
+    if (principalImagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(principalImagePreview);
+    }
+
+    const previewURL = URL.createObjectURL(file);
+    setPrincipalImageFile(file);
+    setPrincipalImagePreview(previewURL);
+    setNotice(null);
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,6 +69,17 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
 
     setLoading(true);
     setNotice(null);
+
+    let principalImageURL = form.principalImage;
+    if (principalImageFile) {
+      const uploadResult = await uploadPrincipalImage(principalImageFile);
+      if (!uploadResult.ok) {
+        setLoading(false);
+        setNotice({ type: "error", message: uploadResult.message });
+        return;
+      }
+      principalImageURL = uploadResult.url;
+    }
 
     const payload: SchoolProfile = {
       name: form.name,
@@ -44,7 +92,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       principalName: form.principalName,
       principalTitle: form.principalTitle,
       principalMessage: form.principalMessage,
-      principalImage: form.principalImage,
+      principalImage: principalImageURL,
       stats: parseStats(form.statsText)
     };
 
@@ -69,6 +117,9 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       return;
     }
 
+    setForm((value) => ({ ...value, principalImage: principalImageURL }));
+    setPrincipalImageFile(null);
+    setPrincipalImagePreview(principalImageURL);
     setNotice({ type: "success", message: "Profil sekolah dan sambutan berhasil diperbarui." });
   }
 
@@ -118,7 +169,43 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <Field label="Nama Kepala Sekolah" value={form.principalName} onChange={(value) => setForm({ ...form, principalName: value })} />
           <Field label="Jabatan" value={form.principalTitle} onChange={(value) => setForm({ ...form, principalTitle: value })} />
         </div>
-        <Field label="URL Foto Kepala Sekolah" value={form.principalImage} onChange={(value) => setForm({ ...form, principalImage: value })} />
+        <div className="grid gap-4 lg:grid-cols-[0.7fr_0.3fr]">
+          <div className="grid gap-4">
+            <Field label="URL Foto Kepala Sekolah" value={form.principalImage} onChange={(value) => {
+              setForm({ ...form, principalImage: value });
+              setPrincipalImagePreview(value);
+              setPrincipalImageFile(null);
+            }} />
+            <label className="grid gap-2 text-sm font-bold text-zinc-700">
+              Unggah Foto dari Disk
+              <span className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-zinc-300 bg-softgray px-4 py-5 text-center transition hover:border-rosebrand-300 hover:bg-rosebrand-50">
+                <ImagePlus size={26} className="text-rosebrand-600" aria-hidden />
+                <span className="text-sm font-extrabold text-zinc-700">
+                  {principalImageFile ? principalImageFile.name : "Pilih gambar JPG, PNG, atau WEBP"}
+                </span>
+                <span className="text-xs font-semibold text-zinc-500">Maksimal 5MB. Preview muncul setelah file dipilih.</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPrincipalImageChange} className="sr-only" />
+              </span>
+            </label>
+          </div>
+          <div className="rounded-[8px] border border-zinc-200 bg-softgray p-3">
+            <p className="mb-3 text-sm font-extrabold text-zinc-700">Preview Foto</p>
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[8px] bg-zinc-200">
+              {principalImagePreview ? (
+                principalImagePreview.startsWith("blob:") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={principalImagePreview} alt="Preview foto kepala sekolah" className="h-full w-full object-cover" />
+                ) : (
+                  <Image src={principalImagePreview} alt="Preview foto kepala sekolah" fill sizes="240px" className="object-cover" />
+                )
+              ) : (
+                <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">
+                  Belum ada gambar
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         <Textarea label="Isi Sambutan" value={form.principalMessage} onChange={(value) => setForm({ ...form, principalMessage: value })} rows={6} />
       </section>
 
@@ -134,6 +221,32 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       </div>
     </form>
   );
+}
+
+async function uploadPrincipalImage(file: File): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch(`${API_URL}/uploads/images`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "X-CSRF-Token": getCookie("csrf_token")
+    },
+    body: formData
+  }).catch(() => null);
+
+  if (!response?.ok) {
+    const data = await response?.json().catch(() => null);
+    return { ok: false, message: data?.message || "Upload gambar gagal." };
+  }
+
+  const data = (await response.json()) as { url?: string };
+  if (!data.url) {
+    return { ok: false, message: "Upload berhasil tetapi URL gambar tidak diterima." };
+  }
+
+  return { ok: true, url: data.url };
 }
 
 function Field({
