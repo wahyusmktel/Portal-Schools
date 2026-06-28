@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Megaphone, Phone, Quote } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3, Eye, Megaphone, Newspaper, Phone, Quote } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
@@ -7,14 +7,7 @@ import { HeroSlider } from "@/components/HeroSlider";
 import { MajorShowcase } from "@/components/MajorShowcase";
 import { MotionSection } from "@/components/MotionSection";
 import { getAgendas, getAnnouncements, getArticles, getMajors, getSchoolProfile } from "@/lib/api";
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  }).format(new Date(value));
-}
+import { formatDate, readCount, readingTime } from "@/lib/article-utils";
 
 export default async function HomePage() {
   const [profile, majors, articles, announcements, agendas] = await Promise.all([
@@ -93,20 +86,27 @@ export default async function HomePage() {
                 <p className="text-sm font-extrabold uppercase text-rosebrand-600">Berita dan Artikel</p>
                 <h2 className="section-title mt-3">Kabar terbaru sekolah</h2>
               </div>
-              <Link href="/artikel" className="inline-flex items-center gap-2 font-extrabold text-rosebrand-700">
-                Semua artikel <ChevronRight size={18} aria-hidden />
+              <Link
+                href="/artikel"
+                className="group inline-flex h-12 items-center gap-3 rounded-full bg-zinc-900 px-5 text-sm font-extrabold text-white shadow-soft transition duration-300 hover:-translate-y-1 hover:bg-rosebrand-600"
+              >
+                <Newspaper size={18} aria-hidden />
+                Lihat semua artikel
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-white/10 transition duration-300 group-hover:translate-x-1 group-hover:bg-white/20">
+                  <ArrowRight size={17} aria-hidden />
+                </span>
               </Link>
             </div>
             <div className="mt-10 grid gap-6 lg:grid-cols-3">
               {articles.slice(0, 3).map((article) => (
-                <article key={article.id} className="overflow-hidden rounded-[8px] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-soft">
+                <article key={article.id} className="group overflow-hidden rounded-[8px] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft">
                   <div className="relative aspect-[16/10]">
                     <Image
                       src={article.coverImage}
                       alt={article.title}
                       fill
                       sizes="(min-width: 1024px) 33vw, 100vw"
-                      className="object-cover"
+                      className="object-cover transition duration-500 group-hover:scale-105"
                     />
                   </div>
                   <div className="p-6">
@@ -115,6 +115,16 @@ export default async function HomePage() {
                       <Link href={`/artikel/${article.slug}`}>{article.title}</Link>
                     </h3>
                     <p className="mt-4 line-clamp-3 leading-7 text-zinc-600">{article.excerpt}</p>
+                    <div className="mt-5 flex flex-wrap gap-3 text-xs font-bold text-zinc-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock3 size={15} aria-hidden />
+                        {readingTime(article)} menit baca
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Eye size={15} aria-hidden />
+                        {readCount(article).toLocaleString("id-ID")} dibaca
+                      </span>
+                    </div>
                   </div>
                 </article>
               ))}

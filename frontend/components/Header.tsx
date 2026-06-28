@@ -4,7 +4,7 @@ import { GraduationCap, LayoutDashboard } from "lucide-react";
 const navItems = [
   { href: "#profil", label: "Profil" },
   { href: "#jurusan", label: "Jurusan" },
-  { href: "#artikel", label: "Artikel" },
+  { href: "/artikel", label: "Artikel" },
   { href: "#agenda", label: "Agenda" },
   { href: "#lokasi", label: "Lokasi" }
 ];
@@ -24,9 +24,15 @@ export function Header() {
         </Link>
         <nav className="hidden items-center gap-6 text-sm font-semibold text-white/80 lg:flex">
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-white">
-              {item.label}
-            </a>
+            item.href.startsWith("/") ? (
+              <Link key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </Link>
+            ) : (
+              <a key={item.href} href={item.href} className="transition hover:text-white">
+                {item.label}
+              </a>
+            )
           ))}
         </nav>
         <Link
