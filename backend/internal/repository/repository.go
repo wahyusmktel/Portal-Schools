@@ -102,11 +102,17 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	var statsJSON []byte
 	var socialMediaJSON []byte
 	var partnerLinksJSON []byte
+	var address sql.NullString
+	var phone sql.NullString
+	var email sql.NullString
+	var mapEmbedURL sql.NullString
+	var youtubeEmbedURL sql.NullString
+	var principalName sql.NullString
 	var headerLogo sql.NullString
 	var footerLogo sql.NullString
 	var footerText sql.NullString
 	err := r.db.QueryRowContext(ctx, `
-		SELECT name, tagline, description, address, phone, email, map_embed_url,
+		SELECT name, tagline, description, address, phone, email, map_embed_url, youtube_embed_url,
 		       principal_name, principal_title, principal_message, principal_image, stats_json,
 		       social_media, partner_links, header_logo, footer_logo, footer_text
 		FROM school_profiles
@@ -116,11 +122,12 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 		&profile.Name,
 		&profile.Tagline,
 		&profile.Description,
-		&profile.Address,
-		&profile.Phone,
-		&profile.Email,
-		&profile.MapEmbedURL,
-		&profile.PrincipalName,
+		&address,
+		&phone,
+		&email,
+		&mapEmbedURL,
+		&youtubeEmbedURL,
+		&principalName,
 		&profile.PrincipalTitle,
 		&profile.PrincipalMessage,
 		&profile.PrincipalImage,
@@ -137,6 +144,12 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	_ = json.Unmarshal(statsJSON, &profile.Stats)
 	_ = json.Unmarshal(socialMediaJSON, &profile.SocialMedia)
 	_ = json.Unmarshal(partnerLinksJSON, &profile.PartnerLinks)
+	profile.Address = address.String
+	profile.Phone = phone.String
+	profile.Email = email.String
+	profile.MapEmbedURL = mapEmbedURL.String
+	profile.YoutubeEmbedURL = youtubeEmbedURL.String
+	profile.PrincipalName = principalName.String
 	profile.HeaderLogo = headerLogo.String
 	profile.FooterLogo = footerLogo.String
 	profile.FooterText = footerText.String
@@ -163,12 +176,12 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 	_, err = r.db.ExecContext(ctx, `
 		UPDATE school_profiles
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
-		    map_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
+		    map_embed_url = ?, youtube_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
 		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
 		    header_logo = ?, footer_logo = ?, footer_text = ?
 		WHERE id = 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
-		profile.MapEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
+		profile.MapEmbedURL, profile.YoutubeEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
 		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText)
 	return err
 }
@@ -731,6 +744,80 @@ func (r *Repository) DeleteEmployee(ctx context.Context, id int64) error {
 		return err
 	}
 	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) Facilities(ctx context.Context) ([]models.Facility, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, description, image_url, images_json, icon, sort_order, created_at, updated_at FROM facilities ORDER BY sort_order ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var facilities []models.Facility
+	for rows.Next() {
+		var f models.Facility
+		var img, imagesJson, icon sql.NullString
+		if err := rows.Scan(&f.ID, &f.Name, &f.Description, &img, &imagesJson, &icon, &f.SortOrder, &f.CreatedAt, &f.UpdatedAt); err != nil {
+			return nil, err
+		}
+		f.ImageURL = img.String
+		f.Icon = icon.String
+		if imagesJson.Valid && imagesJson.String != "" {
+			_ = json.Unmarshal([]byte(imagesJson.String), &f.Images)
+		}
+		if f.Images == nil {
+			f.Images = []string{}
+		}
+		facilities = append(facilities, f)
+	}
+	return facilities, nil
+}
+
+func (r *Repository) CreateFacility(ctx context.Context, payload models.Facility) (int64, error) {
+	imagesBytes, _ := json.Marshal(payload.Images)
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO facilities (name, description, image_url, images_json, icon, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, payload.Name, payload.Description, payload.ImageURL, string(imagesBytes), payload.Icon, payload.SortOrder)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (r *Repository) UpdateFacility(ctx context.Context, id int64, payload models.Facility) error {
+	imagesBytes, _ := json.Marshal(payload.Images)
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE facilities
+		SET name = ?, description = ?, image_url = ?, images_json = ?, icon = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, payload.Name, payload.Description, payload.ImageURL, string(imagesBytes), payload.Icon, payload.SortOrder, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFacility(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM facilities WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}

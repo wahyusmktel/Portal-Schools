@@ -64,7 +64,9 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/captcha/image/{id}", h.captchaImage)
 
 		r.Post("/auth/login", h.login)
-		r.Group(func(protected chi.Router) {
+		r.Get("/facilities", h.facilities)
+
+	r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
 			protected.Get("/auth/me", h.me)
 			protected.Post("/auth/logout", h.requireCSRF(h.logout))
@@ -89,6 +91,9 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/employees", h.requireCSRF(h.requireAnyRole(h.createEmployee, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/employees/{id}", h.requireCSRF(h.requireAnyRole(h.updateEmployee, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/employees/{id}", h.requireCSRF(h.requireAnyRole(h.deleteEmployee, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/facilities", h.requireCSRF(h.requireAnyRole(h.createFacility, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/facilities/{id}", h.requireCSRF(h.requireAnyRole(h.updateFacility, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/facilities/{id}", h.requireCSRF(h.requireAnyRole(h.deleteFacility, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/users/{id}", h.requireCSRF(h.requireAnyRole(h.updateUser, models.RoleSuperadmin)))
 			protected.Delete("/users/{id}", h.requireCSRF(h.requireAnyRole(h.deleteUser, models.RoleSuperadmin)))
 			protected.Put("/users/{id}/reset-password", h.requireCSRF(h.requireAnyRole(h.resetPassword, models.RoleSuperadmin)))

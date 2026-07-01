@@ -14,6 +14,7 @@ type SchoolProfile = {
   phone: string;
   email: string;
   mapEmbedUrl: string;
+  youtubeEmbedUrl: string;
   principalName: string;
   principalTitle: string;
   principalMessage: string;
@@ -203,7 +204,10 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
         </div>
         <Textarea label="Alamat" value={form.address} onChange={(value) => setForm({ ...form, address: value })} rows={3} />
-        <Field label="Google Maps Embed URL" value={form.mapEmbedUrl} onChange={(value) => setForm({ ...form, mapEmbedUrl: value })} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Google Maps Embed URL" value={form.mapEmbedUrl} onChange={(value: string) => setForm({ ...form, mapEmbedUrl: value })} />
+          <Field label="YouTube Embed URL (Video Profil)" value={form.youtubeEmbedUrl} onChange={(value: string) => setForm({ ...form, youtubeEmbedUrl: value })} placeholder="https://www.youtube.com/embed/..." />
+        </div>
         
         <div className="grid gap-4 md:grid-cols-3">
           <Textarea label="Statistik Profil" value={form.statsText} onChange={(value) => setForm({ ...form, statsText: value })} rows={5} placeholder="Siswa Aktif=1200&#10;Guru=80" />

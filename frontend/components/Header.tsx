@@ -11,8 +11,9 @@ type HeaderProps = {
 
 const mainNavItems = [
   { href: "/", label: "Beranda" },
-  { href: "/#profil", label: "Profil Sekolah" },
-  { href: "/#jurusan", label: "Program Keahlian" },
+  { href: "/profil", label: "Profil Sekolah" },
+  { href: "/jurusan", label: "Program Keahlian" },
+  { href: "/fasilitas", label: "Fasilitas" },
   { href: "/employee", label: "Guru & Pegawai" }
 ];
 
@@ -81,7 +82,12 @@ export function Header({ logoUrl }: HeaderProps) {
           ))}
 
           {/* DROPDOWN PUBLIKASI */}
-          <div className="relative" ref={dropdownRef}>
+          <div 
+            className="relative" 
+            ref={dropdownRef}
+            onMouseEnter={() => setIsDropdownOpen(true)}
+            onMouseLeave={() => setIsDropdownOpen(false)}
+          >
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full transition-all ${
@@ -97,13 +103,14 @@ export function Header({ logoUrl }: HeaderProps) {
 
             <AnimatePresence>
               {isDropdownOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute top-full right-0 mt-3 w-[340px] rounded-3xl bg-white p-3 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-zinc-100"
-                >
+                <div className="absolute top-full right-0 pt-5">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-[340px] rounded-3xl bg-white p-3 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-zinc-100"
+                  >
                   <div className="grid gap-1">
                     <Link href="/artikel" onClick={() => setIsDropdownOpen(false)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
                       <div className="mt-0.5 rounded-full bg-white p-2 shadow-sm group-hover:text-rosebrand-600 text-rosebrand-500">
@@ -136,6 +143,7 @@ export function Header({ logoUrl }: HeaderProps) {
                     </Link>
                   </div>
                 </motion.div>
+                </div>
               )}
             </AnimatePresence>
           </div>

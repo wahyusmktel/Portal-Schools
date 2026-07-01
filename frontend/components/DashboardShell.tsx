@@ -16,6 +16,7 @@ import {
   School,
   Users,
   UserCheck,
+  Building2,
 } from "lucide-react";
 import { logout } from "@/lib/auth-client";
 
@@ -23,6 +24,7 @@ const menu = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: School },
   { href: "/dashboard/employees", label: "Manajemen Pegawai", icon: UserCheck },
+  { href: "/dashboard/facilities", label: "Fasilitas", icon: Building2 },
   { href: "/dashboard/majors", label: "Jurusan", icon: BookOpen },
   { href: "/dashboard/articles", label: "Artikel", icon: FileText },
   { href: "/dashboard/comments", label: "Komentar", icon: MessageCircle },

@@ -28,6 +28,7 @@ type SchoolProfile struct {
 	Phone            string              `json:"phone"`
 	Email            string              `json:"email"`
 	MapEmbedURL      string              `json:"mapEmbedUrl"`
+	YoutubeEmbedURL  string              `json:"youtubeEmbedUrl"`
 	PrincipalName    string              `json:"principalName"`
 	PrincipalTitle   string              `json:"principalTitle"`
 	PrincipalMessage string              `json:"principalMessage"`
@@ -98,4 +99,16 @@ type Employee struct {
 	SortOrder        int          `json:"sortOrder"`
 	CreatedAt        string       `json:"createdAt"`
 	UpdatedAt        string       `json:"updatedAt"`
+}
+
+type Facility struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string   `json:"description"`
+	ImageURL    string   `json:"imageUrl"`
+	Images      []string `json:"images"`
+	Icon        string   `json:"icon"`
+	SortOrder   int    `json:"sortOrder"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
 }
