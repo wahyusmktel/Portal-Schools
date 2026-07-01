@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS employees (
     role VARCHAR(255) NOT NULL,
     biography TEXT,
     image_url VARCHAR(255),
-    social_links_json TEXT DEFAULT '[]',
+    social_links_json TEXT,
     employment_period VARCHAR(100),
     is_active BOOLEAN DEFAULT TRUE,
     sort_order INT DEFAULT 0,

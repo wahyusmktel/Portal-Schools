@@ -693,7 +693,7 @@ func (r *Repository) CreateEmployee(ctx context.Context, emp models.Employee) (i
 	}
 
 	socials, err := json.Marshal(emp.SocialLinks)
-	if err != nil {
+	if err != nil || string(socials) == "null" {
 		socials = []byte("[]")
 	}
 
@@ -716,7 +716,7 @@ func (r *Repository) UpdateEmployee(ctx context.Context, id int64, emp models.Em
 	}
 
 	socials, err := json.Marshal(emp.SocialLinks)
-	if err != nil {
+	if err != nil || string(socials) == "null" {
 		socials = []byte("[]")
 	}
 
