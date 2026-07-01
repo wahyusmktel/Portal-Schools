@@ -15,7 +15,7 @@ export default async function FacilitiesPage() {
   if (!res.ok) {
     const text = await res.text();
     return (
-      <DashboardShell title="Manajemen Fasilitas Sekolah">
+      <DashboardShell>
         <div className="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100">
           Gagal memuat data fasilitas. Status: {res.status}. Error: {text}
         </div>
