@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   BookOpen,
@@ -17,6 +18,8 @@ import {
   Users,
   UserCheck,
   Building2,
+  Menu,
+  X,
 } from "lucide-react";
 import { logout } from "@/lib/auth-client";
 
@@ -36,6 +39,16 @@ const menu = [
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [isMobileMenuOpen]);
 
   if (pathname === "/dashboard/login") {
     return <>{children}</>;
@@ -60,12 +73,23 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <nav className="mt-10 grid gap-2">
-          {menu.map((item) => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-rosebrand-50 hover:text-rosebrand-700">
-              <item.icon size={18} aria-hidden />
-              {item.label}
-            </Link>
-          ))}
+          {menu.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link 
+                key={item.href} 
+                href={item.href} 
+                className={`flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold transition ${
+                  isActive 
+                    ? "bg-rosebrand-50 text-rosebrand-700 shadow-sm" 
+                    : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
+                }`}
+              >
+                <item.icon size={18} aria-hidden />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="absolute inset-x-5 bottom-5 grid gap-2">
           <Link href="/" className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100">
@@ -78,10 +102,87 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </aside>
-      <main className="lg:pl-72">
-        <div className="border-b border-zinc-200 bg-white px-5 py-4 lg:hidden">
+
+      {/* MOBILE HEADER */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4 lg:hidden">
+        <div className="flex items-center gap-3">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-rosebrand-500 text-white">
+            <ShieldCheck size={16} aria-hidden />
+          </span>
           <p className="font-black">Portal Admin</p>
         </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="grid h-10 w-10 place-items-center rounded-full bg-zinc-50 text-zinc-600 transition hover:bg-zinc-100"
+        >
+          <Menu size={20} />
+        </button>
+      </div>
+
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* BACKDROP */}
+          <div 
+            className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          {/* SIDEBAR CONTENT */}
+          <aside className="absolute inset-y-0 left-0 w-72 max-w-[80vw] bg-white p-5 shadow-2xl flex flex-col h-full animate-in slide-in-from-left duration-300">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-3" onClick={() => setIsMobileMenuOpen(false)}>
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-rosebrand-500 text-white">
+                  <ShieldCheck size={22} aria-hidden />
+                </span>
+                <span>
+                  <span className="block font-black">Portal Admin</span>
+                  <span className="text-xs text-zinc-500">SMK Telkom</span>
+                </span>
+              </Link>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-full bg-zinc-50 text-zinc-500"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <nav className="mt-8 grid gap-2 overflow-y-auto flex-1 pb-4">
+              {menu.map((item) => {
+                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href} 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold transition ${
+                      isActive 
+                        ? "bg-rosebrand-50 text-rosebrand-700 shadow-sm" 
+                        : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
+                    }`}
+                  >
+                    <item.icon size={18} aria-hidden />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="grid gap-2 pt-4 border-t border-zinc-100">
+              <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100">
+                <Home size={18} aria-hidden />
+                Lihat Website
+              </Link>
+              <button type="button" onClick={handleLogout} className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-rosebrand-600 transition hover:bg-rosebrand-50">
+                <LogOut size={18} aria-hidden />
+                Keluar
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <main className="lg:pl-72">
         <div className="p-5 lg:p-8">{children}</div>
       </main>
     </div>

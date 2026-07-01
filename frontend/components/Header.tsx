@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { GraduationCap, LayoutDashboard, ChevronDown, Newspaper, Calendar, Megaphone, Search } from "lucide-react";
+import { GraduationCap, LayoutDashboard, ChevronDown, Newspaper, Calendar, Megaphone, Search, Menu, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,8 +19,18 @@ const mainNavItems = [
 
 export function Header({ logoUrl }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Prevent scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -156,14 +166,90 @@ export function Header({ logoUrl }: HeaderProps) {
           </button>
           <Link
             href="/dashboard/login"
-            className="flex h-10 items-center gap-2 rounded-full bg-rosebrand-500 px-5 text-sm font-bold text-white transition hover:bg-rosebrand-600 shadow-md hover:shadow-lg"
+            className="hidden lg:flex h-10 items-center gap-2 rounded-full bg-rosebrand-500 px-5 text-sm font-bold text-white transition hover:bg-rosebrand-600 shadow-md hover:shadow-lg"
           >
             <LayoutDashboard size={16} aria-hidden />
-            <span className="hidden sm:block">Dashboard</span>
+            <span>Dashboard</span>
           </Link>
+          
+          {/* MOBILE MENU TOGGLE */}
+          <button 
+            className="lg:hidden grid h-10 w-10 place-items-center rounded-full bg-zinc-50 text-zinc-900 transition hover:bg-zinc-100"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
         </div>
       </div>
+
+      {/* MOBILE MENU OVERLAY */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-x-0 top-[72px] z-40 h-[calc(100vh-72px)] bg-white/95 backdrop-blur-xl border-t border-zinc-100 overflow-y-auto px-6 py-8 shadow-2xl lg:hidden"
+          >
+            <nav className="flex flex-col gap-6">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Menu Utama</span>
+                {mainNavItems.map((item) => (
+                  <Link 
+                    key={item.href} 
+                    href={item.href} 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-lg font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+              
+              <div className="flex flex-col gap-2 mt-4">
+                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Publikasi</span>
+                <Link href="/artikel" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 py-3 border-b border-zinc-100">
+                  <div className="rounded-full bg-rosebrand-50 p-2 text-rosebrand-600">
+                    <Newspaper size={20} />
+                  </div>
+                  <div>
+                    <span className="block text-base font-black text-zinc-900">Artikel Utama</span>
+                  </div>
+                </Link>
+                <Link href="/#agenda" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 py-3 border-b border-zinc-100">
+                  <div className="rounded-full bg-rosebrand-50 p-2 text-rosebrand-600">
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <span className="block text-base font-black text-zinc-900">Agenda Sekolah</span>
+                  </div>
+                </Link>
+                <Link href="/#pengumuman" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-4 py-3 border-b border-zinc-100">
+                  <div className="rounded-full bg-rosebrand-50 p-2 text-rosebrand-600">
+                    <Megaphone size={20} />
+                  </div>
+                  <div>
+                    <span className="block text-base font-black text-zinc-900">Pengumuman</span>
+                  </div>
+                </Link>
+              </div>
+
+              <div className="mt-8">
+                <Link
+                  href="/dashboard/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex w-full h-12 items-center justify-center gap-2 rounded-full bg-rosebrand-500 px-5 text-sm font-bold text-white transition hover:bg-rosebrand-600 shadow-md"
+                >
+                  <LayoutDashboard size={18} aria-hidden />
+                  <span>Portal Admin</span>
+                </Link>
+              </div>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
