@@ -59,8 +59,9 @@ export function getArticle(slug: string): Promise<Article | null> {
   return getJson(`/articles/${slug}`, fallback);
 }
 
-export function getAnnouncements(): Promise<Announcement[]> {
-  return getJson("/announcements", announcements);
+export function getAnnouncements(includeDrafts?: boolean): Promise<Announcement[]> {
+  const url = includeDrafts ? "/announcements?all=true" : "/announcements";
+  return getJson(url, announcements);
 }
 
 export function getAgendas(): Promise<Agenda[]> {
