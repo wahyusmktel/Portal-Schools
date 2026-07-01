@@ -30,7 +30,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Header />
+      <Header logoUrl={profile.headerLogo} />
       <main>
         <script
           type="application/ld+json"

@@ -102,12 +102,13 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	var statsJSON []byte
 	var socialMediaJSON []byte
 	var partnerLinksJSON []byte
+	var headerLogo sql.NullString
 	var footerLogo sql.NullString
 	var footerText sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT name, tagline, description, address, phone, email, map_embed_url,
 		       principal_name, principal_title, principal_message, principal_image, stats_json,
-		       social_media, partner_links, footer_logo, footer_text
+		       social_media, partner_links, header_logo, footer_logo, footer_text
 		FROM school_profiles
 		ORDER BY id ASC
 		LIMIT 1
@@ -126,6 +127,7 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 		&statsJSON,
 		&socialMediaJSON,
 		&partnerLinksJSON,
+		&headerLogo,
 		&footerLogo,
 		&footerText,
 	)
@@ -135,6 +137,7 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	_ = json.Unmarshal(statsJSON, &profile.Stats)
 	_ = json.Unmarshal(socialMediaJSON, &profile.SocialMedia)
 	_ = json.Unmarshal(partnerLinksJSON, &profile.PartnerLinks)
+	profile.HeaderLogo = headerLogo.String
 	profile.FooterLogo = footerLogo.String
 	profile.FooterText = footerText.String
 	return profile, nil
@@ -143,9 +146,6 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.SchoolProfile) error {
 	if strings.TrimSpace(profile.Name) == "" || strings.TrimSpace(profile.Description) == "" {
 		return errors.New("nama sekolah dan deskripsi wajib diisi")
-	}
-	if profile.PrincipalImage == "" {
-		profile.PrincipalImage = defaultPrincipalImage
 	}
 	statsJSON, err := json.Marshal(profile.Stats)
 	if err != nil {
@@ -165,11 +165,11 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
 		    map_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
 		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
-		    footer_logo = ?, footer_text = ?
+		    header_logo = ?, footer_logo = ?, footer_text = ?
 		WHERE id = 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
 		profile.MapEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
-		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.FooterLogo, profile.FooterText)
+		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText)
 	return err
 }
 

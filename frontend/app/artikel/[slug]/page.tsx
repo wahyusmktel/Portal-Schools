@@ -76,7 +76,7 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
 
   return (
     <>
-      <Header />
+      <Header logoUrl={profile.headerLogo} />
       <main className="pt-28">
         <ViewTracker slug={article.slug} />
         <script

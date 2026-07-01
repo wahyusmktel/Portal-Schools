@@ -17,7 +17,7 @@ export default async function EmployeePage() {
   
   return (
     <>
-      <Header />
+      <Header logoUrl={profile.headerLogo} />
       <main className="min-h-screen pt-20">
         <EmployeeShowcase employees={employeesData || []} />
       </main>

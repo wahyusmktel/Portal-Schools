@@ -35,6 +35,7 @@ type SchoolProfile struct {
 	Stats            []map[string]string `json:"stats"`
 	SocialMedia      []map[string]string `json:"socialMedia"`
 	PartnerLinks     []map[string]string `json:"partnerLinks"`
+	HeaderLogo       string              `json:"headerLogo"`
 	FooterLogo       string              `json:"footerLogo"`
 	FooterText       string              `json:"footerText"`
 }

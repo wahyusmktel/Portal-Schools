@@ -28,7 +28,7 @@ export default async function ArticlesPage(props: { searchParams: Promise<{ kate
 
   return (
     <>
-      <Header />
+      <Header logoUrl={profile.headerLogo} />
       <main className="pt-28">
         <section className="container-page py-14">
           <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">

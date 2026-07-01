@@ -51,6 +51,9 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   const [footerLogoFile, setFooterLogoFile] = useState<File | null>(null);
   const [footerLogoPreview, setFooterLogoPreview] = useState(profile.footerLogo || "");
 
+  const [headerLogo, setHeaderLogo] = useState(profile.headerLogo || "");
+  const [footerLogo, setFooterLogo] = useState(profile.footerLogo || "");
+
   useEffect(() => {
     return () => {
       if (principalImagePreview.startsWith("blob:")) URL.revokeObjectURL(principalImagePreview);
@@ -119,7 +122,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       principalImageURL = uploadResult.url;
     }
 
-    let footerLogoURL = form.footerLogo;
+    let footerLogoURL = footerLogo;
     if (footerLogoFile) {
       const uploadResult = await uploadImage(footerLogoFile);
       if (!uploadResult.ok) {
@@ -145,6 +148,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       stats: parseStats(form.statsText),
       socialMedia: parseStats(form.socialMediaText),
       partnerLinks: parseStats(form.partnerLinksText),
+      headerLogo: headerLogo,
       footerLogo: footerLogoURL,
       footerText: form.footerText
     };
@@ -211,13 +215,46 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       <section className="grid gap-4 rounded-[8px] bg-white p-6 shadow-sm">
         <div>
           <p className="text-sm font-extrabold uppercase text-rosebrand-600">Footer Bawah</p>
-          <h2 className="mt-2 text-2xl font-black">Pengaturan Footer Kanan</h2>
+          <h2 className="border-b border-zinc-100 pb-2 font-black text-zinc-800">Branding & Footer</h2>
         </div>
-        
-        <div className="grid gap-4 lg:grid-cols-[0.7fr_0.3fr]">
+        <div className="grid gap-8 pt-4 md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-bold text-zinc-700">Logo Header (Navigasi Publik)</label>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50">
+              <div className="shrink-0 relative w-40 h-16 rounded-lg bg-white border border-zinc-100 shadow-sm overflow-hidden flex items-center justify-center p-2">
+                {headerLogo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={headerLogo} alt="Header Logo" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <ImagePlus className="w-6 h-6 text-zinc-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setLoading(true);
+                      const result = await uploadImage(e.target.files[0]);
+                      if (result?.ok) {
+                        setHeaderLogo(result.url);
+                        setNotice({ type: "success", message: "Logo header berhasil diunggah." });
+                      } else {
+                        setNotice({ type: "error", message: result?.message || "Gagal mengunggah logo header." });
+                      }
+                      setLoading(false);
+                    }
+                  }}
+                  className="block w-full text-sm text-zinc-500 file:mr-4 file:rounded-full file:border-0 file:bg-rosebrand-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-rosebrand-700 hover:file:bg-rosebrand-100 cursor-pointer"
+                />
+                <p className="text-xs text-zinc-500 mt-2">Disarankan ukuran tinggi maks 80px, format PNG transparan.</p>
+              </div>
+            </div>
+          </div>
           <div className="grid gap-4">
-            <Field label="URL Logo Footer" value={form.footerLogo || ""} onChange={(value) => {
-              setForm({ ...form, footerLogo: value });
+            <Field label="URL Logo Footer" value={footerLogo || ""} onChange={(value: string) => {
+              setFooterLogo(value);
               setFooterLogoPreview(value);
               setFooterLogoFile(null);
             }} required={false} />
@@ -232,18 +269,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
                 <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => onImageChange(e, setFooterLogoFile, setFooterLogoPreview)} className="sr-only" />
               </span>
             </label>
-            <Textarea label="Teks Deskripsi Footer Kanan" value={form.footerText || ""} onChange={(value) => setForm({ ...form, footerText: value })} rows={4} required={false} />
-          </div>
-          <div className="rounded-[8px] border border-zinc-200 bg-softgray p-3">
-            <p className="mb-3 text-sm font-extrabold text-zinc-700">Preview Logo</p>
-            <div className="relative aspect-square overflow-hidden rounded-[8px] bg-zinc-200">
-              {footerLogoPreview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={footerLogoPreview} alt="Preview logo" className="h-full w-full object-contain p-2" />
-              ) : (
-                <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">Belum ada logo</div>
-              )}
-            </div>
+            <Textarea label="Teks Deskripsi Footer Kanan" value={form.footerText || ""} onChange={(value: string) => setForm({ ...form, footerText: value })} rows={4} required={false} />
           </div>
         </div>
       </section>
@@ -254,12 +280,12 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <h2 className="mt-2 text-2xl font-black">Kepala Sekolah</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Nama Kepala Sekolah" value={form.principalName} onChange={(value) => setForm({ ...form, principalName: value })} />
-          <Field label="Jabatan" value={form.principalTitle} onChange={(value) => setForm({ ...form, principalTitle: value })} />
+          <Field label="Nama Kepala Sekolah" value={form.principalName} onChange={(value: string) => setForm({ ...form, principalName: value })} />
+          <Field label="Jabatan" value={form.principalTitle} onChange={(value: string) => setForm({ ...form, principalTitle: value })} />
         </div>
         <div className="grid gap-4 lg:grid-cols-[0.7fr_0.3fr]">
           <div className="grid gap-4">
-            <Field label="URL Foto Kepala Sekolah" value={form.principalImage} onChange={(value) => {
+            <Field label="URL Foto Kepala Sekolah" value={form.principalImage} onChange={(value: string) => {
               setForm({ ...form, principalImage: value });
               setPrincipalImagePreview(value);
               setPrincipalImageFile(null);
