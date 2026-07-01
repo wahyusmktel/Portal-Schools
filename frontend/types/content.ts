@@ -7,6 +7,8 @@ export type Article = {
   coverImage: string;
   category: string;
   status?: "published" | "draft" | string;
+  thumbnailUrl?: string;
+  viewCount?: number;
   publishedAt: string;
   authorName: string;
 };
@@ -15,6 +17,7 @@ export type Announcement = {
   id: number;
   title: string;
   body: string;
+  status?: "draft" | "published";
   publishedAt: string;
 };
 

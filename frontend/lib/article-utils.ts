@@ -1,11 +1,16 @@
 import type { Article } from "@/types/content";
 
-export function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", {
+export function formatDate(value: string, includeTime?: boolean) {
+  const options: Intl.DateTimeFormatOptions = {
     day: "numeric",
     month: "long",
     year: "numeric"
-  }).format(new Date(value));
+  };
+  if (includeTime) {
+    options.hour = "2-digit";
+    options.minute = "2-digit";
+  }
+  return new Intl.DateTimeFormat("id-ID", options).format(new Date(value));
 }
 
 export function readingTime(article: Article): number {

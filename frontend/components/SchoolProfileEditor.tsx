@@ -6,25 +6,7 @@ import { ImagePlus, Save } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 
-type SchoolProfile = {
-  name: string;
-  tagline: string;
-  description: string;
-  address: string;
-  phone: string;
-  email: string;
-  mapEmbedUrl: string;
-  youtubeEmbedUrl: string;
-  principalName: string;
-  principalTitle: string;
-  principalMessage: string;
-  principalImage: string;
-  stats: Array<{ label: string; value: string }>;
-  socialMedia: Array<{ label: string; value: string }>;
-  partnerLinks: Array<{ label: string; value: string }>;
-  footerLogo: string;
-  footerText: string;
-};
+import type { SchoolProfile } from "@/types/content";
 
 type SchoolProfileEditorProps = {
   profile: SchoolProfile;
@@ -195,24 +177,24 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <h2 className="mt-2 text-2xl font-black">Informasi Sekolah</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Nama Sekolah" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-          <Field label="Tagline" value={form.tagline} onChange={(value) => setForm({ ...form, tagline: value })} />
+          <Field label="Nama Sekolah" value={form.name} onChange={(value: string) => setForm({ ...form, name: value })} />
+          <Field label="Tagline" value={form.tagline} onChange={(value: string) => setForm({ ...form, tagline: value })} />
         </div>
-        <Textarea label="Deskripsi Singkat" value={form.description} onChange={(value) => setForm({ ...form, description: value })} rows={5} />
+        <Textarea label="Deskripsi Singkat" value={form.description} onChange={(value: string) => setForm({ ...form, description: value })} rows={5} />
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Telepon" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
-          <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+          <Field label="Telepon" value={form.phone} onChange={(value: string) => setForm({ ...form, phone: value })} />
+          <Field label="Email" value={form.email} onChange={(value: string) => setForm({ ...form, email: value })} />
         </div>
-        <Textarea label="Alamat" value={form.address} onChange={(value) => setForm({ ...form, address: value })} rows={3} />
+        <Textarea label="Alamat" value={form.address} onChange={(value: string) => setForm({ ...form, address: value })} rows={3} />
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Google Maps Embed URL" value={form.mapEmbedUrl} onChange={(value: string) => setForm({ ...form, mapEmbedUrl: value })} />
           <Field label="YouTube Embed URL (Video Profil)" value={form.youtubeEmbedUrl} onChange={(value: string) => setForm({ ...form, youtubeEmbedUrl: value })} placeholder="https://www.youtube.com/embed/..." />
         </div>
         
         <div className="grid gap-4 md:grid-cols-3">
-          <Textarea label="Statistik Profil" value={form.statsText} onChange={(value) => setForm({ ...form, statsText: value })} rows={5} placeholder="Siswa Aktif=1200&#10;Guru=80" />
-          <Textarea label="Sosial Media" value={form.socialMediaText} onChange={(value) => setForm({ ...form, socialMediaText: value })} rows={5} placeholder="Instagram=https://...&#10;Facebook=https://..." />
-          <Textarea label="Link Partner" value={form.partnerLinksText} onChange={(value) => setForm({ ...form, partnerLinksText: value })} rows={5} placeholder="Kemendikbud=https://...&#10;Telkom=https://..." />
+          <Textarea label="Statistik Profil" value={form.statsText} onChange={(value: string) => setForm({ ...form, statsText: value })} rows={5} placeholder="Siswa Aktif=1200&#10;Guru=80" />
+          <Textarea label="Sosial Media" value={form.socialMediaText} onChange={(value: string) => setForm({ ...form, socialMediaText: value })} rows={5} placeholder="Instagram=https://...&#10;Facebook=https://..." />
+          <Textarea label="Link Partner" value={form.partnerLinksText} onChange={(value: string) => setForm({ ...form, partnerLinksText: value })} rows={5} placeholder="Kemendikbud=https://...&#10;Telkom=https://..." />
         </div>
       </section>
 
@@ -318,7 +300,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
             </div>
           </div>
         </div>
-        <Textarea label="Isi Sambutan" value={form.principalMessage} onChange={(value) => setForm({ ...form, principalMessage: value })} rows={6} />
+        <Textarea label="Isi Sambutan" value={form.principalMessage} onChange={(value: string) => setForm({ ...form, principalMessage: value })} rows={6} />
       </section>
 
       <div className="sticky bottom-4 flex justify-end">

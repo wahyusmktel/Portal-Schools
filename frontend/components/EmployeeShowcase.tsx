@@ -32,7 +32,9 @@ function getIconForLabel(label: string) {
   return Globe;
 }
 
-const cardVariants = {
+import type { Variants } from "framer-motion";
+
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
   visible: { 
     opacity: 1, 
