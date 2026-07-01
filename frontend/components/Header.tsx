@@ -5,6 +5,7 @@ const navItems = [
   { href: "#profil", label: "Profil" },
   { href: "#jurusan", label: "Jurusan" },
   { href: "/artikel", label: "Artikel" },
+  { href: "/employee", label: "Pegawai" },
   { href: "#agenda", label: "Agenda" },
   { href: "#lokasi", label: "Lokasi" }
 ];

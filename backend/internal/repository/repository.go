@@ -100,9 +100,14 @@ func (r *Repository) CreateUser(ctx context.Context, name string, email string, 
 func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, error) {
 	var profile models.SchoolProfile
 	var statsJSON []byte
+	var socialMediaJSON []byte
+	var partnerLinksJSON []byte
+	var footerLogo sql.NullString
+	var footerText sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT name, tagline, description, address, phone, email, map_embed_url,
-		       principal_name, principal_title, principal_message, principal_image, stats_json
+		       principal_name, principal_title, principal_message, principal_image, stats_json,
+		       social_media, partner_links, footer_logo, footer_text
 		FROM school_profiles
 		ORDER BY id ASC
 		LIMIT 1
@@ -119,11 +124,19 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 		&profile.PrincipalMessage,
 		&profile.PrincipalImage,
 		&statsJSON,
+		&socialMediaJSON,
+		&partnerLinksJSON,
+		&footerLogo,
+		&footerText,
 	)
 	if err != nil {
 		return profile, err
 	}
 	_ = json.Unmarshal(statsJSON, &profile.Stats)
+	_ = json.Unmarshal(socialMediaJSON, &profile.SocialMedia)
+	_ = json.Unmarshal(partnerLinksJSON, &profile.PartnerLinks)
+	profile.FooterLogo = footerLogo.String
+	profile.FooterText = footerText.String
 	return profile, nil
 }
 
@@ -138,16 +151,25 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 	if err != nil {
 		return err
 	}
+	socialMediaJSON, err := json.Marshal(profile.SocialMedia)
+	if err != nil {
+		return err
+	}
+	partnerLinksJSON, err := json.Marshal(profile.PartnerLinks)
+	if err != nil {
+		return err
+	}
 
 	_, err = r.db.ExecContext(ctx, `
 		UPDATE school_profiles
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
 		    map_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
-		    principal_image = ?, stats_json = ?
+		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
+		    footer_logo = ?, footer_text = ?
 		WHERE id = 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
 		profile.MapEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
-		profile.PrincipalImage, statsJSON)
+		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.FooterLogo, profile.FooterText)
 	return err
 }
 
@@ -251,7 +273,7 @@ func (r *Repository) UpdateMajor(ctx context.Context, id int64, major models.Maj
 
 func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.Article, error) {
 	query := `
-		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status,
+		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status, a.view_count,
 		       COALESCE(a.published_at, a.created_at), COALESCE(u.name, 'Admin Sekolah')
 		FROM articles a
 		LEFT JOIN users u ON u.id = a.author_id
@@ -270,7 +292,7 @@ func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.
 	var items []models.Article
 	for rows.Next() {
 		var item models.Article
-		if err := rows.Scan(&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.PublishedAt, &item.AuthorName); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.ViewCount, &item.PublishedAt, &item.AuthorName); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -281,16 +303,16 @@ func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.
 func (r *Repository) ArticleBySlug(ctx context.Context, slug string) (models.Article, error) {
 	var item models.Article
 	err := r.db.QueryRowContext(ctx, `
-		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status,
+		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status, a.view_count,
 		       COALESCE(a.published_at, a.created_at), COALESCE(u.name, 'Admin Sekolah')
 		FROM articles a
 		LEFT JOIN users u ON u.id = a.author_id
 		WHERE a.slug = ? AND a.status = 'published'
-	`, slug).Scan(&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.PublishedAt, &item.AuthorName)
+	`, slug).Scan(&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.ViewCount, &item.PublishedAt, &item.AuthorName)
 	return item, err
 }
 
-func (r *Repository) CreateArticle(ctx context.Context, userID int64, title string, excerpt string, content string, category string, status string) (int64, error) {
+func (r *Repository) CreateArticle(ctx context.Context, userID int64, title string, excerpt string, content string, category string, status string, coverImage string) (int64, error) {
 	if title == "" || excerpt == "" {
 		return 0, errors.New("title and excerpt are required")
 	}
@@ -300,6 +322,9 @@ func (r *Repository) CreateArticle(ctx context.Context, userID int64, title stri
 	if category == "" {
 		category = "Sekolah"
 	}
+	if coverImage == "" {
+		coverImage = defaultCoverImage
+	}
 	publishedAt := sql.NullTime{}
 	if status == "published" {
 		publishedAt = sql.NullTime{Time: time.Now(), Valid: true}
@@ -308,11 +333,76 @@ func (r *Repository) CreateArticle(ctx context.Context, userID int64, title stri
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO articles (title, slug, excerpt, content, cover_image, category, status, published_at, author_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, title, uniqueSlug(title), excerpt, content, defaultCoverImage, category, status, publishedAt, userID)
+	`, title, uniqueSlug(title), excerpt, content, coverImage, category, status, publishedAt, userID)
 	if err != nil {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+func (r *Repository) IncrementArticleView(ctx context.Context, slug string) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE articles SET view_count = view_count + 1 WHERE slug = ?", slug)
+	return err
+}
+
+func (r *Repository) UpdateArticle(ctx context.Context, id int64, title string, excerpt string, content string, category string, status string, coverImage string) error {
+	if id <= 0 {
+		return errors.New("id artikel tidak valid")
+	}
+	if strings.TrimSpace(title) == "" || strings.TrimSpace(excerpt) == "" {
+		return errors.New("judul dan ringkasan wajib diisi")
+	}
+	if category == "" {
+		category = "Sekolah"
+	}
+	if status != "published" {
+		status = "draft"
+	}
+	if coverImage == "" {
+		coverImage = defaultCoverImage
+	}
+
+	publishedAt := sql.NullTime{}
+	if status == "published" {
+		publishedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE articles
+		SET title = ?, excerpt = ?, content = ?, cover_image = ?, category = ?,
+		    status = ?, published_at = CASE
+		      WHEN ? = 'published' AND published_at IS NULL THEN ?
+		      WHEN ? = 'published' THEN published_at
+		      ELSE NULL
+		    END
+		WHERE id = ?
+	`, title, excerpt, content, coverImage, category, status, status, publishedAt, status, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteArticle(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM articles WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *Repository) Announcements(ctx context.Context, includeDraft bool) ([]models.Announcement, error) {
@@ -395,6 +485,147 @@ func (r *Repository) CreateAgenda(ctx context.Context, title string, location st
 	return result.LastInsertId()
 }
 
+func (r *Repository) UpdateAnnouncement(ctx context.Context, id int64, title string, body string, status string) error {
+	if status != "draft" {
+		status = "published"
+	}
+	publishedAt := sql.NullTime{}
+	if status == "published" {
+		publishedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE announcements
+		SET title = ?, body = ?, status = ?, published_at = CASE
+		      WHEN ? = 'published' AND published_at IS NULL THEN ?
+		      WHEN ? = 'published' THEN published_at
+		      ELSE NULL
+		    END
+		WHERE id = ?
+	`, title, body, status, status, publishedAt, status, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAnnouncement(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM announcements WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) UpdateAgenda(ctx context.Context, id int64, title string, location string, startsAt time.Time) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE agendas
+		SET title = ?, location = ?, starts_at = ?
+		WHERE id = ?
+	`, title, location, startsAt, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAgenda(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM agendas WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) UpdateUser(ctx context.Context, id int64, name string, email string, role models.Role, isActive bool) error {
+	if name == "" || email == "" {
+		return errors.New("nama dan email wajib diisi")
+	}
+	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin {
+		role = models.RoleContributor
+	}
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET name = ?, email = ?, role = ?, is_active = ?
+		WHERE id = ?
+	`, name, strings.ToLower(email), role, isActive, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteUser(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) ResetPassword(ctx context.Context, id int64, newPassword string) error {
+	if len(newPassword) < 8 {
+		return errors.New("password minimal 8 karakter")
+	}
+	hash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	result, err := r.db.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", hash, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 const defaultCoverImage = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1400&q=80"
 const defaultMajorCoverImage = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=82"
 const defaultPrincipalImage = "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=900&q=82"
@@ -414,4 +645,97 @@ func slugify(title string) string {
 		slug = slug[:90]
 	}
 	return strings.Trim(slug, "-")
+}
+
+func (r *Repository) Employees(ctx context.Context) ([]models.Employee, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, name, role, biography, image_url, social_links_json, employment_period, is_active, sort_order, created_at, updated_at
+		FROM employees
+		ORDER BY sort_order ASC, created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.Employee
+	for rows.Next() {
+		var item models.Employee
+		if err := rows.Scan(&item.ID, &item.Name, &item.Role, &item.Biography, &item.ImageURL, &item.SocialLinksJSON, &item.EmploymentPeriod, &item.IsActive, &item.SortOrder, &item.CreatedAt, &item.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if item.SocialLinksJSON != "" {
+			_ = json.Unmarshal([]byte(item.SocialLinksJSON), &item.SocialLinks)
+		} else {
+			item.SocialLinks = []models.SocialLink{}
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateEmployee(ctx context.Context, emp models.Employee) (int64, error) {
+	if strings.TrimSpace(emp.Name) == "" || strings.TrimSpace(emp.Role) == "" {
+		return 0, errors.New("nama dan peran wajib diisi")
+	}
+
+	socials, err := json.Marshal(emp.SocialLinks)
+	if err != nil {
+		socials = []byte("[]")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO employees (name, role, biography, image_url, social_links_json, employment_period, is_active, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, emp.Name, emp.Role, emp.Biography, emp.ImageURL, string(socials), emp.EmploymentPeriod, emp.IsActive, emp.SortOrder)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func (r *Repository) UpdateEmployee(ctx context.Context, id int64, emp models.Employee) error {
+	if id <= 0 {
+		return errors.New("id tidak valid")
+	}
+	if strings.TrimSpace(emp.Name) == "" || strings.TrimSpace(emp.Role) == "" {
+		return errors.New("nama dan peran wajib diisi")
+	}
+
+	socials, err := json.Marshal(emp.SocialLinks)
+	if err != nil {
+		socials = []byte("[]")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE employees
+		SET name = ?, role = ?, biography = ?, image_url = ?, social_links_json = ?, employment_period = ?, is_active = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, emp.Name, emp.Role, emp.Biography, emp.ImageURL, string(socials), emp.EmploymentPeriod, emp.IsActive, emp.SortOrder, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteEmployee(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM employees WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

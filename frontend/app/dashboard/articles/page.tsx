@@ -1,5 +1,7 @@
-import { ContentEditor } from "@/components/ContentEditor";
+import { ArticleManager } from "@/components/ArticleManager";
+import { getArticles } from "@/lib/api";
 
-export default function DashboardArticlesPage() {
-  return <ContentEditor type="articles" />;
+export default async function DashboardArticlesPage() {
+  const articles = await getArticles();
+  return <ArticleManager initialArticles={articles} />;
 }

@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock3, Eye, Facebook, Link2, MessageCircle, Share2, Twitter } from "lucide-react";
+import { ChevronRight, Clock3, Eye, Facebook, MessageCircle, Share2, Twitter } from "lucide-react";
 import { CommentBox } from "@/components/CommentBox";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { ViewTracker } from "@/components/ViewTracker";
 import { getArticle, getArticles, getSchoolProfile } from "@/lib/api";
 import { formatDate, readCount, readingTime, relatedArticles } from "@/lib/article-utils";
 
@@ -76,14 +78,26 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
     <>
       <Header />
       <main className="pt-28">
+        <ViewTracker slug={article.slug} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
         />
-        <article className="container-page py-14">
+        <article className="container-page py-6">
+          <nav className="mb-6 flex items-center gap-2 text-sm font-bold text-zinc-500">
+            <Link href="/" className="hover:text-rosebrand-600">Home</Link>
+            <ChevronRight size={14} />
+            <Link href="/artikel" className="hover:text-rosebrand-600">Artikel</Link>
+            <ChevronRight size={14} />
+            <Link href={`/artikel?kategori=${encodeURIComponent(article.category)}`} className="hover:text-rosebrand-600">{article.category}</Link>
+            <ChevronRight size={14} />
+            <span className="truncate text-zinc-800 max-w-[200px] sm:max-w-md">{article.title}</span>
+          </nav>
           <div className="grid gap-10 lg:grid-cols-[0.72fr_0.28fr]">
             <div>
-              <p className="text-sm font-extrabold uppercase text-rosebrand-600">{article.category}</p>
+              <Link href={`/artikel?kategori=${encodeURIComponent(article.category)}`} className="text-sm font-extrabold uppercase text-rosebrand-600 hover:underline">
+                {article.category}
+              </Link>
               <h1 className="mt-4 max-w-4xl text-4xl font-black leading-tight md:text-6xl">{article.title}</h1>
               <div className="mt-5 flex flex-wrap gap-4 text-sm font-bold text-zinc-500">
                 <span>{formatDate(article.publishedAt)}</span>
@@ -99,7 +113,7 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
               </div>
 
               <div className="relative mt-10 aspect-[16/8] overflow-hidden rounded-[8px] bg-white shadow-soft">
-                <Image src={article.coverImage} alt={article.title} fill className="object-cover" priority />
+                <Image src={article.coverImage} alt={article.title} fill sizes="(max-width: 768px) 100vw, 900px" className="object-cover" priority />
               </div>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -110,19 +124,16 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
                 <ShareLink href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`} label="Facebook" icon={<Facebook size={18} aria-hidden />} />
                 <ShareLink href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(articleUrl)}&text=${encodeURIComponent(article.title)}`} label="X" icon={<Twitter size={18} aria-hidden />} />
                 <ShareLink href={`https://wa.me/?text=${encodeURIComponent(`${article.title} ${articleUrl}`)}`} label="WhatsApp" icon={<MessageCircle size={18} aria-hidden />} />
-                <ShareLink href={articleUrl} label="Salin Link" icon={<Link2 size={18} aria-hidden />} />
+                <CopyLinkButton url={articleUrl} />
               </div>
 
-              <div className="mt-10 max-w-3xl text-lg leading-9 text-zinc-700">
-                {articleBody.split("\n").filter(Boolean).map((paragraph) => (
-                  <p key={paragraph} className="mt-6 first:mt-0">
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
+              <div 
+                className="mt-10 max-w-3xl text-lg leading-9 text-zinc-700 prose prose-lg prose-rosebrand text-justify"
+                dangerouslySetInnerHTML={{ __html: articleBody }} 
+              />
 
               <div className="mt-12">
-                <CommentBox />
+                <CommentBox articleSlug={article.slug} />
               </div>
             </div>
 

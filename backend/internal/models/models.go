@@ -33,6 +33,10 @@ type SchoolProfile struct {
 	PrincipalMessage string              `json:"principalMessage"`
 	PrincipalImage   string              `json:"principalImage"`
 	Stats            []map[string]string `json:"stats"`
+	SocialMedia      []map[string]string `json:"socialMedia"`
+	PartnerLinks     []map[string]string `json:"partnerLinks"`
+	FooterLogo       string              `json:"footerLogo"`
+	FooterText       string              `json:"footerText"`
 }
 
 type Major struct {
@@ -55,6 +59,7 @@ type Article struct {
 	CoverImage  string    `json:"coverImage"`
 	Category    string    `json:"category"`
 	Status      string    `json:"status,omitempty"`
+	ViewCount   int       `json:"viewCount"`
 	PublishedAt time.Time `json:"publishedAt"`
 	AuthorName  string    `json:"authorName"`
 }
@@ -72,4 +77,24 @@ type Agenda struct {
 	Title    string    `json:"title"`
 	Location string    `json:"location"`
 	StartsAt time.Time `json:"startsAt"`
+}
+
+type SocialLink struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+type Employee struct {
+	ID               int64        `json:"id"`
+	Name             string       `json:"name"`
+	Role             string       `json:"role"`
+	Biography        string       `json:"biography"`
+	ImageURL         string       `json:"imageUrl"`
+	SocialLinksJSON  string       `json:"-"`
+	SocialLinks      []SocialLink `json:"socialLinks"`
+	EmploymentPeriod string       `json:"employmentPeriod"`
+	IsActive         bool         `json:"isActive"`
+	SortOrder        int          `json:"sortOrder"`
+	CreatedAt        string       `json:"createdAt"`
+	UpdatedAt        string       `json:"updatedAt"`
 }

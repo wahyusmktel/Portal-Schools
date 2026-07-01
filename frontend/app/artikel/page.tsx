@@ -12,9 +12,17 @@ export const metadata: Metadata = {
   description: "Daftar artikel, berita sekolah, pendidikan, dan teknologi dari SMK Telkom Lampung."
 };
 
-export default async function ArticlesPage() {
+export default async function ArticlesPage(props: { searchParams: Promise<{ kategori?: string }> }) {
+  const searchParams = await props.searchParams;
   const [profile, articles] = await Promise.all([getSchoolProfile(), getArticles()]);
-  const [featured, ...rest] = articles;
+  
+  const selectedCategory = searchParams?.kategori;
+  let filteredArticles = articles;
+  if (selectedCategory) {
+    filteredArticles = articles.filter(a => a.category === selectedCategory);
+  }
+  
+  const [featured, ...rest] = filteredArticles;
   const editorPicks = rest.slice(0, 3);
   const categories = Array.from(new Set(articles.map((article) => article.category)));
 
@@ -30,14 +38,22 @@ export default async function ArticlesPage() {
                 Magazine Sekolah
               </p>
               <h1 className="mt-4 max-w-4xl text-5xl font-black leading-none md:text-7xl">
-                Berita pendidikan, teknologi, dan aktivitas sekolah
+                {selectedCategory ? `Artikel Kategori: ${selectedCategory}` : "Berita pendidikan, teknologi, dan aktivitas sekolah"}
               </h1>
             </div>
             <div className="flex flex-wrap gap-2 lg:max-w-md lg:justify-end">
               {categories.map((category) => (
-                <span key={category} className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-zinc-600 shadow-sm">
+                <Link
+                  key={category}
+                  href={selectedCategory === category ? "/artikel" : `/artikel?kategori=${encodeURIComponent(category)}`}
+                  className={`rounded-full px-4 py-2 text-sm font-extrabold shadow-sm transition ${
+                    selectedCategory === category 
+                      ? "bg-rosebrand-600 text-white" 
+                      : "bg-white text-zinc-600 hover:bg-zinc-100"
+                  }`}
+                >
                   {category}
-                </span>
+                </Link>
               ))}
             </div>
           </div>

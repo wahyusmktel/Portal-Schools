@@ -5,7 +5,25 @@ import Image from "next/image";
 import { ImagePlus, Save } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
-import type { SchoolProfile } from "@/types/content";
+
+type SchoolProfile = {
+  name: string;
+  tagline: string;
+  description: string;
+  address: string;
+  phone: string;
+  email: string;
+  mapEmbedUrl: string;
+  principalName: string;
+  principalTitle: string;
+  principalMessage: string;
+  principalImage: string;
+  stats: Array<{ label: string; value: string }>;
+  socialMedia: Array<{ label: string; value: string }>;
+  partnerLinks: Array<{ label: string; value: string }>;
+  footerLogo: string;
+  footerText: string;
+};
 
 type SchoolProfileEditorProps = {
   profile: SchoolProfile;
@@ -19,51 +37,71 @@ type Notice = {
 export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   const [form, setForm] = useState({
     ...profile,
-    statsText: profile.stats.map((item) => `${item.label}=${item.value}`).join("\n")
+    statsText: (profile.stats || []).map((item) => `${item.label}=${item.value}`).join("\n"),
+    socialMediaText: (profile.socialMedia || []).map((item) => `${item.label}=${item.value}`).join("\n"),
+    partnerLinksText: (profile.partnerLinks || []).map((item) => `${item.label}=${item.value}`).join("\n"),
   });
+  
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  
   const [principalImageFile, setPrincipalImageFile] = useState<File | null>(null);
-  const [principalImagePreview, setPrincipalImagePreview] = useState(profile.principalImage);
+  const [principalImagePreview, setPrincipalImagePreview] = useState(profile.principalImage || "");
+
+  const [footerLogoFile, setFooterLogoFile] = useState<File | null>(null);
+  const [footerLogoPreview, setFooterLogoPreview] = useState(profile.footerLogo || "");
 
   useEffect(() => {
     return () => {
-      if (principalImagePreview.startsWith("blob:")) {
-        URL.revokeObjectURL(principalImagePreview);
-      }
+      if (principalImagePreview.startsWith("blob:")) URL.revokeObjectURL(principalImagePreview);
+      if (footerLogoPreview.startsWith("blob:")) URL.revokeObjectURL(footerLogoPreview);
     };
-  }, [principalImagePreview]);
+  }, [principalImagePreview, footerLogoPreview]);
 
-  function onPrincipalImageChange(event: ChangeEvent<HTMLInputElement>) {
+  function onImageChange(event: ChangeEvent<HTMLInputElement>, setFile: any, setPreview: any) {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     if (!file.type.startsWith("image/")) {
       setNotice({ type: "error", message: "File harus berupa gambar." });
       return;
     }
-
     if (file.size > 5 * 1024 * 1024) {
       setNotice({ type: "error", message: "Ukuran gambar maksimal 5MB." });
       return;
     }
 
-    if (principalImagePreview.startsWith("blob:")) {
-      URL.revokeObjectURL(principalImagePreview);
+    setFile(file);
+    setPreview(URL.createObjectURL(file));
+    setNotice(null);
+  }
+
+  async function uploadImage(file: File): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_URL}/uploads/images`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRF-Token": getCookie("csrf_token") },
+      body: formData
+    }).catch(() => null);
+
+    if (!response?.ok) {
+      const data = await response?.json().catch(() => null);
+      return { ok: false, message: data?.message || "Upload gambar gagal." };
     }
 
-    const previewURL = URL.createObjectURL(file);
-    setPrincipalImageFile(file);
-    setPrincipalImagePreview(previewURL);
-    setNotice(null);
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) return { ok: false, message: "Upload berhasil tetapi URL gambar tidak diterima." };
+
+    return { ok: true, url: data.url };
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!window.confirm("Yakin ingin menyimpan perubahan profil sekolah dan sambutan kepala sekolah?")) {
+    if (!window.confirm("Yakin ingin menyimpan perubahan profil sekolah?")) {
       return;
     }
 
@@ -72,13 +110,24 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
 
     let principalImageURL = form.principalImage;
     if (principalImageFile) {
-      const uploadResult = await uploadPrincipalImage(principalImageFile);
+      const uploadResult = await uploadImage(principalImageFile);
       if (!uploadResult.ok) {
         setLoading(false);
         setNotice({ type: "error", message: uploadResult.message });
         return;
       }
       principalImageURL = uploadResult.url;
+    }
+
+    let footerLogoURL = form.footerLogo;
+    if (footerLogoFile) {
+      const uploadResult = await uploadImage(footerLogoFile);
+      if (!uploadResult.ok) {
+        setLoading(false);
+        setNotice({ type: "error", message: uploadResult.message });
+        return;
+      }
+      footerLogoURL = uploadResult.url;
     }
 
     const payload: SchoolProfile = {
@@ -93,7 +142,11 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       principalTitle: form.principalTitle,
       principalMessage: form.principalMessage,
       principalImage: principalImageURL,
-      stats: parseStats(form.statsText)
+      stats: parseStats(form.statsText),
+      socialMedia: parseStats(form.socialMediaText),
+      partnerLinks: parseStats(form.partnerLinksText),
+      footerLogo: footerLogoURL,
+      footerText: form.footerText
     };
 
     const response = await fetch(`${API_URL}/school-profile`, {
@@ -117,28 +170,24 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       return;
     }
 
-    setForm((value) => ({ ...value, principalImage: principalImageURL }));
+    setForm((value) => ({ ...value, principalImage: principalImageURL, footerLogo: footerLogoURL }));
     setPrincipalImageFile(null);
-    setPrincipalImagePreview(principalImageURL);
-    setNotice({ type: "success", message: "Profil sekolah dan sambutan berhasil diperbarui." });
+    setFooterLogoFile(null);
+    setNotice({ type: "success", message: "Profil sekolah berhasil diperbarui." });
   }
 
   return (
     <form onSubmit={onSubmit} className="grid gap-6">
-      {notice ? (
-        <div
-          className={`rounded-[8px] px-4 py-3 text-sm font-bold ${
-            notice.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-rosebrand-50 text-rosebrand-700"
-          }`}
-        >
+      {notice && (
+        <div className={`rounded-[8px] px-4 py-3 text-sm font-bold ${notice.type === "success" ? "bg-emerald-50 text-emerald-700" : "bg-rosebrand-50 text-rosebrand-700"}`}>
           {notice.message}
         </div>
-      ) : null}
+      )}
 
       <section className="grid gap-4 rounded-[8px] bg-white p-6 shadow-sm">
         <div>
           <p className="text-sm font-extrabold uppercase text-rosebrand-600">Profil Singkat</p>
-          <h2 className="mt-2 text-2xl font-black">Informasi sekolah</h2>
+          <h2 className="mt-2 text-2xl font-black">Informasi Sekolah</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Nama Sekolah" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
@@ -151,19 +200,58 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
         </div>
         <Textarea label="Alamat" value={form.address} onChange={(value) => setForm({ ...form, address: value })} rows={3} />
         <Field label="Google Maps Embed URL" value={form.mapEmbedUrl} onChange={(value) => setForm({ ...form, mapEmbedUrl: value })} />
-        <Textarea
-          label="Statistik Profil"
-          value={form.statsText}
-          onChange={(value) => setForm({ ...form, statsText: value })}
-          rows={4}
-          placeholder="Format: Label=Nilai, satu item per baris"
-        />
+        
+        <div className="grid gap-4 md:grid-cols-3">
+          <Textarea label="Statistik Profil" value={form.statsText} onChange={(value) => setForm({ ...form, statsText: value })} rows={5} placeholder="Siswa Aktif=1200&#10;Guru=80" />
+          <Textarea label="Sosial Media" value={form.socialMediaText} onChange={(value) => setForm({ ...form, socialMediaText: value })} rows={5} placeholder="Instagram=https://...&#10;Facebook=https://..." />
+          <Textarea label="Link Partner" value={form.partnerLinksText} onChange={(value) => setForm({ ...form, partnerLinksText: value })} rows={5} placeholder="Kemendikbud=https://...&#10;Telkom=https://..." />
+        </div>
+      </section>
+
+      <section className="grid gap-4 rounded-[8px] bg-white p-6 shadow-sm">
+        <div>
+          <p className="text-sm font-extrabold uppercase text-rosebrand-600">Footer Bawah</p>
+          <h2 className="mt-2 text-2xl font-black">Pengaturan Footer Kanan</h2>
+        </div>
+        
+        <div className="grid gap-4 lg:grid-cols-[0.7fr_0.3fr]">
+          <div className="grid gap-4">
+            <Field label="URL Logo Footer" value={form.footerLogo || ""} onChange={(value) => {
+              setForm({ ...form, footerLogo: value });
+              setFooterLogoPreview(value);
+              setFooterLogoFile(null);
+            }} required={false} />
+            <label className="grid gap-2 text-sm font-bold text-zinc-700">
+              Unggah Logo Footer dari Disk
+              <span className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed border-zinc-300 bg-softgray px-4 py-5 text-center transition hover:border-rosebrand-300 hover:bg-rosebrand-50">
+                <ImagePlus size={26} className="text-rosebrand-600" aria-hidden />
+                <span className="text-sm font-extrabold text-zinc-700">
+                  {footerLogoFile ? footerLogoFile.name : "Pilih gambar JPG, PNG, atau WEBP"}
+                </span>
+                <span className="text-xs font-semibold text-zinc-500">Maksimal 5MB.</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => onImageChange(e, setFooterLogoFile, setFooterLogoPreview)} className="sr-only" />
+              </span>
+            </label>
+            <Textarea label="Teks Deskripsi Footer Kanan" value={form.footerText || ""} onChange={(value) => setForm({ ...form, footerText: value })} rows={4} required={false} />
+          </div>
+          <div className="rounded-[8px] border border-zinc-200 bg-softgray p-3">
+            <p className="mb-3 text-sm font-extrabold text-zinc-700">Preview Logo</p>
+            <div className="relative aspect-square overflow-hidden rounded-[8px] bg-zinc-200">
+              {footerLogoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={footerLogoPreview} alt="Preview logo" className="h-full w-full object-contain p-2" />
+              ) : (
+                <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">Belum ada logo</div>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-4 rounded-[8px] bg-white p-6 shadow-sm">
         <div>
           <p className="text-sm font-extrabold uppercase text-rosebrand-600">Sambutan</p>
-          <h2 className="mt-2 text-2xl font-black">Kepala sekolah</h2>
+          <h2 className="mt-2 text-2xl font-black">Kepala Sekolah</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Nama Kepala Sekolah" value={form.principalName} onChange={(value) => setForm({ ...form, principalName: value })} />
@@ -183,8 +271,8 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
                 <span className="text-sm font-extrabold text-zinc-700">
                   {principalImageFile ? principalImageFile.name : "Pilih gambar JPG, PNG, atau WEBP"}
                 </span>
-                <span className="text-xs font-semibold text-zinc-500">Maksimal 5MB. Preview muncul setelah file dipilih.</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPrincipalImageChange} className="sr-only" />
+                <span className="text-xs font-semibold text-zinc-500">Maksimal 5MB.</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => onImageChange(e, setPrincipalImageFile, setPrincipalImagePreview)} className="sr-only" />
               </span>
             </label>
           </div>
@@ -192,16 +280,10 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
             <p className="mb-3 text-sm font-extrabold text-zinc-700">Preview Foto</p>
             <div className="relative aspect-[4/5] overflow-hidden rounded-[8px] bg-zinc-200">
               {principalImagePreview ? (
-                principalImagePreview.startsWith("blob:") ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={principalImagePreview} alt="Preview foto kepala sekolah" className="h-full w-full object-cover" />
-                ) : (
-                  <Image src={principalImagePreview} alt="Preview foto kepala sekolah" fill sizes="240px" className="object-cover" />
-                )
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={principalImagePreview} alt="Preview foto" className="h-full w-full object-cover" />
               ) : (
-                <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">
-                  Belum ada gambar
-                </div>
+                <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">Belum ada gambar</div>
               )}
             </div>
           </div>
@@ -223,43 +305,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   );
 }
 
-async function uploadPrincipalImage(file: File): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const response = await fetch(`${API_URL}/uploads/images`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "X-CSRF-Token": getCookie("csrf_token")
-    },
-    body: formData
-  }).catch(() => null);
-
-  if (!response?.ok) {
-    const data = await response?.json().catch(() => null);
-    return { ok: false, message: data?.message || "Upload gambar gagal." };
-  }
-
-  const data = (await response.json()) as { url?: string };
-  if (!data.url) {
-    return { ok: false, message: "Upload berhasil tetapi URL gambar tidak diterima." };
-  }
-
-  return { ok: true, url: data.url };
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
+function Field({ label, value, onChange, placeholder, required = true }: any) {
   return (
     <label className="grid gap-2 text-sm font-bold text-zinc-700">
       {label}
@@ -268,25 +314,13 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
-        required
+        required={required}
       />
     </label>
   );
 }
 
-function Textarea({
-  label,
-  value,
-  onChange,
-  rows,
-  placeholder
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  rows: number;
-  placeholder?: string;
-}) {
+function Textarea({ label, value, onChange, rows, placeholder, required = true }: any) {
   return (
     <label className="grid gap-2 text-sm font-bold text-zinc-700">
       {label}
@@ -296,14 +330,14 @@ function Textarea({
         rows={rows}
         placeholder={placeholder}
         className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
-        required
+        required={required}
       />
     </label>
   );
 }
 
 function parseStats(value: string): Array<{ label: string; value: string }> {
-  return value
+  return (value || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)

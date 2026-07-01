@@ -15,8 +15,7 @@ export function readingTime(article: Article): number {
 }
 
 export function readCount(article: Article): number {
-  const seed = article.slug.split("").reduce((total, char) => total + char.charCodeAt(0), 0);
-  return 320 + (seed % 4200);
+  return article.viewCount || 0;
 }
 
 export function relatedArticles(article: Article, articles: Article[], limit = 3): Article[] {

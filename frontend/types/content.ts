@@ -6,6 +6,7 @@ export type Article = {
   content?: string;
   coverImage: string;
   category: string;
+  status?: "published" | "draft" | string;
   publishedAt: string;
   authorName: string;
 };

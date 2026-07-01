@@ -3,17 +3,32 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { BarChart3, CalendarDays, FileText, GraduationCap, Home, Landmark, LogOut, Megaphone, ShieldCheck, Users } from "lucide-react";
+import {
+  Bell,
+  BookOpen,
+  Calendar,
+  FileText,
+  MessageCircle,
+  LayoutDashboard,
+  LogOut,
+  Home,
+  ShieldCheck,
+  School,
+  Users,
+  UserCheck,
+} from "lucide-react";
 import { logout } from "@/lib/auth-client";
 
 const menu = [
-  { href: "/dashboard", label: "Ringkasan", icon: BarChart3 },
-  { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Landmark },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: School },
+  { href: "/dashboard/employees", label: "Manajemen Pegawai", icon: UserCheck },
+  { href: "/dashboard/majors", label: "Jurusan", icon: BookOpen },
   { href: "/dashboard/articles", label: "Artikel", icon: FileText },
-  { href: "/dashboard/majors", label: "Jurusan", icon: GraduationCap },
-  { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },
-  { href: "/dashboard/agendas", label: "Agenda", icon: CalendarDays },
-  { href: "/dashboard/users", label: "Pengguna", icon: Users }
+  { href: "/dashboard/comments", label: "Komentar", icon: MessageCircle },
+  { href: "/dashboard/announcements", label: "Pengumuman", icon: Bell },
+  { href: "/dashboard/agendas", label: "Agenda", icon: Calendar },
+  { href: "/dashboard/users", label: "Pengguna", icon: Users },
 ];
 
 export function DashboardShell({ children }: { children: ReactNode }) {

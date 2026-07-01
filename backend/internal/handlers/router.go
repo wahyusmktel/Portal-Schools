@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dchest/captcha"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
@@ -52,23 +53,45 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/majors", h.majors)
 		r.Get("/articles", h.articles)
 		r.Get("/articles/{slug}", h.articleBySlug)
+		r.Post("/articles/{slug}/view", h.incrementArticleView)
+		r.Get("/articles/{slug}/comments", h.getComments)
+		r.Post("/articles/{slug}/comments", h.createComment)
 		r.Get("/announcements", h.announcements)
 		r.Get("/agendas", h.agendas)
+		r.Get("/employees", h.employees)
+
+		r.Get("/captcha/new", h.newCaptcha)
+		r.Get("/captcha/image/{id}", h.captchaImage)
 
 		r.Post("/auth/login", h.login)
 		r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
 			protected.Get("/auth/me", h.me)
 			protected.Post("/auth/logout", h.requireCSRF(h.logout))
+			protected.Get("/admin/articles", h.requireAnyRole(h.adminArticles, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.deleteArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/announcements", h.requireCSRF(h.requireAnyRole(h.createAnnouncement, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/agendas", h.requireCSRF(h.requireAnyRole(h.createAgenda, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/majors", h.requireCSRF(h.requireAnyRole(h.createMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.updateMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/school-profile", h.requireCSRF(h.requireAnyRole(h.updateSchoolProfile, models.RoleSuperadmin, models.RoleAdmin)))
-			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Get("/admin/comments", h.requireAnyRole(h.adminComments, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
+			protected.Put("/admin/comments/{id}/status", h.requireCSRF(h.requireAnyRole(h.updateCommentStatus, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Get("/users", h.requireAnyRole(h.users, models.RoleSuperadmin))
 			protected.Post("/users", h.requireCSRF(h.requireAnyRole(h.createUser, models.RoleSuperadmin)))
+			protected.Put("/announcements/{id}", h.requireCSRF(h.requireAnyRole(h.updateAnnouncement, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/announcements/{id}", h.requireCSRF(h.requireAnyRole(h.deleteAnnouncement, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/agendas/{id}", h.requireCSRF(h.requireAnyRole(h.updateAgenda, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/agendas/{id}", h.requireCSRF(h.requireAnyRole(h.deleteAgenda, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/employees", h.requireCSRF(h.requireAnyRole(h.createEmployee, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/employees/{id}", h.requireCSRF(h.requireAnyRole(h.updateEmployee, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/employees/{id}", h.requireCSRF(h.requireAnyRole(h.deleteEmployee, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/users/{id}", h.requireCSRF(h.requireAnyRole(h.updateUser, models.RoleSuperadmin)))
+			protected.Delete("/users/{id}", h.requireCSRF(h.requireAnyRole(h.deleteUser, models.RoleSuperadmin)))
+			protected.Put("/users/{id}/reset-password", h.requireCSRF(h.requireAnyRole(h.resetPassword, models.RoleSuperadmin)))
 		})
 	})
 
@@ -109,6 +132,15 @@ func (h *Handler) majors(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) articles(w http.ResponseWriter, r *http.Request) {
 	items, err := h.repo.Articles(r.Context(), false)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal memuat artikel")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) adminArticles(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repo.Articles(r.Context(), true)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "gagal memuat artikel")
 		return
@@ -201,22 +233,87 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createArticle(w http.ResponseWriter, r *http.Request) {
 	claims, _ := claimsFromRequest(r)
 	var payload struct {
-		Title    string `json:"title"`
-		Excerpt  string `json:"excerpt"`
-		Content  string `json:"content"`
-		Category string `json:"category"`
-		Status   string `json:"status"`
+		Title      string `json:"title"`
+		Excerpt    string `json:"excerpt"`
+		Content    string `json:"content"`
+		CoverImage string `json:"coverImage"`
+		Category   string `json:"category"`
+		Status     string `json:"status"`
 	}
 	if err := httpx.DecodeJSON(r, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
 		return
 	}
-	id, err := h.repo.CreateArticle(r.Context(), claims.UserID, payload.Title, payload.Excerpt, payload.Content, payload.Category, payload.Status)
+	id, err := h.repo.CreateArticle(r.Context(), claims.UserID, payload.Title, payload.Excerpt, payload.Content, payload.Category, payload.Status, payload.CoverImage)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) incrementArticleView(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	err := h.repo.IncrementArticleView(r.Context(), slug)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal mencatat view")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "view counted"})
+}
+
+func (h *Handler) updateArticle(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		idStr = chi.URLParam(r, "slug")
+	}
+	id, err := parseID(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id artikel tidak valid")
+		return
+	}
+	var payload struct {
+		Title      string `json:"title"`
+		Excerpt    string `json:"excerpt"`
+		Content    string `json:"content"`
+		CoverImage string `json:"coverImage"`
+		Category   string `json:"category"`
+		Status     string `json:"status"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	if err := h.repo.UpdateArticle(r.Context(), id, payload.Title, payload.Excerpt, payload.Content, payload.Category, payload.Status, payload.CoverImage); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "artikel tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "artikel berhasil diperbarui"})
+}
+
+func (h *Handler) deleteArticle(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	if idStr == "" {
+		idStr = chi.URLParam(r, "slug")
+	}
+	id, err := parseID(idStr)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id artikel tidak valid")
+		return
+	}
+
+	if err := h.repo.DeleteArticle(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "artikel tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal menghapus artikel")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "artikel berhasil dihapus"})
 }
 
 func (h *Handler) createAnnouncement(w http.ResponseWriter, r *http.Request) {
@@ -395,6 +492,156 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
 
+func (h *Handler) updateAnnouncement(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id pengumuman tidak valid")
+		return
+	}
+	var payload struct {
+		Title  string `json:"title"`
+		Body   string `json:"body"`
+		Status string `json:"status"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	if err := h.repo.UpdateAnnouncement(r.Context(), id, payload.Title, payload.Body, payload.Status); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "pengumuman tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal memperbarui pengumuman")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "pengumuman berhasil diperbarui"})
+}
+
+func (h *Handler) deleteAnnouncement(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id pengumuman tidak valid")
+		return
+	}
+	if err := h.repo.DeleteAnnouncement(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "pengumuman tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal menghapus pengumuman")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "pengumuman berhasil dihapus"})
+}
+
+func (h *Handler) updateAgenda(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id agenda tidak valid")
+		return
+	}
+	var payload struct {
+		Title    string    `json:"title"`
+		Location string    `json:"location"`
+		StartsAt time.Time `json:"startsAt"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	if err := h.repo.UpdateAgenda(r.Context(), id, payload.Title, payload.Location, payload.StartsAt); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "agenda tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal memperbarui agenda")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "agenda berhasil diperbarui"})
+}
+
+func (h *Handler) deleteAgenda(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id agenda tidak valid")
+		return
+	}
+	if err := h.repo.DeleteAgenda(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "agenda tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal menghapus agenda")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "agenda berhasil dihapus"})
+}
+
+func (h *Handler) updateUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id pengguna tidak valid")
+		return
+	}
+	var payload struct {
+		Name     string      `json:"name"`
+		Email    string      `json:"email"`
+		Role     models.Role `json:"role"`
+		IsActive bool        `json:"isActive"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	if err := h.repo.UpdateUser(r.Context(), id, payload.Name, payload.Email, payload.Role, payload.IsActive); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "pengguna tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "pengguna berhasil diperbarui"})
+}
+
+func (h *Handler) deleteUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id pengguna tidak valid")
+		return
+	}
+	if err := h.repo.DeleteUser(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "pengguna tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal menghapus pengguna")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "pengguna berhasil dihapus"})
+}
+
+func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id pengguna tidak valid")
+		return
+	}
+	var payload struct {
+		NewPassword string `json:"newPassword"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+	if err := h.repo.ResetPassword(r.Context(), id, payload.NewPassword); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "pengguna tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "password berhasil direset"})
+}
+
 func (h *Handler) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session_token")
@@ -528,4 +775,21 @@ func absoluteUploadURL(r *http.Request, path string) string {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host + path
+}
+
+func (h *Handler) newCaptcha(w http.ResponseWriter, r *http.Request) {
+	captchaId := captcha.New()
+	httpx.JSON(w, http.StatusOK, map[string]string{"captchaId": captchaId})
+}
+
+func (h *Handler) captchaImage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	if err := captcha.WriteImage(w, id, captcha.StdWidth, captcha.StdHeight); err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
