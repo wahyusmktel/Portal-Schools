@@ -41,10 +41,16 @@ export function Header({ logoUrl }: HeaderProps) {
   }, []);
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 px-4 md:px-8 ${isScrolled ? 'pt-4' : 'pt-6'}`}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-full bg-white/95 backdrop-blur-xl px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-zinc-100">
-        
-        {/* LOGO */}
+    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? 'pt-0 px-0' : 'pt-6 px-4 md:px-8'}`}>
+      <div 
+        className={`mx-auto flex w-full items-center justify-between gap-4 backdrop-blur-xl transition-all duration-300 ease-out ${
+          isScrolled 
+            ? 'max-w-full rounded-none bg-white/80 px-6 py-3 shadow-md border-b border-zinc-100/50' 
+            : 'max-w-7xl rounded-full bg-white/95 px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-zinc-100'
+        }`}
+      >
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
+          {/* LOGO */}
         <Link href="/" className="flex items-center gap-3 shrink-0">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -147,6 +153,7 @@ export function Header({ logoUrl }: HeaderProps) {
             <LayoutDashboard size={16} aria-hidden />
             <span className="hidden sm:block">Dashboard</span>
           </Link>
+        </div>
         </div>
       </div>
     </header>
