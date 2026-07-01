@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log"
 
+	"portal-smktelkom/backend/internal/config"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:0899@tcp(127.0.0.1:3306)/portal_smk_telkom_lampung?parseTime=true")
+	cfg := config.Load()
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
