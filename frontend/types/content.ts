@@ -50,5 +50,9 @@ export type SchoolProfile = {
   principalMessage: string;
   principalImage: string;
   headerLogo?: string;
+  socialMedia?: Array<{ label: string; value: string }>;
+  partnerLinks?: Array<{ label: string; value: string }>;
+  footerLogo?: string;
+  footerText?: string;
   stats: Array<{ label: string; value: string }>;
 };
