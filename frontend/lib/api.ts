@@ -1,7 +1,7 @@
 import { agendas, announcements, articles, majors, schoolProfile } from "@/lib/fallback-data";
 import type { Agenda, Announcement, Article, Major, SchoolProfile } from "@/types/content";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+const API_URL = typeof window === "undefined" ? "http://127.0.0.1:8080/api/v1" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1");
 
 async function getJson<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
   try {
