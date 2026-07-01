@@ -44,9 +44,11 @@ export type SchoolProfile = {
   phone: string;
   email: string;
   mapEmbedUrl: string;
+  youtubeEmbedUrl?: string;
   principalName: string;
   principalTitle: string;
   principalMessage: string;
   principalImage: string;
+  headerLogo?: string;
   stats: Array<{ label: string; value: string }>;
 };
