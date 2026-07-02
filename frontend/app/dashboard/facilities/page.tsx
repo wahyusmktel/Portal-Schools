@@ -10,14 +10,14 @@ export default async function FacilitiesPage() {
   const cookieStore = await cookies();
   const res = await fetch(`${API_URL}/facilities`, {
     headers: { Cookie: cookieStore.toString() }
-  });
+  }).catch(() => null);
 
-  if (!res.ok) {
-    const text = await res.text();
+  if (!res || !res.ok) {
+    const text = res ? await res.text() : "Koneksi ke backend gagal";
     return (
       <DashboardShell>
         <div className="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100">
-          Gagal memuat data fasilitas. Status: {res.status}. Error: {text}
+          Gagal memuat data fasilitas. Status: {res?.status || 500}. Error: {text}
         </div>
       </DashboardShell>
     );

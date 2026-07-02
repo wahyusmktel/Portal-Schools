@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function EmployeesPage() {
   const res = await fetch(`${API_URL}/employees`, {
     cache: "no-store",
-  });
+  }).catch(() => null);
 
-  if (!res.ok) {
-    const text = await res.text();
+  if (!res || !res.ok) {
+    const text = res ? await res.text() : "Koneksi ke backend gagal";
     return (
       <div className="rounded-[8px] bg-red-50 p-4 text-red-600">
-        Gagal memuat data pegawai. Status: {res.status}. Body: {text}
+        Gagal memuat data pegawai. Status: {res?.status || 500}. Body: {text}
       </div>
     );
   }

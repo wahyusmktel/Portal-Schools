@@ -8,11 +8,11 @@ export const revalidate = 60; // Revalidate every 60 seconds
 export default async function EmployeePage() {
   const res = await fetch(`${API_URL}/employees`, {
     next: { revalidate: 60 }
-  });
+  }).catch(() => null);
   
   const [profile, employeesData] = await Promise.all([
     getSchoolProfile(),
-    res.ok ? res.json() : Promise.resolve([])
+    (res && res.ok) ? res.json() : Promise.resolve([])
   ]);
   
   return (
