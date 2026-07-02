@@ -66,7 +66,7 @@ export default async function HomePage() {
               <h1 className="section-title mt-3">{profile.name}</h1>
               <p className="mt-5 max-w-3xl text-lg leading-8 text-zinc-600">{profile.description}</p>
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {profile.stats.map((stat) => (
+                {(profile.stats || []).map((stat) => (
                   <div key={stat.label} className="rounded-[8px] bg-white p-5 shadow-sm">
                     <p className="text-3xl font-black text-rosebrand-600">{stat.value}</p>
                     <p className="mt-2 text-sm font-semibold text-zinc-500">{stat.label}</p>
@@ -98,7 +98,7 @@ export default async function HomePage() {
               </Link>
             </div>
             <div className="mt-10 grid gap-6 lg:grid-cols-3">
-              {articles.slice(0, 3).map((article) => (
+              {(articles || []).slice(0, 3).map((article) => (
                 <article key={article.id} className="group overflow-hidden rounded-[8px] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-soft">
                   <div className="relative aspect-[16/10]">
                     <Image
@@ -138,7 +138,7 @@ export default async function HomePage() {
               <p className="text-sm font-extrabold uppercase text-rosebrand-600">Pengumuman</p>
               <h2 className="mt-3 text-4xl font-black">Informasi penting</h2>
               <div className="mt-8 grid gap-4">
-                {announcements.map((item) => (
+                {(announcements || []).map((item) => (
                   <article key={item.id} className="rounded-[8px] border border-zinc-200 p-5">
                     <p className="flex items-center gap-2 text-sm font-bold text-rosebrand-600">
                       <Megaphone size={17} aria-hidden /> {formatDate(item.publishedAt)}
@@ -153,7 +153,7 @@ export default async function HomePage() {
               <p className="text-sm font-extrabold uppercase text-rosebrand-600">Agenda Terdekat</p>
               <h2 className="mt-3 text-4xl font-black">Kegiatan sekolah</h2>
               <div className="mt-8 grid gap-4">
-                {agendas.map((item) => (
+                {(agendas || []).map((item) => (
                   <article key={item.id} className="rounded-[8px] bg-zinc-900 p-5 text-white">
                     <p className="flex items-center gap-2 text-sm font-bold text-rosebrand-300">
                       <CalendarDays size={17} aria-hidden /> {formatDate(item.startsAt)}
