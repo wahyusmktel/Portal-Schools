@@ -41,7 +41,7 @@ export function AnnouncementManager({ initialItems }: { initialItems: Announceme
     const res = await fetch(`${API_URL}/announcements?include_draft=true`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      setItems(data);
+      setItems(data || []);
     }
   }
 

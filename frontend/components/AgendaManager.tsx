@@ -46,7 +46,7 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
     const res = await fetch(`${API_URL}/agendas`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      setItems(data);
+      setItems(data || []);
     }
   }
 

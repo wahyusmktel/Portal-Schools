@@ -31,7 +31,7 @@ export function AchievementManager() {
     const res = await fetch(`${API_URL}/achievements`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      setItems(data);
+      setItems(data || []);
     }
   }
 

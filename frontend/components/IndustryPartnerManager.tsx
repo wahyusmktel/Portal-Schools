@@ -29,7 +29,7 @@ export function IndustryPartnerManager() {
     const res = await fetch(`${API_URL}/industry-partners`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      setItems(data);
+      setItems(data || []);
     }
   }
 

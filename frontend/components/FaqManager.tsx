@@ -28,7 +28,7 @@ export function FaqManager() {
     const res = await fetch(`${API_URL}/faqs`).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
-      setItems(data);
+      setItems(data || []);
     }
   }
 
