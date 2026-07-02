@@ -8,7 +8,7 @@ import { getCookie } from "@/lib/auth-client";
 import { formatDate } from "@/lib/article-utils";
 
 export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
-  const [items, setItems] = useState<Agenda[]>(initialItems);
+  const [items, setItems] = useState<Agenda[]>(initialItems || []);
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);

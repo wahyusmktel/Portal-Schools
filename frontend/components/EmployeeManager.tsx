@@ -24,7 +24,7 @@ type Employee = {
 };
 
 export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) {
-  const [items, setItems] = useState<Employee[]>(initialItems);
+  const [items, setItems] = useState<Employee[]>(initialItems || []);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   

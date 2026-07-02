@@ -55,7 +55,7 @@ const emptyForm: ArticleFormState = {
 const pageSize = 10;
 
 export function ArticleManager({ initialArticles }: ArticleManagerProps) {
-  const [items, setItems] = useState<Article[]>(initialArticles);
+  const [items, setItems] = useState<Article[]>(initialArticles || []);
   const [currentRole, setCurrentRole] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");

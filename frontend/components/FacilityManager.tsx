@@ -19,7 +19,7 @@ type FacilityManagerProps = {
 };
 
 export function FacilityManager({ initialItems }: FacilityManagerProps) {
-  const [items, setItems] = useState<Facility[]>(initialItems);
+  const [items, setItems] = useState<Facility[]>(initialItems || []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Facility | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
