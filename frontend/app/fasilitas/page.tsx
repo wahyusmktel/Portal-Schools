@@ -11,11 +11,11 @@ export const revalidate = 0;
 
 export default async function FacilitiesPage() {
   const [profile, facilitiesRes] = await Promise.all([
-    getSchoolProfile(),
-    fetch(`${API_URL}/facilities`, { cache: 'no-store' })
+    getSchoolProfile().catch(() => null),
+    fetch(`${API_URL}/facilities`, { cache: 'no-store' }).catch(() => null)
   ]);
   
-  const facilities = facilitiesRes.ok ? await facilitiesRes.json() : [];
+  const facilities = facilitiesRes && facilitiesRes.ok ? await facilitiesRes.json().catch(() => []) : [];
 
   return <FacilityGallery facilities={facilities} profile={profile} />;
 }

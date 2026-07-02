@@ -71,7 +71,7 @@ export function FacilityGallery({ facilities, profile }: { facilities: Facility[
 
   return (
     <>
-      <Header logoUrl={profile.headerLogo} />
+      <Header logoUrl={profile?.headerLogo} />
       
       <main className="pt-28 pb-20 bg-white min-h-screen">
         <div className="container-page">

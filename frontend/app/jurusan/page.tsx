@@ -18,13 +18,13 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default async function MajorsPage() {
   const [profile, majors] = await Promise.all([
-    getSchoolProfile(),
-    getMajors()
+    getSchoolProfile().catch(() => null),
+    getMajors().catch(() => [])
   ]);
 
   return (
     <>
-      <Header logoUrl={profile.headerLogo} />
+      <Header logoUrl={profile?.headerLogo} />
       
       <main className="pt-28 pb-20 overflow-hidden bg-zinc-50 min-h-screen">
         <div className="container-page relative z-10">
