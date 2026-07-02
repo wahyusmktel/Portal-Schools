@@ -13,9 +13,10 @@ function getIconForLabel(label: string) {
   return Globe; // default
 }
 
-export function Footer({ profile }: { profile: SchoolProfile }) {
-  const socialMedia = profile.socialMedia || [];
-  const partnerLinks = profile.partnerLinks || [];
+export function Footer({ profile }: { profile?: SchoolProfile | null }) {
+  const p = profile || ({} as SchoolProfile);
+  const socialMedia = p.socialMedia || [];
+  const partnerLinks = p.partnerLinks || [];
 
   return (
     <footer className="bg-zinc-900 py-14 text-white">
@@ -61,41 +62,41 @@ export function Footer({ profile }: { profile: SchoolProfile }) {
         </div>
 
         <div>
-          <h2 className="text-2xl font-black mb-6">{profile.name}</h2>
+          <h2 className="text-2xl font-black mb-6">{p.name || "SMK Telkom Lampung"}</h2>
           <div className="flex items-start gap-6">
-            {profile.footerLogo && (
+            {p.footerLogo && (
               <div className="relative h-20 w-20 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={profile.footerLogo} alt="Footer Logo" className="object-contain h-full w-full" />
+                <img src={p.footerLogo} alt="Footer Logo" className="object-contain h-full w-full" />
               </div>
             )}
-            {profile.footerLogo && profile.footerText && (
+            {p.footerLogo && p.footerText && (
               <div className="w-px h-24 bg-white/20 shrink-0"></div>
             )}
             <div className="flex-1">
-              {profile.footerText && (
+              {p.footerText && (
                 <p className="text-sm leading-6 text-white/70 whitespace-pre-wrap">
-                  {profile.footerText}
+                  {p.footerText}
                 </p>
               )}
               
-              <div className={`space-y-3 text-sm text-white/70 ${profile.footerText ? 'mt-6' : ''}`}>
-                {profile.address && (
+              <div className={`space-y-3 text-sm text-white/70 ${p.footerText ? 'mt-6' : ''}`}>
+                {p.address && (
                   <p className="flex items-start gap-3">
                     <MapPin size={16} className="mt-0.5 shrink-0 text-rosebrand-500" aria-hidden />
-                    <span>{profile.address}</span>
+                    <span>{p.address}</span>
                   </p>
                 )}
-                {profile.email && (
+                {p.email && (
                   <p className="flex items-center gap-3">
                     <Mail size={16} className="shrink-0 text-rosebrand-500" aria-hidden />
-                    <span>{profile.email}</span>
+                    <span>{p.email}</span>
                   </p>
                 )}
-                {profile.phone && (
+                {p.phone && (
                   <p className="flex items-center gap-3">
                     <Phone size={16} className="shrink-0 text-rosebrand-500" aria-hidden />
-                    <span>{profile.phone}</span>
+                    <span>{p.phone}</span>
                   </p>
                 )}
               </div>
@@ -105,7 +106,7 @@ export function Footer({ profile }: { profile: SchoolProfile }) {
       </div>
       
       <div className="container-page mt-10 border-t border-white/10 pt-6 text-sm text-white/50">
-        © {new Date().getFullYear()} {profile.name}. Seluruh hak cipta dilindungi.
+        © {new Date().getFullYear()} {p.name || "SMK Telkom Lampung"}. Seluruh hak cipta dilindungi.
       </div>
     </footer>
   );
