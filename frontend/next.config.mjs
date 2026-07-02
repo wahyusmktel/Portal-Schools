@@ -17,6 +17,10 @@ const nextConfig = {
         protocol: "http",
         hostname: "127.0.0.1",
         port: "8080"
+      },
+      {
+        protocol: "https",
+        hostname: "web-api.smktelkom-lpg.id"
       }
     ]
   },
