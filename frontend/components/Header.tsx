@@ -18,7 +18,7 @@ const mainNavItems = [
 ];
 
 export function Header({ logoUrl }: HeaderProps) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -41,10 +41,11 @@ export function Header({ logoUrl }: HeaderProps) {
   }, []);
 
   // Close dropdown on click outside
+  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+        setOpenDropdown(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -80,39 +81,69 @@ export function Header({ logoUrl }: HeaderProps) {
         </Link>
 
         {/* NAVIGATION */}
-        <nav className="hidden lg:flex items-center gap-1 text-sm font-bold text-zinc-600">
-          {mainNavItems.map((item) => (
-            <Link 
-              key={item.href} 
-              href={item.href} 
-              className="px-4 py-2.5 rounded-full transition-colors hover:bg-zinc-50 hover:text-rosebrand-600"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden lg:flex items-center gap-1 text-sm font-bold text-zinc-600" ref={dropdownRef}>
+          <Link href="/" className="px-4 py-2.5 rounded-full transition-colors hover:bg-zinc-50 hover:text-rosebrand-600">
+            Beranda
+          </Link>
+
+          {/* DROPDOWN PROFIL */}
+          <div className="relative" onMouseEnter={() => setOpenDropdown("profil")} onMouseLeave={() => setOpenDropdown(null)}>
+            <button className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full transition-all ${openDropdown === "profil" ? 'bg-rosebrand-50 text-rosebrand-600' : 'hover:bg-zinc-50 hover:text-rosebrand-600'}`}>
+              Profil <ChevronDown size={16} className={`transition-transform duration-300 ${openDropdown === "profil" ? 'rotate-180 text-rosebrand-600' : 'text-zinc-400'}`} />
+            </button>
+            <AnimatePresence>
+              {openDropdown === "profil" && (
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.2 }} className="absolute top-full left-0 pt-5">
+                  <div className="w-[280px] rounded-3xl bg-white p-3 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-zinc-100 flex flex-col gap-1">
+                    <Link href="/profil" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Tentang Sekolah</Link>
+                    <Link href="/visi-misi" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Visi & Misi</Link>
+                    <Link href="/struktur-organisasi" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Struktur Organisasi</Link>
+                    <Link href="/employee" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Guru & Pegawai</Link>
+                    <Link href="/hubungan-industri" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Hubungan Industri</Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* DROPDOWN AKADEMIK & INFO */}
+          <div className="relative" onMouseEnter={() => setOpenDropdown("info")} onMouseLeave={() => setOpenDropdown(null)}>
+            <button className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full transition-all ${openDropdown === "info" ? 'bg-rosebrand-50 text-rosebrand-600' : 'hover:bg-zinc-50 hover:text-rosebrand-600'}`}>
+              Informasi <ChevronDown size={16} className={`transition-transform duration-300 ${openDropdown === "info" ? 'rotate-180 text-rosebrand-600' : 'text-zinc-400'}`} />
+            </button>
+            <AnimatePresence>
+              {openDropdown === "info" && (
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} transition={{ duration: 0.2 }} className="absolute top-full left-0 pt-5">
+                  <div className="w-[280px] rounded-3xl bg-white p-3 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-zinc-100 flex flex-col gap-1">
+                    <Link href="/jurusan" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Program Keahlian</Link>
+                    <Link href="/fasilitas" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Fasilitas Sekolah</Link>
+                    <Link href="/prestasi" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Prestasi Siswa</Link>
+                    <Link href="/spmb" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Brosur SPMB</Link>
+                    <Link href="/alumni" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Portal Alumni</Link>
+                    <Link href="/bantuan" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Pusat Bantuan</Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* DROPDOWN PUBLIKASI */}
-          <div 
-            className="relative" 
-            ref={dropdownRef}
-            onMouseEnter={() => setIsDropdownOpen(true)}
-            onMouseLeave={() => setIsDropdownOpen(false)}
-          >
+          <div className="relative" onMouseEnter={() => setOpenDropdown("publikasi")} onMouseLeave={() => setOpenDropdown(null)}>
             <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onClick={() => setOpenDropdown(openDropdown === "publikasi" ? null : "publikasi")}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full transition-all ${
-                isDropdownOpen ? 'bg-rosebrand-50 text-rosebrand-600' : 'hover:bg-zinc-50 hover:text-rosebrand-600'
+                openDropdown === "publikasi" ? 'bg-rosebrand-50 text-rosebrand-600' : 'hover:bg-zinc-50 hover:text-rosebrand-600'
               }`}
             >
               Publikasi
               <ChevronDown 
                 size={16} 
-                className={`transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-rosebrand-600' : 'text-zinc-400'}`} 
+                className={`transition-transform duration-300 ${openDropdown === "publikasi" ? 'rotate-180 text-rosebrand-600' : 'text-zinc-400'}`} 
               />
             </button>
 
             <AnimatePresence>
-              {isDropdownOpen && (
+              {openDropdown === "publikasi" && (
                 <div className="absolute top-full right-0 pt-5">
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -122,7 +153,7 @@ export function Header({ logoUrl }: HeaderProps) {
                     className="w-[340px] rounded-3xl bg-white p-3 shadow-[0_20px_40px_rgb(0,0,0,0.1)] border border-zinc-100"
                   >
                   <div className="grid gap-1">
-                    <Link href="/artikel" onClick={() => setIsDropdownOpen(false)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
+                    <Link href="/artikel" onClick={() => setOpenDropdown(null)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
                       <div className="mt-0.5 rounded-full bg-white p-2 shadow-sm group-hover:text-rosebrand-600 text-rosebrand-500">
                         <Newspaper size={20} />
                       </div>
@@ -132,7 +163,7 @@ export function Header({ logoUrl }: HeaderProps) {
                       </div>
                     </Link>
 
-                    <Link href="/#agenda" onClick={() => setIsDropdownOpen(false)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
+                    <Link href="/#agenda" onClick={() => setOpenDropdown(null)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
                       <div className="mt-0.5 rounded-full bg-white p-2 shadow-sm group-hover:text-rosebrand-600 text-rosebrand-500">
                         <Calendar size={20} />
                       </div>
@@ -142,7 +173,7 @@ export function Header({ logoUrl }: HeaderProps) {
                       </div>
                     </Link>
 
-                    <Link href="/#pengumuman" onClick={() => setIsDropdownOpen(false)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
+                    <Link href="/#pengumuman" onClick={() => setOpenDropdown(null)} className="group flex items-start gap-4 rounded-2xl p-3 transition-colors hover:bg-rosebrand-50">
                       <div className="mt-0.5 rounded-full bg-white p-2 shadow-sm group-hover:text-rosebrand-600 text-rosebrand-500">
                         <Megaphone size={20} />
                       </div>
@@ -195,17 +226,22 @@ export function Header({ logoUrl }: HeaderProps) {
           >
             <nav className="flex flex-col gap-6">
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Menu Utama</span>
-                {mainNavItems.map((item) => (
-                  <Link 
-                    key={item.href} 
-                    href={item.href} 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="text-lg font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Profil</span>
+                <Link href="/profil" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Tentang Sekolah</Link>
+                <Link href="/visi-misi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Visi & Misi</Link>
+                <Link href="/struktur-organisasi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Struktur Organisasi</Link>
+                <Link href="/employee" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Guru & Pegawai</Link>
+                <Link href="/hubungan-industri" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Hubungan Industri</Link>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Informasi</span>
+                <Link href="/jurusan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Program Keahlian</Link>
+                <Link href="/fasilitas" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Fasilitas</Link>
+                <Link href="/prestasi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Prestasi</Link>
+                <Link href="/spmb" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Brosur SPMB</Link>
+                <Link href="/alumni" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Alumni</Link>
+                <Link href="/bantuan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Pusat Bantuan</Link>
               </div>
               
               <div className="flex flex-col gap-2 mt-4">

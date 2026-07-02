@@ -124,6 +124,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       phone: form.phone,
       email: form.email,
       mapEmbedUrl: form.mapEmbedUrl,
+      youtubeEmbedUrl: form.youtubeEmbedUrl,
       principalName: form.principalName,
       principalTitle: form.principalTitle,
       principalMessage: form.principalMessage,
@@ -133,7 +134,10 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       partnerLinks: parseStats(form.partnerLinksText),
       headerLogo: headerLogo,
       footerLogo: footerLogoURL,
-      footerText: form.footerText
+      footerText: form.footerText,
+      vision: form.vision,
+      mission: form.mission,
+      spmbBrochureUrl: form.spmbBrochureUrl
     };
 
     const response = await fetch(`${API_URL}/school-profile`, {
@@ -188,13 +192,24 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
         <Textarea label="Alamat" value={form.address} onChange={(value: string) => setForm({ ...form, address: value })} rows={3} />
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Google Maps Embed URL" value={form.mapEmbedUrl} onChange={(value: string) => setForm({ ...form, mapEmbedUrl: value })} />
-          <Field label="YouTube Embed URL (Video Profil)" value={form.youtubeEmbedUrl} onChange={(value: string) => setForm({ ...form, youtubeEmbedUrl: value })} placeholder="https://www.youtube.com/embed/..." />
+          <Field label="YouTube Embed URL (Video Profil)" value={form.youtubeEmbedUrl || ""} onChange={(value: string) => setForm({ ...form, youtubeEmbedUrl: value })} placeholder="https://www.youtube.com/embed/..." />
         </div>
         
         <div className="grid gap-4 md:grid-cols-3">
           <Textarea label="Statistik Profil" value={form.statsText} onChange={(value: string) => setForm({ ...form, statsText: value })} rows={5} placeholder="Siswa Aktif=1200&#10;Guru=80" />
           <Textarea label="Sosial Media" value={form.socialMediaText} onChange={(value: string) => setForm({ ...form, socialMediaText: value })} rows={5} placeholder="Instagram=https://...&#10;Facebook=https://..." />
           <Textarea label="Link Partner" value={form.partnerLinksText} onChange={(value: string) => setForm({ ...form, partnerLinksText: value })} rows={5} placeholder="Kemendikbud=https://...&#10;Telkom=https://..." />
+        </div>
+        
+        <div className="mt-4 border-t border-zinc-100 pt-4">
+          <h3 className="mb-4 text-lg font-bold text-zinc-900">Visi, Misi & SPMB</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Textarea label="Visi" value={form.vision || ""} onChange={(value: string) => setForm({ ...form, vision: value })} rows={4} required={false} />
+            <Textarea label="Misi" value={form.mission || ""} onChange={(value: string) => setForm({ ...form, mission: value })} rows={4} required={false} />
+          </div>
+          <div className="mt-4">
+            <Textarea label="URL Brosur SPMB (Pisahkan dengan koma untuk banyak gambar)" value={form.spmbBrochureUrl || ""} onChange={(value: string) => setForm({ ...form, spmbBrochureUrl: value })} rows={3} required={false} placeholder="https://example.com/brosur1.jpg, https://example.com/brosur2.jpg" />
+          </div>
         </div>
       </section>
 

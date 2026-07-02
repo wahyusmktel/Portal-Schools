@@ -18,21 +18,30 @@ import {
   Users,
   UserCheck,
   Building2,
+  Trophy,
+  Briefcase,
+  GraduationCap,
+  HelpCircle,
   Menu,
   X,
+  Building,
+  Megaphone,
 } from "lucide-react";
 import { logout } from "@/lib/auth-client";
 
 const menu = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: School },
-  { href: "/dashboard/employees", label: "Manajemen Pegawai", icon: UserCheck },
+  { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard },
+  { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
+  { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
+  { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
+  { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },
   { href: "/dashboard/facilities", label: "Fasilitas", icon: Building2 },
   { href: "/dashboard/majors", label: "Jurusan", icon: BookOpen },
-  { href: "/dashboard/articles", label: "Artikel", icon: FileText },
-  { href: "/dashboard/comments", label: "Komentar", icon: MessageCircle },
-  { href: "/dashboard/announcements", label: "Pengumuman", icon: Bell },
-  { href: "/dashboard/agendas", label: "Agenda", icon: Calendar },
+  { href: "/dashboard/employees", label: "Pegawai", icon: UserCheck },
+  { href: "/dashboard/achievements", label: "Prestasi", icon: Trophy },
+  { href: "/dashboard/industry-partners", label: "Mitra Industri", icon: Briefcase },
+  { href: "/dashboard/alumni", label: "Alumni", icon: GraduationCap },
+  { href: "/dashboard/faqs", label: "Pusat Bantuan", icon: HelpCircle },
   { href: "/dashboard/users", label: "Pengguna", icon: Users },
 ];
 

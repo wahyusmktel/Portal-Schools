@@ -33,6 +33,9 @@ type SchoolProfile struct {
 	PrincipalTitle   string              `json:"principalTitle"`
 	PrincipalMessage string              `json:"principalMessage"`
 	PrincipalImage   string              `json:"principalImage"`
+	Vision           string              `json:"vision"`
+	Mission          string              `json:"mission"`
+	SpmbBrochureURL  string              `json:"spmbBrochureUrl"`
 	Stats            []map[string]string `json:"stats"`
 	SocialMedia      []map[string]string `json:"socialMedia"`
 	PartnerLinks     []map[string]string `json:"partnerLinks"`
@@ -111,4 +114,51 @@ type Facility struct {
 	SortOrder   int    `json:"sortOrder"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
+}
+
+type Achievement struct {
+	ID               int64  `json:"id"`
+	Title            string `json:"title"`
+	Description      string `json:"description"`
+	ImageURL         string `json:"imageUrl"`
+	StudentName      string `json:"studentName"`
+	AchievementLevel string `json:"achievementLevel"`
+	AchievedAt       string `json:"achievedAt"`
+	CreatedAt        string `json:"createdAt"`
+}
+
+type IndustryPartner struct {
+	ID              int64  `json:"id"`
+	Name            string `json:"name"`
+	LogoURL         string `json:"logoUrl"`
+	Description     string `json:"description"`
+	FieldOfIndustry string `json:"fieldOfIndustry"`
+	WebsiteURL      string `json:"websiteUrl"`
+	SortOrder       int    `json:"sortOrder"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+type Alumni struct {
+	ID                  int64  `json:"id"`
+	Name                string `json:"name"`
+	GraduationYear      int    `json:"graduationYear"`
+	CurrentStatus       string `json:"currentStatus"`
+	CompanyOrUniversity string `json:"companyOrUniversity"`
+	Testimonial         string `json:"testimonial"`
+	ImageURL            string `json:"imageUrl"`
+	CreatedAt           string `json:"createdAt"`
+}
+
+type AlumniStat struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
+}
+
+type FAQ struct {
+	ID         int64  `json:"id"`
+	Question   string `json:"question"`
+	Answer     string `json:"answer"`
+	Category   string `json:"category"`
+	SortOrder  int    `json:"sortOrder"`
+	CreatedAt  string `json:"createdAt"`
 }

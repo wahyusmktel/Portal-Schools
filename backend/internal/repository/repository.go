@@ -111,10 +111,14 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	var headerLogo sql.NullString
 	var footerLogo sql.NullString
 	var footerText sql.NullString
+	var vision sql.NullString
+	var mission sql.NullString
+	var spmbBrochureURL sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT name, tagline, description, address, phone, email, map_embed_url, youtube_embed_url,
 		       principal_name, principal_title, principal_message, principal_image, stats_json,
-		       social_media, partner_links, header_logo, footer_logo, footer_text
+		       social_media, partner_links, header_logo, footer_logo, footer_text,
+		       vision, mission, spmb_brochure_url
 		FROM school_profiles
 		ORDER BY id ASC
 		LIMIT 1
@@ -137,6 +141,9 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 		&headerLogo,
 		&footerLogo,
 		&footerText,
+		&vision,
+		&mission,
+		&spmbBrochureURL,
 	)
 	if err != nil {
 		return profile, err
@@ -153,6 +160,9 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	profile.HeaderLogo = headerLogo.String
 	profile.FooterLogo = footerLogo.String
 	profile.FooterText = footerText.String
+	profile.Vision = vision.String
+	profile.Mission = mission.String
+	profile.SpmbBrochureURL = spmbBrochureURL.String
 	return profile, nil
 }
 
@@ -178,11 +188,12 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
 		    map_embed_url = ?, youtube_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
 		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
-		    header_logo = ?, footer_logo = ?, footer_text = ?
+		    header_logo = ?, footer_logo = ?, footer_text = ?, vision = ?, mission = ?, spmb_brochure_url = ?
 		WHERE id = 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
 		profile.MapEmbedURL, profile.YoutubeEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
-		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText)
+		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText,
+		profile.Vision, profile.Mission, profile.SpmbBrochureURL)
 	return err
 }
 
@@ -814,6 +825,279 @@ func (r *Repository) UpdateFacility(ctx context.Context, id int64, payload model
 
 func (r *Repository) DeleteFacility(ctx context.Context, id int64) error {
 	res, err := r.db.ExecContext(ctx, "DELETE FROM facilities WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// --- Achievements CRUD ---
+func (r *Repository) Achievements(ctx context.Context) ([]models.Achievement, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, title, description, image_url, student_name, achievement_level, achieved_at, created_at FROM achievements ORDER BY achieved_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.Achievement
+	for rows.Next() {
+		var item models.Achievement
+		if err := rows.Scan(&item.ID, &item.Title, &item.Description, &item.ImageURL, &item.StudentName, &item.AchievementLevel, &item.AchievedAt, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) CreateAchievement(ctx context.Context, item models.Achievement) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO achievements (title, description, image_url, student_name, achievement_level, achieved_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, item.Title, item.Description, item.ImageURL, item.StudentName, item.AchievementLevel, item.AchievedAt)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (r *Repository) UpdateAchievement(ctx context.Context, id int64, item models.Achievement) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE achievements
+		SET title = ?, description = ?, image_url = ?, student_name = ?, achievement_level = ?, achieved_at = ?
+		WHERE id = ?
+	`, item.Title, item.Description, item.ImageURL, item.StudentName, item.AchievementLevel, item.AchievedAt, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAchievement(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM achievements WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// --- IndustryPartner CRUD ---
+func (r *Repository) IndustryPartners(ctx context.Context) ([]models.IndustryPartner, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, logo_url, description, field_of_industry, website_url, sort_order, created_at FROM industry_partners ORDER BY sort_order ASC, created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.IndustryPartner
+	for rows.Next() {
+		var item models.IndustryPartner
+		if err := rows.Scan(&item.ID, &item.Name, &item.LogoURL, &item.Description, &item.FieldOfIndustry, &item.WebsiteURL, &item.SortOrder, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) CreateIndustryPartner(ctx context.Context, item models.IndustryPartner) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO industry_partners (name, logo_url, description, field_of_industry, website_url, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, item.Name, item.LogoURL, item.Description, item.FieldOfIndustry, item.WebsiteURL, item.SortOrder)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (r *Repository) UpdateIndustryPartner(ctx context.Context, id int64, item models.IndustryPartner) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE industry_partners
+		SET name = ?, logo_url = ?, description = ?, field_of_industry = ?, website_url = ?, sort_order = ?
+		WHERE id = ?
+	`, item.Name, item.LogoURL, item.Description, item.FieldOfIndustry, item.WebsiteURL, item.SortOrder, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteIndustryPartner(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM industry_partners WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// --- Alumni CRUD ---
+func (r *Repository) Alumni(ctx context.Context) ([]models.Alumni, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, graduation_year, current_status, company_or_university, testimonial, image_url, created_at FROM alumni ORDER BY graduation_year DESC, created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.Alumni
+	for rows.Next() {
+		var item models.Alumni
+		if err := rows.Scan(&item.ID, &item.Name, &item.GraduationYear, &item.CurrentStatus, &item.CompanyOrUniversity, &item.Testimonial, &item.ImageURL, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) CreateAlumni(ctx context.Context, item models.Alumni) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO alumni (name, graduation_year, current_status, company_or_university, testimonial, image_url)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, item.Name, item.GraduationYear, item.CurrentStatus, item.CompanyOrUniversity, item.Testimonial, item.ImageURL)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (r *Repository) UpdateAlumni(ctx context.Context, id int64, item models.Alumni) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE alumni
+		SET name = ?, graduation_year = ?, current_status = ?, company_or_university = ?, testimonial = ?, image_url = ?
+		WHERE id = ?
+	`, item.Name, item.GraduationYear, item.CurrentStatus, item.CompanyOrUniversity, item.Testimonial, item.ImageURL, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteAlumni(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM alumni WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) GetAlumniStats(ctx context.Context) ([]models.AlumniStat, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT current_status, COUNT(*) FROM alumni GROUP BY current_status")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var stats []models.AlumniStat
+	for rows.Next() {
+		var stat models.AlumniStat
+		if err := rows.Scan(&stat.Status, &stat.Count); err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, nil
+}
+
+// --- FAQ CRUD ---
+func (r *Repository) FAQs(ctx context.Context) ([]models.FAQ, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, question, answer, category, sort_order, created_at FROM faqs ORDER BY sort_order ASC, created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.FAQ
+	for rows.Next() {
+		var item models.FAQ
+		if err := rows.Scan(&item.ID, &item.Question, &item.Answer, &item.Category, &item.SortOrder, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (r *Repository) CreateFAQ(ctx context.Context, item models.FAQ) (int64, error) {
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO faqs (question, answer, category, sort_order)
+		VALUES (?, ?, ?, ?)
+	`, item.Question, item.Answer, item.Category, item.SortOrder)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+func (r *Repository) UpdateFAQ(ctx context.Context, id int64, item models.FAQ) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE faqs
+		SET question = ?, answer = ?, category = ?, sort_order = ?
+		WHERE id = ?
+	`, item.Question, item.Answer, item.Category, item.SortOrder, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFAQ(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, "DELETE FROM faqs WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

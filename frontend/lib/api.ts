@@ -1,5 +1,5 @@
 import { agendas, announcements, articles, majors, schoolProfile } from "@/lib/fallback-data";
-import type { Agenda, Announcement, Article, Major, SchoolProfile } from "@/types/content";
+import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ } from "@/types/content";
 
 const API_URL = typeof window === "undefined" ? "http://127.0.0.1:8080/api/v1" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1");
 
@@ -66,6 +66,26 @@ export function getAnnouncements(includeDrafts?: boolean): Promise<Announcement[
 
 export function getAgendas(): Promise<Agenda[]> {
   return getJson("/agendas", agendas);
+}
+
+export function getAchievements(): Promise<Achievement[]> {
+  return getJson("/achievements", []);
+}
+
+export function getIndustryPartners(): Promise<IndustryPartner[]> {
+  return getJson("/industry-partners", []);
+}
+
+export function getAlumni(): Promise<Alumni[]> {
+  return getJson("/alumni", []);
+}
+
+export function getAlumniStats(): Promise<AlumniStat[]> {
+  return getJson("/alumni/stats", []);
+}
+
+export function getFaqs(): Promise<FAQ[]> {
+  return getJson("/faqs", []);
 }
 
 export { API_URL };

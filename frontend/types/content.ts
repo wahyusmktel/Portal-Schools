@@ -28,6 +28,53 @@ export type Agenda = {
   startsAt: string;
 };
 
+export interface Achievement {
+  id: number;
+  title: string;
+  description: string;
+  imageUrl: string;
+  studentName: string;
+  achievementLevel: string;
+  achievedAt: string;
+  createdAt: string;
+}
+
+export interface IndustryPartner {
+  id: number;
+  name: string;
+  logoUrl: string;
+  description: string;
+  fieldOfIndustry: string;
+  websiteUrl: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface Alumni {
+  id: number;
+  name: string;
+  graduationYear: number;
+  currentStatus: string;
+  companyOrUniversity: string;
+  testimonial: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface AlumniStat {
+  status: string;
+  count: number;
+}
+
+export interface FAQ {
+  id: number;
+  question: string;
+  answer: string;
+  category: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
 export type Major = {
   id: number;
   name: string;
@@ -49,9 +96,12 @@ export type SchoolProfile = {
   mapEmbedUrl: string;
   youtubeEmbedUrl?: string;
   principalName: string;
-  principalTitle: string;
-  principalMessage: string;
-  principalImage: string;
+  principalTitle?: string;
+  principalMessage?: string;
+  principalImage?: string;
+  vision?: string;
+  mission?: string;
+  spmbBrochureUrl?: string;
   headerLogo?: string;
   socialMedia?: Array<{ label: string; value: string }>;
   partnerLinks?: Array<{ label: string; value: string }>;

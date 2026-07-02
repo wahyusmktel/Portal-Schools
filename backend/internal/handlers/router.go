@@ -65,6 +65,11 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 
 		r.Post("/auth/login", h.login)
 		r.Get("/facilities", h.facilities)
+		r.Get("/achievements", h.achievements)
+		r.Get("/industry-partners", h.industryPartners)
+		r.Get("/alumni", h.alumni)
+		r.Get("/alumni/stats", h.alumniStats)
+		r.Get("/faqs", h.faqs)
 
 	r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
@@ -97,6 +102,18 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Put("/users/{id}", h.requireCSRF(h.requireAnyRole(h.updateUser, models.RoleSuperadmin)))
 			protected.Delete("/users/{id}", h.requireCSRF(h.requireAnyRole(h.deleteUser, models.RoleSuperadmin)))
 			protected.Put("/users/{id}/reset-password", h.requireCSRF(h.requireAnyRole(h.resetPassword, models.RoleSuperadmin)))
+			protected.Post("/achievements", h.requireCSRF(h.requireAnyRole(h.createAchievement, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/achievements/{id}", h.requireCSRF(h.requireAnyRole(h.updateAchievement, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/achievements/{id}", h.requireCSRF(h.requireAnyRole(h.deleteAchievement, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/industry-partners", h.requireCSRF(h.requireAnyRole(h.createIndustryPartner, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/industry-partners/{id}", h.requireCSRF(h.requireAnyRole(h.updateIndustryPartner, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/industry-partners/{id}", h.requireCSRF(h.requireAnyRole(h.deleteIndustryPartner, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/alumni", h.requireCSRF(h.requireAnyRole(h.createAlumni, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/alumni/{id}", h.requireCSRF(h.requireAnyRole(h.updateAlumni, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/alumni/{id}", h.requireCSRF(h.requireAnyRole(h.deleteAlumni, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/faqs", h.requireCSRF(h.requireAnyRole(h.createFAQ, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/faqs/{id}", h.requireCSRF(h.requireAnyRole(h.updateFAQ, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/faqs/{id}", h.requireCSRF(h.requireAnyRole(h.deleteFAQ, models.RoleSuperadmin, models.RoleAdmin)))
 		})
 	})
 
