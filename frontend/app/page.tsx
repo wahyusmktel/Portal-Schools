@@ -43,8 +43,8 @@ export default async function HomePage() {
             <div className="overflow-hidden rounded-[8px] bg-zinc-900 text-white shadow-soft">
               <div className="relative aspect-[4/3]">
                 <Image
-                  src={profile.principalImage}
-                  alt={profile.principalName}
+                  src={profile.principalImage || "/default-avatar.png"}
+                  alt={profile.principalName || "Kepala Sekolah"}
                   fill
                   sizes="(min-width: 1024px) 40vw, 100vw"
                   className="object-cover"
