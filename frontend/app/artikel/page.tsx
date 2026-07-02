@@ -16,15 +16,17 @@ export default async function ArticlesPage(props: { searchParams: Promise<{ kate
   const searchParams = await props.searchParams;
   const [profile, articles] = await Promise.all([getSchoolProfile(), getArticles()]);
   
+  const safeArticles = articles || [];
+  
   const selectedCategory = searchParams?.kategori;
-  let filteredArticles = articles;
+  let filteredArticles = safeArticles;
   if (selectedCategory) {
-    filteredArticles = articles.filter(a => a.category === selectedCategory);
+    filteredArticles = safeArticles.filter(a => a.category === selectedCategory);
   }
   
   const [featured, ...rest] = filteredArticles;
   const editorPicks = rest.slice(0, 3);
-  const categories = Array.from(new Set(articles.map((article) => article.category)));
+  const categories = Array.from(new Set(safeArticles.map((article) => article.category)));
 
   return (
     <>

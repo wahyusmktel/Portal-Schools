@@ -39,7 +39,7 @@ export async function getSchoolProfile(): Promise<SchoolProfile> {
 
 export async function getMajors(): Promise<Major[]> {
   const data = await getJson("/majors", majors);
-  return data.map((major, index) => ({
+  return (data || []).map((major, index) => ({
     ...majors[index % majors.length],
     ...major,
     coverImage: major.coverImage || majors[index % majors.length].coverImage,
@@ -50,8 +50,9 @@ export async function getMajors(): Promise<Major[]> {
   }));
 }
 
-export function getArticles(): Promise<Article[]> {
-  return getJson("/articles", articles);
+export async function getArticles(): Promise<Article[]> {
+  const data = await getJson("/articles", articles);
+  return data || [];
 }
 
 export function getArticle(slug: string): Promise<Article | null> {
@@ -59,33 +60,40 @@ export function getArticle(slug: string): Promise<Article | null> {
   return getJson(`/articles/${slug}`, fallback);
 }
 
-export function getAnnouncements(includeDrafts?: boolean): Promise<Announcement[]> {
+export async function getAnnouncements(includeDrafts?: boolean): Promise<Announcement[]> {
   const url = includeDrafts ? "/announcements?all=true" : "/announcements";
-  return getJson(url, announcements);
+  const data = await getJson(url, announcements);
+  return data || [];
 }
 
-export function getAgendas(): Promise<Agenda[]> {
-  return getJson("/agendas", agendas);
+export async function getAgendas(): Promise<Agenda[]> {
+  const data = await getJson("/agendas", agendas);
+  return data || [];
 }
 
-export function getAchievements(): Promise<Achievement[]> {
-  return getJson("/achievements", []);
+export async function getAchievements(): Promise<Achievement[]> {
+  const data = await getJson("/achievements", [] as Achievement[]);
+  return data || [];
 }
 
-export function getIndustryPartners(): Promise<IndustryPartner[]> {
-  return getJson("/industry-partners", []);
+export async function getIndustryPartners(): Promise<IndustryPartner[]> {
+  const data = await getJson("/industry-partners", [] as IndustryPartner[]);
+  return data || [];
 }
 
-export function getAlumni(): Promise<Alumni[]> {
-  return getJson("/alumni", []);
+export async function getAlumni(): Promise<Alumni[]> {
+  const data = await getJson("/alumni", [] as Alumni[]);
+  return data || [];
 }
 
-export function getAlumniStats(): Promise<AlumniStat[]> {
-  return getJson("/alumni/stats", []);
+export async function getAlumniStats(): Promise<AlumniStat[]> {
+  const data = await getJson("/alumni/stats", [] as AlumniStat[]);
+  return data || [];
 }
 
-export function getFaqs(): Promise<FAQ[]> {
-  return getJson("/faqs", []);
+export async function getFaqs(): Promise<FAQ[]> {
+  const data = await getJson("/faqs", [] as FAQ[]);
+  return data || [];
 }
 
 export { API_URL };
