@@ -23,6 +23,7 @@ import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import { formatDate, readingTime, readCount } from "@/lib/article-utils";
 import type { Article } from "@/types/content";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type ArticleManagerProps = {
   initialArticles: Article[];
@@ -419,7 +420,7 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
                       <td className="px-5 py-4">
                         <div className="flex gap-4">
                           <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-[8px] bg-zinc-100">
-                            <Image src={article.coverImage} alt="" fill sizes="112px" className="object-cover" />
+                            <Image src={normalizeImageUrl(article.coverImage)} alt="" fill sizes="112px" className="object-cover" />
                           </div>
                           <div className="min-w-0">
                             <p className="line-clamp-1 font-black text-zinc-950">{article.title}</p>
@@ -665,7 +666,7 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={coverPreview} alt="Preview cover artikel" className="h-full w-full object-cover" />
                       ) : (
-                        <Image src={coverPreview} alt="Preview cover artikel" fill sizes="340px" className="object-cover" />
+                        <Image src={normalizeImageUrl(coverPreview)} alt="Preview cover artikel" fill sizes="340px" className="object-cover" />
                       )
                     ) : (
                       <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-zinc-500">

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, FormEvent, DragEvent, useRef } from "react";
+import Image from "next/image";
 import { Plus, Edit2, Trash2, X, UploadCloud, AlertCircle, Search, Building2, ImageIcon } from "lucide-react";
-import { API_URL } from "@/lib/api";
+import { adminFetch, responseMessage } from "@/lib/auth-client";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type Facility = {
   id: number;
@@ -101,12 +103,11 @@ export function FacilityManager({ initialItems }: FacilityManagerProps) {
   const uploadImage = async (file: File) => {
     const formData = new FormData();
     formData.append("image", file);
-    const res = await fetch(`${API_URL}/uploads/images`, {
+    const res = await adminFetch("/uploads/images", {
       method: "POST",
-      body: formData,
-      credentials: "include"
+      body: formData
     });
-    if (!res.ok) throw new Error("Gagal mengunggah gambar");
+    if (!res.ok) throw new Error(await responseMessage(res, "Gagal mengunggah gambar"));
     const data = await res.json();
     return data.url;
   };
@@ -132,17 +133,16 @@ export function FacilityManager({ initialItems }: FacilityManagerProps) {
         images: combinedImages,
       };
 
-      const url = editingItem ? `${API_URL}/facilities/${editingItem.id}` : `${API_URL}/facilities`;
+      const url = editingItem ? `/facilities/${editingItem.id}` : "/facilities";
       const method = editingItem ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        credentials: "include"
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Gagal menyimpan data");
+      if (!res.ok) throw new Error(await responseMessage(res, "Gagal menyimpan data fasilitas"));
       
       const responseData = await res.json();
       
@@ -167,11 +167,10 @@ export function FacilityManager({ initialItems }: FacilityManagerProps) {
   const handleDelete = async (id: number) => {
     if (!confirm("Hapus fasilitas ini?")) return;
     try {
-      const res = await fetch(`${API_URL}/facilities/${id}`, { 
-        method: "DELETE",
-        credentials: "include"
+      const res = await adminFetch(`/facilities/${id}`, {
+        method: "DELETE"
       });
-      if (!res.ok) throw new Error("Gagal menghapus");
+      if (!res.ok) throw new Error(await responseMessage(res, "Gagal menghapus fasilitas"));
       setItems(items.filter(i => i.id !== id));
     } catch (err: any) {
       alert(err.message);
@@ -225,8 +224,7 @@ export function FacilityManager({ initialItems }: FacilityManagerProps) {
             <div key={item.id} className="group relative flex flex-col rounded-2xl border border-zinc-100 bg-white shadow-sm transition-all hover:border-rosebrand-200 hover:shadow-md overflow-hidden">
               <div className="h-48 bg-zinc-100 relative overflow-hidden">
                 {coverImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={coverImage} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <Image src={normalizeImageUrl(coverImage)} alt={item.name} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-zinc-300">
                     <Building2 size={48} />
@@ -328,8 +326,7 @@ export function FacilityManager({ initialItems }: FacilityManagerProps) {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                       {existingImages.map((url, idx) => (
                         <div key={`existing-${idx}`} className="relative h-24 rounded-xl overflow-hidden border border-zinc-200 group">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt="Facility" className="w-full h-full object-cover" />
+                          <Image src={normalizeImageUrl(url)} alt="Facility" fill sizes="120px" className="object-cover" />
                           <button 
                             type="button" 
                             onClick={() => removeExistingImage(idx)}

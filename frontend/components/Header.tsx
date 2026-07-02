@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { GraduationCap, LayoutDashboard, ChevronDown, Newspaper, Calendar, Megaphone, Search, Menu, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type HeaderProps = {
   logoUrl?: string;
@@ -65,8 +67,7 @@ export function Header({ logoUrl }: HeaderProps) {
           {/* LOGO */}
         <Link href="/" className="flex items-center gap-3 shrink-0">
           {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Logo" className="h-10 w-auto object-contain" />
+            <Image src={normalizeImageUrl(logoUrl)} alt="Logo" width={160} height={40} priority className="h-10 w-auto object-contain" />
           ) : (
             <>
               <span className="grid h-10 w-10 place-items-center rounded-full bg-rosebrand-500 text-white">

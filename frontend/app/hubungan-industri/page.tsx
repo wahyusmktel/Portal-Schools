@@ -4,6 +4,7 @@ import { Building2, Globe, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Image from "next/image";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 export const metadata: Metadata = {
   title: "Hubungan Industri - SMK Telkom Lampung",
@@ -54,11 +55,12 @@ export default async function HubunganIndustriPage() {
               >
                 <div className="w-32 h-32 mb-6 rounded-2xl bg-zinc-50 p-4 flex items-center justify-center border border-zinc-100 group-hover:border-rosebrand-200 transition-colors">
                   {partner.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={partner.logoUrl}
+                    <Image
+                      src={normalizeImageUrl(partner.logoUrl)}
                       alt={partner.name}
-                      className="max-w-full max-h-full object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
+                      width={128}
+                      height={128}
+                      className="max-h-full max-w-full object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
                     />
                   ) : (
                     <Building2 className="w-12 h-12 text-zinc-300 group-hover:text-rosebrand-300 transition-colors" />

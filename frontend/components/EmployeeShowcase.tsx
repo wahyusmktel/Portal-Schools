@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import { Facebook, Instagram, Twitter, Linkedin, Globe, Mail, Youtube } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type SocialLink = {
   label: string;
@@ -74,10 +76,12 @@ export function EmployeeShowcase({ employees }: { employees: Employee[] }) {
               >
                 <div className="aspect-[4/5] relative overflow-hidden bg-zinc-100">
                   {emp.imageUrl ? (
-                    <img 
-                      src={emp.imageUrl} 
+                    <Image
+                      src={normalizeImageUrl(emp.imageUrl)}
                       alt={emp.name} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                      fill
+                      sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-zinc-300">No Photo</div>
@@ -138,11 +142,15 @@ export function EmployeeShowcase({ employees }: { employees: Employee[] }) {
                 >
                   <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white shadow-md bg-zinc-200 mb-4 transition duration-500 group-hover:shadow-xl">
                     {emp.imageUrl ? (
-                      <img 
-                        src={emp.imageUrl} 
+                      <div className="relative h-full w-full">
+                        <Image
+                        src={normalizeImageUrl(emp.imageUrl)}
                         alt={emp.name} 
-                        className="w-full h-full object-cover grayscale opacity-80 group-hover:opacity-100 transition-all duration-500" 
-                      />
+                        fill
+                        sizes="160px"
+                        className="object-cover grayscale opacity-80 group-hover:opacity-100 transition-all duration-500"
+                        />
+                      </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-zinc-300 grayscale">No Photo</div>
                     )}

@@ -3,6 +3,8 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { BookOpen, Briefcase, GraduationCap, Code2, Server, Radio, Film } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 export const metadata: Metadata = {
   title: "Program Keahlian (Jurusan)",
@@ -48,8 +50,7 @@ export default async function MajorsPage() {
                 {/* Cover Image */}
                 <div className="h-64 relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 to-transparent z-10" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={major.coverImage} alt={major.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <Image src={normalizeImageUrl(major.coverImage)} alt={major.name} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
                   
                   <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
                     <div className="w-16 h-16 rounded-2xl bg-rosebrand-500 text-white flex items-center justify-center mb-4 shadow-lg transform -rotate-6 group-hover:rotate-0 transition-transform duration-300">

@@ -268,7 +268,7 @@ export function UserManager() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={form.password}
                     onChange={e => setForm({ ...form, password: e.target.value })}
                     className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"

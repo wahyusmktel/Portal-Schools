@@ -38,7 +38,11 @@ export function AnnouncementManager({ initialItems }: { initialItems: Announceme
   }
 
   async function fetchItems() {
-    const res = await fetch(`${API_URL}/announcements?include_draft=true`).catch(() => null);
+    const res = await fetch(`${API_URL}/admin/announcements`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    }).catch(() => null);
     if (res?.ok) {
       const data = await res.json();
       setItems(data || []);

@@ -47,7 +47,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 	}))
 
 	r.Get("/healthz", h.health)
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+	r.Handle("/uploads/*", cachedUploadsHandler("uploads"))
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/school-profile", h.schoolProfile)
 		r.Get("/majors", h.majors)
@@ -71,11 +71,12 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/alumni/stats", h.alumniStats)
 		r.Get("/faqs", h.faqs)
 
-	r.Group(func(protected chi.Router) {
+		r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
 			protected.Get("/auth/me", h.me)
 			protected.Post("/auth/logout", h.requireCSRF(h.logout))
 			protected.Get("/admin/articles", h.requireAnyRole(h.adminArticles, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
+			protected.Get("/admin/announcements", h.requireAnyRole(h.adminAnnouncements, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.deleteArticle, models.RoleSuperadmin, models.RoleAdmin)))
@@ -127,6 +128,15 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)
+	})
+}
+
+func cachedUploadsHandler(dir string) http.Handler {
+	fileServer := http.StripPrefix("/uploads/", http.FileServer(http.Dir(dir)))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Header().Set("Vary", "Accept-Encoding")
+		fileServer.ServeHTTP(w, r)
 	})
 }
 
@@ -185,6 +195,15 @@ func (h *Handler) articleBySlug(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) announcements(w http.ResponseWriter, r *http.Request) {
 	items, err := h.repo.Announcements(r.Context(), false)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal memuat pengumuman")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) adminAnnouncements(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repo.Announcements(r.Context(), true)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "gagal memuat pengumuman")
 		return
@@ -796,7 +815,11 @@ func absoluteUploadURL(r *http.Request, path string) string {
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
-	return scheme + "://" + r.Host + path
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	return scheme + "://" + host + path
 }
 
 func (h *Handler) newCaptcha(w http.ResponseWriter, r *http.Request) {

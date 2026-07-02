@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { AnnouncementManager } from "@/components/AnnouncementManager";
-import { getAnnouncements } from "@/lib/api";
+import { API_URL } from "@/lib/api";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Manajemen Pengumuman",
@@ -9,6 +10,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminAnnouncementsPage() {
-  const items = await getAnnouncements(true).catch(() => []);
+  const cookieStore = await cookies();
+  const response = await fetch(`${API_URL}/admin/announcements`, {
+    cache: "no-store",
+    headers: { Cookie: cookieStore.toString(), Accept: "application/json" }
+  }).catch(() => null);
+  const items = response?.ok ? await response.json() : [];
   return <AnnouncementManager initialItems={items} />;
 }

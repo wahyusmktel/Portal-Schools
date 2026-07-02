@@ -3,6 +3,8 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { School, MapPin, Phone, Mail, GraduationCap } from "lucide-react";
 import type { Metadata } from "next";
+import Image from "next/image";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 export const metadata: Metadata = {
   title: "Profil Sekolah",
@@ -58,8 +60,9 @@ export default async function ProfilePage() {
               {profile.principalName && (
                 <div className="bg-rosebrand-50 rounded-3xl p-8 border border-rosebrand-100 flex flex-col sm:flex-row gap-8 items-center sm:items-start">
                   <div className="w-32 h-32 shrink-0 rounded-full overflow-hidden border-4 border-white shadow-md">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={profile.principalImage || "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=400&auto=format&fit=crop"} alt={profile.principalName} className="w-full h-full object-cover" />
+                    <div className="relative h-full w-full">
+                      <Image src={normalizeImageUrl(profile.principalImage) || "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=400&auto=format&fit=crop"} alt={profile.principalName} fill sizes="128px" className="object-cover" />
+                    </div>
                   </div>
                   <div>
                     <h2 className="text-xl font-black text-zinc-900">{profile.principalName}</h2>

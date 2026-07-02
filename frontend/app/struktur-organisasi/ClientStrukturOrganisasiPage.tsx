@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { Users, User, ShieldAlert, ChevronRight } from "lucide-react";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type Employee = {
   id: number;
@@ -95,8 +97,9 @@ function OrgCard({ employee, small = false }: { employee: Employee; small?: bool
     <div className={`bg-white p-4 rounded-2xl shadow-lg border border-zinc-100 flex flex-col items-center text-center relative ${small ? 'w-40' : 'w-56'} z-10 hover:-translate-y-1 transition-transform`}>
       <div className={`rounded-full overflow-hidden mb-4 bg-zinc-100 border-4 border-white shadow-sm ${small ? 'w-20 h-20' : 'w-32 h-32'}`}>
         {employee.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={employee.imageUrl} alt={employee.name} className="w-full h-full object-cover" />
+          <div className="relative h-full w-full">
+            <Image src={normalizeImageUrl(employee.imageUrl)} alt={employee.name} fill sizes={small ? "80px" : "128px"} className="object-cover" />
+          </div>
         ) : (
           <div className="w-full h-full grid place-items-center text-zinc-400">
             <User size={small ? 32 : 48} />

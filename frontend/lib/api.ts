@@ -1,7 +1,6 @@
 import { agendas, announcements, articles, majors, schoolProfile } from "@/lib/fallback-data";
+import { API_URL } from "@/lib/api-config";
 import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ } from "@/types/content";
-
-const API_URL = typeof window === "undefined" ? "http://127.0.0.1:8080/api/v1" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1");
 
 async function getJson<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
   try {
@@ -60,9 +59,8 @@ export function getArticle(slug: string): Promise<Article | null> {
   return getJson(`/articles/${slug}`, fallback);
 }
 
-export async function getAnnouncements(includeDrafts?: boolean): Promise<Announcement[]> {
-  const url = includeDrafts ? "/announcements?all=true" : "/announcements";
-  const data = await getJson(url, announcements);
+export async function getAnnouncements(): Promise<Announcement[]> {
+  const data = await getJson("/announcements", announcements);
   return data || [];
 }
 

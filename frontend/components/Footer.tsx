@@ -1,6 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Facebook, Instagram, Mail, MapPin, Youtube, Globe, Twitter, Linkedin, Phone } from "lucide-react";
 import type { SchoolProfile } from "@/types/content";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 function getIconForLabel(label: string) {
   const normalized = label.toLowerCase();
@@ -66,8 +68,7 @@ export function Footer({ profile }: { profile?: SchoolProfile | null }) {
           <div className="flex items-start gap-6">
             {p.footerLogo && (
               <div className="relative h-20 w-20 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.footerLogo} alt="Footer Logo" className="object-contain h-full w-full" />
+                <Image src={normalizeImageUrl(p.footerLogo)} alt="Footer Logo" fill sizes="80px" className="object-contain" />
               </div>
             )}
             {p.footerLogo && p.footerText && (

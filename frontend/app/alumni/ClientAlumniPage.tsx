@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Alumni, AlumniStat } from "@/types/content";
 import { GraduationCap, Briefcase, BookOpen, Lightbulb, Search, MessageSquareQuote, ChevronRight } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 type Props = {
   initialAlumni: Alumni[];
@@ -138,8 +140,9 @@ export default function ClientAlumniPage({ initialAlumni, initialStats }: Props)
                 <div className="flex items-center gap-4 mb-4">
                   <div className="h-16 w-16 rounded-full overflow-hidden bg-zinc-100 shrink-0">
                     {alumni.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={alumni.imageUrl} alt={alumni.name} className="w-full h-full object-cover" />
+                      <div className="relative h-full w-full">
+                        <Image src={normalizeImageUrl(alumni.imageUrl)} alt={alumni.name} fill sizes="64px" className="object-cover" />
+                      </div>
                     ) : (
                       <div className="w-full h-full grid place-items-center text-zinc-400">
                         <GraduationCap size={24} />

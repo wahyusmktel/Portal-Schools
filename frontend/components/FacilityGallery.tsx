@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Building2, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { normalizeImageUrl } from "@/lib/image-url";
 
 const iconMap: Record<string, React.ReactNode> = {
   Wifi: <Building2 className="w-8 h-8" />,
@@ -102,8 +104,7 @@ export function FacilityGallery({ facilities, profile }: { facilities: Facility[
                       {coverImage ? (
                         <>
                           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors duration-500 z-10" />
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={coverImage} alt={facility.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          <Image src={normalizeImageUrl(coverImage)} alt={facility.name} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
                         </>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-300">
@@ -158,7 +159,7 @@ export function FacilityGallery({ facilities, profile }: { facilities: Facility[
             <div className="w-full md:w-3/5 bg-black relative flex items-center justify-center min-h-[300px] md:min-h-[600px] group/carousel">
               {modalImages.length > 0 ? (
                 <>
-                  <img src={modalImages[currentImageIdx]} alt={selectedFacility.name} className="w-full h-full object-contain max-h-[70vh] md:max-h-[85vh] transition-all duration-300" key={currentImageIdx} />
+                  <Image src={normalizeImageUrl(modalImages[currentImageIdx])} alt={selectedFacility.name} fill sizes="(min-width: 768px) 60vw, 100vw" className="object-contain transition-all duration-300" key={currentImageIdx} />
                   
                   {modalImages.length > 1 && (
                     <>
