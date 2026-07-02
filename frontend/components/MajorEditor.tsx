@@ -88,7 +88,7 @@ export function MajorEditor({ majors }: MajorEditorProps) {
     }
     const data = (await response.json()) as Major[];
     setItems(data || []);
-    setPage((value) => Math.min(value, Math.max(1, Math.ceil(data.length / pageSize))));
+    setPage((value) => Math.min(value, Math.max(1, Math.ceil((data || []).length / pageSize))));
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
