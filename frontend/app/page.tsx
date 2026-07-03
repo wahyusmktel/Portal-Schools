@@ -135,7 +135,7 @@ export default async function HomePage() {
 
         <MotionSection className="bg-white py-20" id="agenda">
           <div className="container-page grid gap-8 lg:grid-cols-2">
-            <div>
+            <div id="pengumuman">
               <p className="text-sm font-extrabold uppercase text-rosebrand-600">Pengumuman</p>
               <h2 className="mt-3 text-4xl font-black">Informasi penting</h2>
               <div className="mt-8 grid gap-4">

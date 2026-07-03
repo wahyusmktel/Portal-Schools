@@ -5,6 +5,7 @@ import { ArrowRight, BadgeCheck, CheckCircle2, ChevronRight, GraduationCap, Spar
 import { getMajors, getSchoolProfile } from "@/lib/api";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { SpmbBrochureFlipbook } from "@/components/SpmbBrochureFlipbook";
 
 export const metadata: Metadata = {
   title: "SPMB SMK Telkom Lampung",
@@ -17,6 +18,10 @@ export default async function SPMBPage() {
     getMajors().catch(() => [])
   ]);
   const academicYear = profile?.spmbAcademicYear || "2026/2027";
+  const brochureImages = (profile?.spmbBrochureUrl || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
 
   return (
     <>
@@ -75,6 +80,10 @@ export default async function SPMBPage() {
             </div>
           </div>
         </section>
+
+        {brochureImages.length > 0 && (
+          <SpmbBrochureFlipbook images={brochureImages} academicYear={academicYear} />
+        )}
 
         <section className="bg-zinc-50 py-20">
           <div className="container-page">

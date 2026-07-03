@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { GraduationCap, LayoutDashboard, ChevronDown, Newspaper, Calendar, Megaphone, Search, Menu, X } from "lucide-react";
+import { GraduationCap, LayoutDashboard, ChevronDown, Newspaper, Calendar, Megaphone, Menu, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { HeaderLiveSearch } from "@/components/HeaderLiveSearch";
 
 type HeaderProps = {
   logoUrl?: string;
@@ -196,9 +197,9 @@ export function Header({ logoUrl }: HeaderProps) {
 
         {/* RIGHT SIDE ACTIONS */}
         <div className="flex items-center gap-3">
-          <button className="hidden sm:grid h-10 w-10 place-items-center rounded-full bg-zinc-50 text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900">
-            <Search size={18} />
-          </button>
+          <div className="hidden w-72 xl:block">
+            <HeaderLiveSearch />
+          </div>
           <Link
             href="/dashboard/login"
             className="hidden lg:flex h-10 items-center gap-2 rounded-full bg-rosebrand-500 px-5 text-sm font-bold text-white transition hover:bg-rosebrand-600 shadow-md hover:shadow-lg"
@@ -229,6 +230,8 @@ export function Header({ logoUrl }: HeaderProps) {
             className="fixed inset-x-0 top-[72px] z-40 h-[calc(100vh-72px)] bg-white/95 backdrop-blur-xl border-t border-zinc-100 overflow-y-auto px-6 py-8 shadow-2xl lg:hidden"
           >
             <nav className="flex flex-col gap-6">
+              <HeaderLiveSearch onNavigate={() => setIsMobileMenuOpen(false)} />
+
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">Profil</span>
                 <Link href="/profil" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Tentang Sekolah</Link>
