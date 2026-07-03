@@ -328,7 +328,7 @@ export function MajorEditor({ majors }: MajorEditorProps) {
                       if (!file) return;
                       const formData = new FormData();
                       formData.append('file', file);
-                      const res = await fetch(`${API_URL}/uploads`, {
+                      const res = await fetch(`${API_URL}/uploads/images`, {
                         method: 'POST',
                         credentials: 'include',
                         body: formData,
