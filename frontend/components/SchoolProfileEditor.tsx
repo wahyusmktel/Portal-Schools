@@ -27,6 +27,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
+  const [spmbBrochureUploading, setSpmbBrochureUploading] = useState(false);
   
   const [principalImageFile, setPrincipalImageFile] = useState<File | null>(null);
   const [principalImagePreview, setPrincipalImagePreview] = useState(profile.principalImage || "");
@@ -82,6 +83,49 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
     if (!data.url) return { ok: false, message: "Upload berhasil tetapi URL gambar tidak diterima." };
 
     return { ok: true, url: data.url };
+  }
+
+  async function onSpmbBrochureUpload(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+
+    const invalidFile = files.find((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024);
+    if (invalidFile) {
+      setNotice({ type: "error", message: "Brosur SPMB harus berupa gambar dengan ukuran maksimal 5MB per file." });
+      input.value = "";
+      return;
+    }
+
+    setSpmbBrochureUploading(true);
+    setNotice(null);
+
+    const uploadedUrls: string[] = [];
+    for (const file of files) {
+      const result = await uploadImage(file);
+      if (!result.ok) {
+        setSpmbBrochureUploading(false);
+        setNotice({ type: "error", message: result.message });
+        input.value = "";
+        return;
+      }
+      uploadedUrls.push(result.url);
+    }
+
+    setForm((current) => {
+      const existingUrls = (current.spmbBrochureUrl || "")
+        .split(",")
+        .map((url) => url.trim())
+        .filter(Boolean);
+
+      return {
+        ...current,
+        spmbBrochureUrl: [...existingUrls, ...uploadedUrls].join(", ")
+      };
+    });
+    setSpmbBrochureUploading(false);
+    setNotice({ type: "success", message: `${uploadedUrls.length} gambar brosur SPMB berhasil diunggah. Klik Simpan Perubahan untuk menerbitkannya.` });
+    input.value = "";
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -214,6 +258,24 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <div className="mt-4">
             <Textarea label="URL Brosur SPMB (Pisahkan dengan koma untuk banyak gambar)" value={form.spmbBrochureUrl || ""} onChange={(value: string) => setForm({ ...form, spmbBrochureUrl: value })} rows={3} required={false} placeholder="https://example.com/brosur1.jpg, https://example.com/brosur2.jpg" />
           </div>
+          <label className="mt-3 grid gap-2 text-sm font-bold text-zinc-700">
+            Unggah Brosur SPMB dari Komputer Lokal
+            <span className={`flex min-h-28 flex-col items-center justify-center gap-2 rounded-[8px] border border-dashed px-4 py-5 text-center transition ${spmbBrochureUploading ? "cursor-wait border-zinc-200 bg-zinc-50 text-zinc-400" : "cursor-pointer border-zinc-300 bg-softgray hover:border-rosebrand-300 hover:bg-rosebrand-50"}`}>
+              <ImagePlus size={26} className={spmbBrochureUploading ? "text-zinc-400" : "text-rosebrand-600"} aria-hidden />
+              <span className="text-sm font-extrabold text-zinc-700">
+                {spmbBrochureUploading ? "Mengunggah brosur..." : "Pilih satu atau beberapa gambar brosur"}
+              </span>
+              <span className="text-xs font-semibold text-zinc-500">JPG, PNG, atau WEBP. Maksimal 5MB per gambar. URL otomatis masuk ke field di atas, lalu simpan perubahan.</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={onSpmbBrochureUpload}
+                disabled={spmbBrochureUploading}
+                className="sr-only"
+              />
+            </span>
+          </label>
         </div>
       </section>
 
