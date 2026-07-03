@@ -49,16 +49,8 @@ export async function getSchoolProfile(): Promise<SchoolProfile> {
 }
 
 export async function getMajors(): Promise<Major[]> {
-  const data = await getJson("/majors", majors);
-  return (data || []).map((major, index) => ({
-    ...majors[index % majors.length],
-    ...major,
-    coverImage: major.coverImage || majors[index % majors.length].coverImage,
-    curriculum: Array.isArray(major.curriculum) ? major.curriculum : majors[index % majors.length].curriculum,
-    careerProspects: Array.isArray(major.careerProspects)
-      ? major.careerProspects
-      : majors[index % majors.length].careerProspects
-  }));
+  const data = await getJson("/majors", null);
+  return data || [];
 }
 
 export async function getHeroSlides(): Promise<HeroSlide[]> {
