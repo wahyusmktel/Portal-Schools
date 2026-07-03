@@ -86,6 +86,22 @@ export type Major = {
   careerProspects: string[];
 };
 
+export type HeroSlide = {
+  id: number;
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  eyebrow: string;
+  primaryText: string;
+  primaryUrl: string;
+  secondText: string;
+  secondUrl: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type SchoolProfile = {
   name: string;
   tagline: string;

@@ -46,6 +46,22 @@ type SchoolProfile struct {
 	FooterText       string              `json:"footerText"`
 }
 
+type HeroSlide struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Subtitle    string `json:"subtitle"`
+	ImageURL    string `json:"imageUrl"`
+	Eyebrow     string `json:"eyebrow"`
+	PrimaryText string `json:"primaryText"`
+	PrimaryURL  string `json:"primaryUrl"`
+	SecondText  string `json:"secondText"`
+	SecondURL   string `json:"secondUrl"`
+	SortOrder   int    `json:"sortOrder"`
+	IsActive    bool   `json:"isActive"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
 type Major struct {
 	ID              int64    `json:"id"`
 	Name            string   `json:"name"`

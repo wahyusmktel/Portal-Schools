@@ -6,12 +6,13 @@ import { Header } from "@/components/Header";
 import { HeroSlider } from "@/components/HeroSlider";
 import { MajorShowcase } from "@/components/MajorShowcase";
 import { MotionSection } from "@/components/MotionSection";
-import { getAgendas, getAnnouncements, getArticles, getMajors, getSchoolProfile } from "@/lib/api";
+import { getAgendas, getAnnouncements, getArticles, getHeroSlides, getMajors, getSchoolProfile } from "@/lib/api";
 import { formatDate, readCount, readingTime } from "@/lib/article-utils";
 
 export default async function HomePage() {
-  const [profile, majors, articles, announcements, agendas] = await Promise.all([
+  const [profile, heroSlides, majors, articles, announcements, agendas] = await Promise.all([
     getSchoolProfile(),
+    getHeroSlides(),
     getMajors(),
     getArticles(),
     getAnnouncements(),
@@ -36,7 +37,7 @@ export default async function HomePage() {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        <HeroSlider />
+        <HeroSlider slides={heroSlides} />
 
         <MotionSection className="py-20" id="profil">
           <div className="container-page grid items-center gap-10 lg:grid-cols-[0.85fr_1.15fr]">

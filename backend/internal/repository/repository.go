@@ -204,6 +204,141 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 	return err
 }
 
+func (r *Repository) HeroSlides(ctx context.Context, includeInactive bool) ([]models.HeroSlide, error) {
+	query := `
+		SELECT id, title, subtitle, image_url, eyebrow, primary_text, primary_url,
+		       second_text, second_url, sort_order, is_active, created_at, updated_at
+		FROM hero_slides
+	`
+	if !includeInactive {
+		query += " WHERE is_active = true"
+	}
+	query += " ORDER BY sort_order ASC, id ASC"
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.HeroSlide
+	for rows.Next() {
+		var item models.HeroSlide
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Subtitle,
+			&item.ImageURL,
+			&item.Eyebrow,
+			&item.PrimaryText,
+			&item.PrimaryURL,
+			&item.SecondText,
+			&item.SecondURL,
+			&item.SortOrder,
+			&item.IsActive,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateHeroSlide(ctx context.Context, item models.HeroSlide) (int64, error) {
+	if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Subtitle) == "" {
+		return 0, errors.New("judul dan deskripsi slide wajib diisi")
+	}
+	if strings.TrimSpace(item.ImageURL) == "" {
+		return 0, errors.New("gambar slide wajib diisi")
+	}
+	if strings.TrimSpace(item.Eyebrow) == "" {
+		item.Eyebrow = "Portal Resmi Sekolah"
+	}
+	if strings.TrimSpace(item.PrimaryText) == "" {
+		item.PrimaryText = "Lihat Berita"
+	}
+	if strings.TrimSpace(item.PrimaryURL) == "" {
+		item.PrimaryURL = "#artikel"
+	}
+	if strings.TrimSpace(item.SecondText) == "" {
+		item.SecondText = "Profil Jurusan"
+	}
+	if strings.TrimSpace(item.SecondURL) == "" {
+		item.SecondURL = "#jurusan"
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO hero_slides (title, subtitle, image_url, eyebrow, primary_text, primary_url, second_text, second_url, sort_order, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, item.Title, item.Subtitle, item.ImageURL, item.Eyebrow, item.PrimaryText, item.PrimaryURL, item.SecondText, item.SecondURL, item.SortOrder, item.IsActive)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func (r *Repository) UpdateHeroSlide(ctx context.Context, id int64, item models.HeroSlide) error {
+	if id <= 0 {
+		return errors.New("id tidak valid")
+	}
+	if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Subtitle) == "" {
+		return errors.New("judul dan deskripsi slide wajib diisi")
+	}
+	if strings.TrimSpace(item.ImageURL) == "" {
+		return errors.New("gambar slide wajib diisi")
+	}
+	if strings.TrimSpace(item.Eyebrow) == "" {
+		item.Eyebrow = "Portal Resmi Sekolah"
+	}
+	if strings.TrimSpace(item.PrimaryText) == "" {
+		item.PrimaryText = "Lihat Berita"
+	}
+	if strings.TrimSpace(item.PrimaryURL) == "" {
+		item.PrimaryURL = "#artikel"
+	}
+	if strings.TrimSpace(item.SecondText) == "" {
+		item.SecondText = "Profil Jurusan"
+	}
+	if strings.TrimSpace(item.SecondURL) == "" {
+		item.SecondURL = "#jurusan"
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE hero_slides
+		SET title = ?, subtitle = ?, image_url = ?, eyebrow = ?, primary_text = ?, primary_url = ?,
+		    second_text = ?, second_url = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, item.Title, item.Subtitle, item.ImageURL, item.Eyebrow, item.PrimaryText, item.PrimaryURL, item.SecondText, item.SecondURL, item.SortOrder, item.IsActive, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteHeroSlide(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM hero_slides WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (r *Repository) Majors(ctx context.Context) ([]models.Major, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, slug, summary, icon, cover_image, curriculum_json, career_prospects_json

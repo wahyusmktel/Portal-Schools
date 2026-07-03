@@ -1,4 +1,4 @@
-import type { Agenda, Announcement, Article, Major, SchoolProfile } from "@/types/content";
+import type { Agenda, Announcement, Article, HeroSlide, Major, SchoolProfile } from "@/types/content";
 
 export const schoolProfile: SchoolProfile = {
   name: "SMK Telkom Lampung",
@@ -22,6 +22,54 @@ export const schoolProfile: SchoolProfile = {
     { label: "Fokus Belajar", value: "Digital" }
   ]
 };
+
+export const heroSlides: HeroSlide[] = [
+  {
+    id: 1,
+    title: "Talenta Digital Berkarakter",
+    subtitle:
+      "Portal utama SMK Telkom Lampung untuk informasi sekolah, inovasi siswa, dan perkembangan pendidikan teknologi.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=82",
+    eyebrow: "Portal Resmi Sekolah",
+    primaryText: "Lihat Berita",
+    primaryUrl: "#artikel",
+    secondText: "Profil Jurusan",
+    secondUrl: "#jurusan",
+    sortOrder: 1,
+    isActive: true
+  },
+  {
+    id: 2,
+    title: "Belajar Dekat dengan Industri",
+    subtitle:
+      "Program vokasi diarahkan pada praktik nyata, kolaborasi industri, dan budaya kerja profesional.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1800&q=82",
+    eyebrow: "Portal Resmi Sekolah",
+    primaryText: "Lihat Berita",
+    primaryUrl: "#artikel",
+    secondText: "Profil Jurusan",
+    secondUrl: "#jurusan",
+    sortOrder: 2,
+    isActive: true
+  },
+  {
+    id: 3,
+    title: "Ekosistem Sekolah Teknologi",
+    subtitle:
+      "Artikel, agenda, pengumuman, dan profil jurusan tersaji rapi untuk siswa, orang tua, alumni, dan masyarakat.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1800&q=82",
+    eyebrow: "Portal Resmi Sekolah",
+    primaryText: "Lihat Berita",
+    primaryUrl: "#artikel",
+    secondText: "Profil Jurusan",
+    secondUrl: "#jurusan",
+    sortOrder: 3,
+    isActive: true
+  }
+];
 
 export const majors: Major[] = [
   {

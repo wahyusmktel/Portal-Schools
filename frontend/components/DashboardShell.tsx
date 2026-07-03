@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogOut,
   Home,
+  Images,
   ShieldCheck,
   School,
   Users,
@@ -34,6 +35,7 @@ import { logout } from "@/lib/auth-client";
 const menu = [
   { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard },
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
+  { href: "/dashboard/hero-slides", label: "Slider Hero", icon: Images },
   { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
   { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },

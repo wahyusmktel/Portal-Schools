@@ -3,60 +3,49 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { HeroSlide } from "@/types/content";
+import { normalizeImageUrl } from "@/lib/image-url";
 
-const slides = [
-  {
-    title: "Talenta Digital Berkarakter",
-    subtitle:
-      "Portal utama SMK Telkom Lampung untuk informasi sekolah, inovasi siswa, dan perkembangan pendidikan teknologi.",
-    image:
-      "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?auto=format&fit=crop&w=1800&q=82"
-  },
-  {
-    title: "Belajar Dekat dengan Industri",
-    subtitle:
-      "Program vokasi diarahkan pada praktik nyata, kolaborasi industri, dan budaya kerja profesional.",
-    image:
-      "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1800&q=82"
-  },
-  {
-    title: "Ekosistem Sekolah Teknologi",
-    subtitle:
-      "Artikel, agenda, pengumuman, dan profil jurusan tersaji rapi untuk siswa, orang tua, alumni, dan masyarakat.",
-    image:
-      "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1800&q=82"
-  }
-];
-
-export function HeroSlider() {
+export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
+  const safeSlides = useMemo(() => slides.filter((slide) => slide.title && slide.imageUrl), [slides]);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
-  const current = slides[active];
+  const current = safeSlides[active] || safeSlides[0];
 
   const controls = useMemo(
     () => ({
-      previous: () => setActive((value) => (value === 0 ? slides.length - 1 : value - 1)),
-      next: () => setActive((value) => (value + 1) % slides.length)
+      previous: () => setActive((value) => (value === 0 ? safeSlides.length - 1 : value - 1)),
+      next: () => setActive((value) => (value + 1) % safeSlides.length)
     }),
-    []
+    [safeSlides.length]
   );
 
   useEffect(() => {
-    if (paused) {
+    if (paused || safeSlides.length <= 1) {
       return;
     }
 
     const timer = window.setInterval(controls.next, 5200);
     return () => window.clearInterval(timer);
-  }, [controls.next, paused]);
+  }, [controls.next, paused, safeSlides.length]);
+
+  useEffect(() => {
+    if (active > safeSlides.length - 1) {
+      setActive(0);
+    }
+  }, [active, safeSlides.length]);
+
+  if (!current) {
+    return null;
+  }
 
   return (
     <section className="relative min-h-screen overflow-hidden bg-zinc-950 text-white">
       <AnimatePresence mode="wait">
         <motion.div
-          key={current.image}
+          key={current.imageUrl}
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${current.image})` }}
+          style={{ backgroundImage: `url(${normalizeImageUrl(current.imageUrl)})` }}
           initial={{ opacity: 0, scale: 1.08 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.03 }}
@@ -74,7 +63,7 @@ export function HeroSlider() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            Portal Resmi Sekolah
+            {current.eyebrow || "Portal Resmi Sekolah"}
           </motion.p>
           <motion.h1
             key={`title-${active}`}
@@ -96,16 +85,16 @@ export function HeroSlider() {
           </motion.p>
           <div className="mt-9 flex flex-wrap gap-3">
             <a
-              href="#artikel"
+              href={current.primaryUrl || "#artikel"}
               className="focus-ring rounded-full bg-rosebrand-500 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-rosebrand-600"
             >
-              Lihat Berita
+              {current.primaryText || "Lihat Berita"}
             </a>
             <a
-              href="#jurusan"
+              href={current.secondUrl || "#jurusan"}
               className="focus-ring rounded-full bg-white/10 px-6 py-3 text-sm font-extrabold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/20"
             >
-              Profil Jurusan
+              {current.secondText || "Profil Jurusan"}
             </a>
           </div>
         </div>
@@ -121,9 +110,9 @@ export function HeroSlider() {
           <ArrowLeft size={18} aria-hidden />
         </button>
         <div className="flex items-center gap-2" aria-label="Indikator slide">
-          {slides.map((slide, index) => (
+          {safeSlides.map((slide, index) => (
             <button
-              key={slide.title}
+              key={slide.id || slide.title}
               type="button"
               aria-label={`Buka slide ${index + 1}`}
               className={`h-2.5 rounded-full transition ${
