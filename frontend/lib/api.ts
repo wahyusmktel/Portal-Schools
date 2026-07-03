@@ -2,11 +2,22 @@ import { agendas, announcements, articles, majors, schoolProfile } from "@/lib/f
 import { API_URL } from "@/lib/api-config";
 import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ } from "@/types/content";
 
+const PUBLIC_API_REVALIDATE_SECONDS = Number(process.env.API_REVALIDATE_SECONDS || 60);
+
 async function getJson<T>(path: string, fallback: T, init?: RequestInit): Promise<T> {
   try {
+    const cacheOptions =
+      init?.cache || init?.next
+        ? {}
+        : {
+            next: {
+              revalidate: PUBLIC_API_REVALIDATE_SECONDS
+            }
+          };
+
     const response = await fetch(`${API_URL}${path}`, {
+      ...cacheOptions,
       ...init,
-      cache: "no-store",
       headers: {
         Accept: "application/json",
         ...init?.headers
