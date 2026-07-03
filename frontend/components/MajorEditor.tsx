@@ -317,20 +317,30 @@ export function MajorEditor({ majors }: MajorEditorProps) {
                 Deskripsi
                 <textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} rows={4} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" required />
               </label>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                  Cover Image URL
-                  <input value={form.coverImage} onChange={(event) => setForm({ ...form, coverImage: event.target.value })} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" placeholder="https://..." />
-                </label>
-                <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                  Icon
-                  <select value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500">
-                    <option value="Network">Network</option>
-                    <option value="Code">Code</option>
-                    <option value="Palette">Palette</option>
-                  </select>
-                </label>
-              </div>
+                  <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                    Cover Image URL
+                    <input value={form.coverImage} onChange={(event) => setForm({ ...form, coverImage: event.target.value })} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" placeholder="https://..." />
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                    Unggah Cover Image
+                    <input type="file" accept="image/*" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      const res = await fetch(`${API_URL}/uploads`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData,
+                      }).catch(() => null);
+                      if (res?.ok) {
+                        const data = await res.json();
+                        setForm(prev => ({ ...prev, coverImage: data.url || '' }));
+                      } else {
+                        setNotice({ type: 'error', message: 'Gagal mengunggah gambar.' });
+                      }
+                    }} className="rounded-[8px] border border-zinc-200 px-4 py-3" />
+                  </label>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-2 text-sm font-bold text-zinc-700">
                   Kurikulum
