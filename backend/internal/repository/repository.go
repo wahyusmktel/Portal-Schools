@@ -78,7 +78,7 @@ func (r *Repository) CreateUser(ctx context.Context, name string, email string, 
 	if name == "" || email == "" || len(password) < 8 {
 		return 0, errors.New("nama, email, dan password minimal 8 karakter wajib diisi")
 	}
-	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin {
+	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB {
 		role = models.RoleContributor
 	}
 
@@ -114,11 +114,12 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	var vision sql.NullString
 	var mission sql.NullString
 	var spmbBrochureURL sql.NullString
+	var spmbAcademicYear sql.NullString
 	err := r.db.QueryRowContext(ctx, `
 		SELECT name, tagline, description, address, phone, email, map_embed_url, youtube_embed_url,
 		       principal_name, principal_title, principal_message, principal_image, stats_json,
 		       social_media, partner_links, header_logo, footer_logo, footer_text,
-		       vision, mission, spmb_brochure_url
+		       vision, mission, spmb_brochure_url, spmb_academic_year
 		FROM school_profiles
 		ORDER BY id ASC
 		LIMIT 1
@@ -144,6 +145,7 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 		&vision,
 		&mission,
 		&spmbBrochureURL,
+		&spmbAcademicYear,
 	)
 	if err != nil {
 		return profile, err
@@ -163,6 +165,10 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	profile.Vision = vision.String
 	profile.Mission = mission.String
 	profile.SpmbBrochureURL = spmbBrochureURL.String
+	profile.SpmbAcademicYear = spmbAcademicYear.String
+	if profile.SpmbAcademicYear == "" {
+		profile.SpmbAcademicYear = "2026/2027"
+	}
 	return profile, nil
 }
 
@@ -188,12 +194,13 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
 		    map_embed_url = ?, youtube_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
 		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
-		    header_logo = ?, footer_logo = ?, footer_text = ?, vision = ?, mission = ?, spmb_brochure_url = ?
+		    header_logo = ?, footer_logo = ?, footer_text = ?, vision = ?, mission = ?, spmb_brochure_url = ?,
+		    spmb_academic_year = ?
 		WHERE id = 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
 		profile.MapEmbedURL, profile.YoutubeEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
 		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText,
-		profile.Vision, profile.Mission, profile.SpmbBrochureURL)
+		profile.Vision, profile.Mission, profile.SpmbBrochureURL, profile.SpmbAcademicYear)
 	return err
 }
 
@@ -592,7 +599,7 @@ func (r *Repository) UpdateUser(ctx context.Context, id int64, name string, emai
 	if name == "" || email == "" {
 		return errors.New("nama dan email wajib diisi")
 	}
-	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin {
+	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB {
 		role = models.RoleContributor
 	}
 	result, err := r.db.ExecContext(ctx, `
@@ -1109,4 +1116,98 @@ func (r *Repository) DeleteFAQ(ctx context.Context, id int64) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.SpmbRegistration) (models.SpmbRegistration, error) {
+	item.FullName = strings.TrimSpace(item.FullName)
+	item.WhatsappNumber = strings.TrimSpace(item.WhatsappNumber)
+	item.CurrentAddress = strings.TrimSpace(item.CurrentAddress)
+	item.PreviousSchool = strings.TrimSpace(item.PreviousSchool)
+	item.InfoSource = strings.TrimSpace(item.InfoSource)
+	item.FatherName = strings.TrimSpace(item.FatherName)
+	item.MotherName = strings.TrimSpace(item.MotherName)
+	item.AcademicYear = strings.TrimSpace(item.AcademicYear)
+
+	if item.FullName == "" || item.WhatsappNumber == "" || item.CurrentAddress == "" ||
+		item.PreviousSchool == "" || item.InfoSource == "" || item.FatherName == "" ||
+		item.MotherName == "" || item.SelectedMajorID <= 0 {
+		return item, errors.New("semua data pendaftaran wajib diisi")
+	}
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT name
+		FROM majors
+		WHERE id = ? AND is_active = true
+	`, item.SelectedMajorID).Scan(&item.SelectedMajorName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return item, errors.New("jurusan pilihan tidak tersedia")
+	}
+	if err != nil {
+		return item, err
+	}
+
+	if item.AcademicYear == "" {
+		item.AcademicYear = "2026/2027"
+	}
+	item.RegistrationNumber = newSpmbRegistrationNumber()
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO spmb_registrations (
+			registration_number, full_name, whatsapp_number, current_address, previous_school,
+			info_source, father_name, mother_name, selected_major_id, selected_major_name, academic_year
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, item.RegistrationNumber, item.FullName, item.WhatsappNumber, item.CurrentAddress, item.PreviousSchool,
+		item.InfoSource, item.FatherName, item.MotherName, item.SelectedMajorID, item.SelectedMajorName, item.AcademicYear)
+	if err != nil {
+		return item, err
+	}
+	item.ID, err = result.LastInsertId()
+	if err != nil {
+		return item, err
+	}
+	return item, nil
+}
+
+func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegistration, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, registration_number, full_name, whatsapp_number, current_address, previous_school,
+		       info_source, father_name, mother_name, COALESCE(selected_major_id, 0), selected_major_name,
+		       academic_year, created_at
+		FROM spmb_registrations
+		ORDER BY created_at DESC
+		LIMIT 500
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.SpmbRegistration
+	for rows.Next() {
+		var item models.SpmbRegistration
+		if err := rows.Scan(
+			&item.ID,
+			&item.RegistrationNumber,
+			&item.FullName,
+			&item.WhatsappNumber,
+			&item.CurrentAddress,
+			&item.PreviousSchool,
+			&item.InfoSource,
+			&item.FatherName,
+			&item.MotherName,
+			&item.SelectedMajorID,
+			&item.SelectedMajorName,
+			&item.AcademicYear,
+			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func newSpmbRegistrationNumber() string {
+	return "SPMB-" + time.Now().Format("20060102-150405000000000")
 }

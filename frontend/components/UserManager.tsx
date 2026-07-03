@@ -245,6 +245,7 @@ export function UserManager() {
                     >
                       <option value="superadmin">Superadmin</option>
                       <option value="admin">Admin</option>
+                      <option value="admin-spmb">Admin SPMB</option>
                       <option value="contributor">Contributor</option>
                     </select>
                   </label>

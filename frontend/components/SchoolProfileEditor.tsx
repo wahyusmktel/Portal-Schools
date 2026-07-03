@@ -137,7 +137,8 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       footerText: form.footerText,
       vision: form.vision,
       mission: form.mission,
-      spmbBrochureUrl: form.spmbBrochureUrl
+      spmbBrochureUrl: form.spmbBrochureUrl,
+      spmbAcademicYear: form.spmbAcademicYear || "2026/2027"
     };
 
     const response = await fetch(`${API_URL}/school-profile`, {
@@ -206,6 +207,9 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <div className="grid gap-4 md:grid-cols-2">
             <Textarea label="Visi" value={form.vision || ""} onChange={(value: string) => setForm({ ...form, vision: value })} rows={4} required={false} />
             <Textarea label="Misi" value={form.mission || ""} onChange={(value: string) => setForm({ ...form, mission: value })} rows={4} required={false} />
+          </div>
+          <div className="mt-4">
+            <Field label="Tahun Ajaran SPMB" value={form.spmbAcademicYear || "2026/2027"} onChange={(value: string) => setForm({ ...form, spmbAcademicYear: value })} required={false} />
           </div>
           <div className="mt-4">
             <Textarea label="URL Brosur SPMB (Pisahkan dengan koma untuk banyak gambar)" value={form.spmbBrochureUrl || ""} onChange={(value: string) => setForm({ ...form, spmbBrochureUrl: value })} rows={3} required={false} placeholder="https://example.com/brosur1.jpg, https://example.com/brosur2.jpg" />

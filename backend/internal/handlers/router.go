@@ -70,6 +70,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/alumni", h.alumni)
 		r.Get("/alumni/stats", h.alumniStats)
 		r.Get("/faqs", h.faqs)
+		r.Post("/spmb/registrations", h.createSpmbRegistration)
 
 		r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
@@ -77,6 +78,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/auth/logout", h.requireCSRF(h.logout))
 			protected.Get("/admin/articles", h.requireAnyRole(h.adminArticles, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/announcements", h.requireAnyRole(h.adminAnnouncements, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
+			protected.Get("/admin/spmb/registrations", h.requireAnyRole(h.adminSpmbRegistrations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.deleteArticle, models.RoleSuperadmin, models.RoleAdmin)))

@@ -43,6 +43,7 @@ export async function getSchoolProfile(): Promise<SchoolProfile> {
     principalTitle: profile.principalTitle || schoolProfile.principalTitle,
     principalMessage: profile.principalMessage || schoolProfile.principalMessage,
     principalImage: profile.principalImage || schoolProfile.principalImage,
+    spmbAcademicYear: profile.spmbAcademicYear || "2026/2027",
     stats: Array.isArray(profile.stats) && profile.stats.length > 0 ? profile.stats : schoolProfile.stats
   };
 }

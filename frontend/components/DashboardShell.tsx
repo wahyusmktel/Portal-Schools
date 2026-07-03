@@ -26,7 +26,9 @@ import {
   X,
   Building,
   Megaphone,
+  ClipboardList,
 } from "lucide-react";
+import { API_URL } from "@/lib/api-config";
 import { logout } from "@/lib/auth-client";
 
 const menu = [
@@ -35,6 +37,7 @@ const menu = [
   { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
   { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },
+  { href: "/dashboard/spmb", label: "Report SPMB", icon: ClipboardList },
   { href: "/dashboard/facilities", label: "Fasilitas", icon: Building2 },
   { href: "/dashboard/majors", label: "Jurusan", icon: BookOpen },
   { href: "/dashboard/employees", label: "Pegawai", icon: UserCheck },
@@ -49,6 +52,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [role, setRole] = useState("");
 
   // Prevent scroll when mobile menu is open
   useEffect(() => {
@@ -59,6 +63,26 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     }
   }, [isMobileMenuOpen]);
 
+  useEffect(() => {
+    if (pathname === "/dashboard/login") {
+      return;
+    }
+    fetch(`${API_URL}/auth/me`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => setRole(data?.role || ""))
+      .catch(() => setRole(""));
+  }, [pathname]);
+
+  useEffect(() => {
+    if (role === "admin-spmb" && pathname !== "/dashboard/spmb" && pathname !== "/dashboard/login") {
+      router.replace("/dashboard/spmb");
+    }
+  }, [pathname, role, router]);
+
   if (pathname === "/dashboard/login") {
     return <>{children}</>;
   }
@@ -68,6 +92,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.push("/dashboard/login");
     router.refresh();
   }
+
+  const visibleMenu =
+    role === "admin-spmb"
+      ? menu.filter((item) => item.href === "/dashboard/spmb")
+      : menu.filter((item) => item.href !== "/dashboard/spmb" || role === "superadmin" || role === "admin");
 
   return (
     <div className="min-h-screen bg-softgray">
@@ -82,7 +111,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <nav className="mt-10 grid gap-2">
-          {menu.map((item) => {
+          {visibleMenu.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
               <Link 
@@ -157,7 +186,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
             
             <nav className="mt-8 grid gap-2 overflow-y-auto flex-1 pb-4">
-              {menu.map((item) => {
+              {visibleMenu.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 return (
                   <Link 

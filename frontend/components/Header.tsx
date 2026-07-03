@@ -119,7 +119,6 @@ export function Header({ logoUrl }: HeaderProps) {
                     <Link href="/jurusan" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Program Keahlian</Link>
                     <Link href="/fasilitas" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Fasilitas Sekolah</Link>
                     <Link href="/prestasi" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Prestasi Siswa</Link>
-                    <Link href="/spmb" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Brosur SPMB</Link>
                     <Link href="/alumni" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Portal Alumni</Link>
                     <Link href="/bantuan" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Pusat Bantuan</Link>
                   </div>
@@ -189,6 +188,10 @@ export function Header({ logoUrl }: HeaderProps) {
               )}
             </AnimatePresence>
           </div>
+
+          <Link href="/spmb" className="px-4 py-2.5 rounded-full transition-colors hover:bg-zinc-50 hover:text-rosebrand-600">
+            SPMB
+          </Link>
         </nav>
 
         {/* RIGHT SIDE ACTIONS */}
@@ -240,9 +243,14 @@ export function Header({ logoUrl }: HeaderProps) {
                 <Link href="/jurusan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Program Keahlian</Link>
                 <Link href="/fasilitas" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Fasilitas</Link>
                 <Link href="/prestasi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Prestasi</Link>
-                <Link href="/spmb" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Brosur SPMB</Link>
                 <Link href="/alumni" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Alumni</Link>
                 <Link href="/bantuan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Pusat Bantuan</Link>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <span className="text-xs font-black text-zinc-400 uppercase tracking-wider mb-2">SPMB</span>
+                <Link href="/spmb" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Penerimaan Murid Baru</Link>
+                <Link href="/spmb/pendaftaran" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-rosebrand-600 hover:text-rosebrand-700 py-2 border-b border-zinc-100">Daftar Sekarang</Link>
               </div>
               
               <div className="flex flex-col gap-2 mt-4">

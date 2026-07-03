@@ -8,6 +8,7 @@ const (
 	RoleSuperadmin  Role = "superadmin"
 	RoleAdmin       Role = "admin"
 	RoleContributor Role = "contributor"
+	RoleAdminSPMB   Role = "admin-spmb"
 )
 
 type User struct {
@@ -36,6 +37,7 @@ type SchoolProfile struct {
 	Vision           string              `json:"vision"`
 	Mission          string              `json:"mission"`
 	SpmbBrochureURL  string              `json:"spmbBrochureUrl"`
+	SpmbAcademicYear string              `json:"spmbAcademicYear"`
 	Stats            []map[string]string `json:"stats"`
 	SocialMedia      []map[string]string `json:"socialMedia"`
 	PartnerLinks     []map[string]string `json:"partnerLinks"`
@@ -105,15 +107,15 @@ type Employee struct {
 }
 
 type Facility struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
+	ID          int64    `json:"id"`
+	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	ImageURL    string   `json:"imageUrl"`
 	Images      []string `json:"images"`
 	Icon        string   `json:"icon"`
-	SortOrder   int    `json:"sortOrder"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	SortOrder   int      `json:"sortOrder"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
 }
 
 type Achievement struct {
@@ -155,10 +157,26 @@ type AlumniStat struct {
 }
 
 type FAQ struct {
-	ID         int64  `json:"id"`
-	Question   string `json:"question"`
-	Answer     string `json:"answer"`
-	Category   string `json:"category"`
-	SortOrder  int    `json:"sortOrder"`
-	CreatedAt  string `json:"createdAt"`
+	ID        int64  `json:"id"`
+	Question  string `json:"question"`
+	Answer    string `json:"answer"`
+	Category  string `json:"category"`
+	SortOrder int    `json:"sortOrder"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type SpmbRegistration struct {
+	ID                 int64  `json:"id"`
+	RegistrationNumber string `json:"registrationNumber"`
+	FullName           string `json:"fullName"`
+	WhatsappNumber     string `json:"whatsappNumber"`
+	CurrentAddress     string `json:"currentAddress"`
+	PreviousSchool     string `json:"previousSchool"`
+	InfoSource         string `json:"infoSource"`
+	FatherName         string `json:"fatherName"`
+	MotherName         string `json:"motherName"`
+	SelectedMajorID    int64  `json:"selectedMajorId"`
+	SelectedMajorName  string `json:"selectedMajorName"`
+	AcademicYear       string `json:"academicYear"`
+	CreatedAt          string `json:"createdAt"`
 }

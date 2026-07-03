@@ -102,10 +102,27 @@ export type SchoolProfile = {
   vision?: string;
   mission?: string;
   spmbBrochureUrl?: string;
+  spmbAcademicYear?: string;
   headerLogo?: string;
   socialMedia?: Array<{ label: string; value: string }>;
   partnerLinks?: Array<{ label: string; value: string }>;
   footerLogo?: string;
   footerText?: string;
   stats: Array<{ label: string; value: string }>;
+};
+
+export type SpmbRegistration = {
+  id: number;
+  registrationNumber: string;
+  fullName: string;
+  whatsappNumber: string;
+  currentAddress: string;
+  previousSchool: string;
+  infoSource: string;
+  fatherName: string;
+  motherName: string;
+  selectedMajorId: number;
+  selectedMajorName: string;
+  academicYear: string;
+  createdAt: string;
 };
