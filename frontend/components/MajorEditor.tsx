@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, GraduationCap, Pencil, Plus, Save, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, GraduationCap, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import type { Major } from "@/types/content";
@@ -144,6 +144,33 @@ export function MajorEditor({ majors }: MajorEditorProps) {
     });
   }
 
+  async function deleteMajor(major: Major) {
+    if (!window.confirm(`Yakin ingin menghapus jurusan "${major.name}"? Jurusan yang dihapus tidak akan tampil di website dan formulir SPMB.`)) {
+      return;
+    }
+
+    setNotice(null);
+    const response = await fetch(`${API_URL}/majors/${major.id}`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        "X-CSRF-Token": getCookie("csrf_token")
+      }
+    }).catch(() => null);
+
+    if (!response?.ok) {
+      const data = await response?.json().catch(() => null);
+      setNotice({
+        type: "error",
+        message: data?.message || "Jurusan belum bisa dihapus. Pastikan sesi login masih valid."
+      });
+      return;
+    }
+
+    await refreshMajors();
+    setNotice({ type: "success", message: "Jurusan berhasil dihapus." });
+  }
+
   return (
     <div className="grid gap-5">
       <div className="flex flex-col justify-between gap-4 rounded-[8px] bg-white p-5 shadow-sm md:flex-row md:items-center">
@@ -211,14 +238,24 @@ export function MajorEditor({ majors }: MajorEditorProps) {
                     </div>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(major)}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-zinc-200 px-4 text-sm font-extrabold text-zinc-700 transition hover:border-rosebrand-200 hover:bg-rosebrand-50 hover:text-rosebrand-700"
-                    >
-                      <Pencil size={16} aria-hidden />
-                      Edit
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(major)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-zinc-200 px-4 text-sm font-extrabold text-zinc-700 transition hover:border-rosebrand-200 hover:bg-rosebrand-50 hover:text-rosebrand-700"
+                      >
+                        <Pencil size={16} aria-hidden />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteMajor(major)}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] border border-zinc-200 px-4 text-sm font-extrabold text-zinc-700 transition hover:border-rosebrand-200 hover:bg-rosebrand-50 hover:text-rosebrand-700"
+                      >
+                        <Trash2 size={16} aria-hidden />
+                        Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

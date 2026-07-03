@@ -302,6 +302,29 @@ func (r *Repository) UpdateMajor(ctx context.Context, id int64, major models.Maj
 	return nil
 }
 
+func (r *Repository) DeleteMajor(ctx context.Context, id int64) error {
+	if id <= 0 {
+		return errors.New("id jurusan tidak valid")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE majors
+		SET is_active = false, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? AND is_active = true
+	`, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.Article, error) {
 	query := `
 		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status, a.view_count,

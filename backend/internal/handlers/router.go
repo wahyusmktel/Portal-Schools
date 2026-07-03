@@ -86,6 +86,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/agendas", h.requireCSRF(h.requireAnyRole(h.createAgenda, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/majors", h.requireCSRF(h.requireAnyRole(h.createMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.updateMajor, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.deleteMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/school-profile", h.requireCSRF(h.requireAnyRole(h.updateSchoolProfile, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Get("/admin/comments", h.requireAnyRole(h.adminComments, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
@@ -430,6 +431,23 @@ func (h *Handler) updateMajor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "jurusan berhasil diperbarui"})
+}
+
+func (h *Handler) deleteMajor(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id jurusan tidak valid")
+		return
+	}
+
+	if err := h.repo.DeleteMajor(r.Context(), id); errors.Is(err, sql.ErrNoRows) {
+		httpx.Error(w, http.StatusNotFound, "jurusan tidak ditemukan")
+		return
+	} else if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal menghapus jurusan")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "jurusan berhasil dihapus"})
 }
 
 func (h *Handler) updateSchoolProfile(w http.ResponseWriter, r *http.Request) {
