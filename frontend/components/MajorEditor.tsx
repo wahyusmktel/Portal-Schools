@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, GraduationCap, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, GraduationCap, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import type { Major } from "@/types/content";
@@ -43,6 +43,7 @@ export function MajorEditor({ majors }: MajorEditorProps) {
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [form, setForm] = useState<MajorFormState>(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
   const currentItems = useMemo(() => {
@@ -89,6 +90,56 @@ export function MajorEditor({ majors }: MajorEditorProps) {
     const data = (await response.json()) as Major[];
     setItems(data || []);
     setPage((value) => Math.min(value, Math.max(1, Math.ceil((data || []).length / pageSize))));
+  }
+
+  async function uploadCoverImage(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setNotice({ type: "error", message: "Cover jurusan harus berupa gambar." });
+      input.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setNotice({ type: "error", message: "Ukuran cover jurusan maksimal 5MB." });
+      input.value = "";
+      return;
+    }
+
+    setCoverUploading(true);
+    setNotice(null);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_URL}/uploads/images`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-CSRF-Token": getCookie("csrf_token")
+      },
+      body: formData
+    }).catch(() => null);
+
+    setCoverUploading(false);
+    input.value = "";
+
+    if (!response?.ok) {
+      const data = await response?.json().catch(() => null);
+      setNotice({ type: "error", message: data?.message || "Gagal mengunggah cover jurusan." });
+      return;
+    }
+
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) {
+      setNotice({ type: "error", message: "Upload berhasil tetapi URL gambar tidak diterima." });
+      return;
+    }
+
+    setForm((current) => ({ ...current, coverImage: data.url || "" }));
+    setNotice({ type: "success", message: "Cover jurusan berhasil diunggah. Klik Simpan untuk menyimpan data jurusan." });
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -317,30 +368,26 @@ export function MajorEditor({ majors }: MajorEditorProps) {
                 Deskripsi
                 <textarea value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} rows={4} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" required />
               </label>
-                  <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                    Cover Image URL
-                    <input value={form.coverImage} onChange={(event) => setForm({ ...form, coverImage: event.target.value })} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" placeholder="https://..." />
-                  </label>
-                  <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                    Unggah Cover Image
-                    <input type="file" accept="image/*" onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      const res = await fetch(`${API_URL}/uploads/images`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData,
-                      }).catch(() => null);
-                      if (res?.ok) {
-                        const data = await res.json();
-                        setForm(prev => ({ ...prev, coverImage: data.url || '' }));
-                      } else {
-                        setNotice({ type: 'error', message: 'Gagal mengunggah gambar.' });
-                      }
-                    }} className="rounded-[8px] border border-zinc-200 px-4 py-3" />
-                  </label>
+              <div className="grid gap-4 md:grid-cols-[1fr_0.75fr]">
+                <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                  Cover Image URL
+                  <input value={form.coverImage} onChange={(event) => setForm({ ...form, coverImage: event.target.value })} className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500" placeholder="https://..." />
+                </label>
+                <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                  Unggah Cover Image dari Lokal
+                  <span className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-dashed px-4 py-3 text-sm font-extrabold transition ${coverUploading ? "border-zinc-200 bg-zinc-50 text-zinc-400" : "border-zinc-300 bg-softgray text-zinc-700 hover:border-rosebrand-300 hover:bg-rosebrand-50 hover:text-rosebrand-700"}`}>
+                    {coverUploading ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <ImagePlus size={18} aria-hidden />}
+                    {coverUploading ? "Mengunggah..." : "Pilih Gambar"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadCoverImage} disabled={coverUploading} className="sr-only" />
+                  </span>
+                </label>
+              </div>
+              {form.coverImage ? (
+                <div className="overflow-hidden rounded-[8px] border border-zinc-200 bg-zinc-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={form.coverImage} alt="Preview cover jurusan" className="h-48 w-full object-cover" />
+                </div>
+              ) : null}
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="grid gap-2 text-sm font-bold text-zinc-700">
                   Kurikulum
