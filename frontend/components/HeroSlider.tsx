@@ -11,6 +11,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const current = safeSlides[active] || safeSlides[0];
+  const currentImageUrl = current ? normalizeImageUrl(current.imageUrl) : "";
 
   const controls = useMemo(
     () => ({
@@ -35,6 +36,14 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     }
   }, [active, safeSlides.length]);
 
+  useEffect(() => {
+    safeSlides.slice(0, 3).forEach((slide) => {
+      const image = new window.Image();
+      image.decoding = "async";
+      image.src = normalizeImageUrl(slide.imageUrl);
+    });
+  }, [safeSlides]);
+
   if (!current) {
     return null;
   }
@@ -44,13 +53,22 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={current.imageUrl}
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${normalizeImageUrl(current.imageUrl)})` }}
+          className="absolute inset-0 overflow-hidden"
           initial={{ opacity: 0, scale: 1.08 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.03 }}
           transition={{ duration: 1.1, ease: "easeOut" }}
-        />
+        >
+          <img
+            src={currentImageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            decoding="async"
+            fetchPriority={active === 0 ? "high" : "auto"}
+            loading={active === 0 ? "eager" : "lazy"}
+            draggable={false}
+          />
+        </motion.div>
       </AnimatePresence>
       <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/70 to-zinc-950/12" />
       <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-softgray to-transparent" />

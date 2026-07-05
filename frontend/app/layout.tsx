@@ -58,6 +58,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" data-scroll-behavior="smooth">
+      <head>
+        <link rel="preconnect" href="https://web-api.smktelkom-lpg.id" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://web-api.smktelkom-lpg.id" />
+        <link rel="preconnect" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+      </head>
       <body>{children}</body>
     </html>
   );
