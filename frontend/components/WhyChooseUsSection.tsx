@@ -49,6 +49,19 @@ export function WhyChooseUsSection({ items }: { items: WhyChooseUsItem[] }) {
 
   const activeItem = sortedItems[active];
   const ActiveIcon = iconMap[activeItem.icon as keyof typeof iconMap] || Sparkles;
+  const navStart = Math.min(Math.max(active - 1, 0), Math.max(sortedItems.length - 3, 0));
+  const visibleNavItems = sortedItems.slice(navStart, navStart + 3);
+
+  function scrollToItem(index: number) {
+    const target = ref.current;
+    if (!target) return;
+    const sectionTop = target.getBoundingClientRect().top + window.scrollY;
+    const scrollableDistance = target.offsetHeight - window.innerHeight;
+    window.scrollTo({
+      top: sectionTop + scrollableDistance * (index / sortedItems.length) + 8,
+      behavior: "smooth"
+    });
+  }
 
   return (
     <section ref={ref} className="relative h-[320vh] scroll-mt-20 bg-zinc-950" id="why-smk-telkom">
@@ -89,16 +102,7 @@ export function WhyChooseUsSection({ items }: { items: WhyChooseUsItem[] }) {
                     key={item.id}
                     type="button"
                     aria-label={`Buka ${item.title}`}
-                    onClick={() => {
-                      const target = ref.current;
-                      if (!target) return;
-                      const sectionTop = target.getBoundingClientRect().top + window.scrollY;
-                      const scrollableDistance = target.offsetHeight - window.innerHeight;
-                      window.scrollTo({
-                        top: sectionTop + scrollableDistance * (index / sortedItems.length) + 8,
-                        behavior: "smooth"
-                      });
-                    }}
+                    onClick={() => scrollToItem(index)}
                     className={`h-2.5 rounded-full transition-all duration-300 ${
                       active === index ? "w-9 bg-rosebrand-500" : "w-2.5 bg-white/40 hover:bg-white/80"
                     }`}
@@ -141,20 +145,23 @@ export function WhyChooseUsSection({ items }: { items: WhyChooseUsItem[] }) {
               </AnimatePresence>
 
               <div className="hidden gap-3 lg:grid lg:grid-cols-3">
-                {sortedItems.slice(0, 3).map((item, index) => {
+                {visibleNavItems.map((item, index) => {
+                  const itemIndex = navStart + index;
                   const Icon = iconMap[item.icon as keyof typeof iconMap] || Sparkles;
-                  const isActive = active === index;
+                  const isActive = active === itemIndex;
 
                   return (
-                    <article
+                    <button
                       key={item.id}
+                      type="button"
+                      onClick={() => scrollToItem(itemIndex)}
                       className={`rounded-[8px] border p-4 backdrop-blur transition ${
                         isActive ? "border-rosebrand-400 bg-rosebrand-500/18" : "border-white/10 bg-white/8"
                       }`}
                     >
                       <Icon size={20} className={isActive ? "text-rosebrand-300" : "text-white/70"} aria-hidden />
-                      <p className="mt-3 line-clamp-2 text-sm font-black leading-tight">{item.title}</p>
-                    </article>
+                      <p className="mt-3 line-clamp-2 text-left text-sm font-black leading-tight">{item.title}</p>
+                    </button>
                   );
                 })}
               </div>
