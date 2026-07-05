@@ -30,6 +30,7 @@ import {
   Megaphone,
   ClipboardList,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { API_URL } from "@/lib/api-config";
 import { logout } from "@/lib/auth-client";
@@ -39,6 +40,7 @@ const menu = [
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
   { href: "/dashboard/hero-slides", label: "Slider Hero", icon: Images },
   { href: "/dashboard/why-choose-us", label: "Why Sekolah", icon: Sparkles },
+  { href: "/dashboard/school-uvp", label: "UVP Sekolah", icon: Target },
   { href: "/dashboard/teaching-modules", label: "Modul Ajar", icon: BookOpenCheck },
   { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },

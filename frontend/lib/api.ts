@@ -1,6 +1,6 @@
-import { agendas, announcements, articles, heroSlides, majors, schoolProfile, whyChooseUsItems } from "@/lib/fallback-data";
+import { agendas, announcements, articles, heroSlides, majors, schoolProfile, schoolUVPItems, whyChooseUsItems } from "@/lib/fallback-data";
 import { API_URL } from "@/lib/api-config";
-import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ, HeroSlide, TeachingModule, WhyChooseUsItem } from "@/types/content";
+import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ, HeroSlide, TeachingModule, WhyChooseUsItem, SchoolUVPItem } from "@/types/content";
 
 const PUBLIC_API_REVALIDATE_SECONDS = Number(process.env.API_REVALIDATE_SECONDS || 60);
 
@@ -63,6 +63,12 @@ export async function getWhyChooseUsItems(): Promise<WhyChooseUsItem[]> {
   const data = await getJson("/why-choose-us", whyChooseUsItems);
   const activeItems = (data || []).filter((item) => item.isActive !== false);
   return activeItems.length > 0 ? activeItems : whyChooseUsItems;
+}
+
+export async function getSchoolUVPItems(): Promise<SchoolUVPItem[]> {
+  const data = await getJson("/school-uvp", schoolUVPItems);
+  const activeItems = (data || []).filter((item) => item.isActive !== false);
+  return activeItems.length > 0 ? activeItems : schoolUVPItems;
 }
 
 export async function getTeachingModules(): Promise<TeachingModule[]> {

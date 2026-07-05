@@ -1,4 +1,4 @@
-import type { Agenda, Announcement, Article, HeroSlide, Major, SchoolProfile, WhyChooseUsItem } from "@/types/content";
+import type { Agenda, Announcement, Article, HeroSlide, Major, SchoolProfile, SchoolUVPItem, WhyChooseUsItem } from "@/types/content";
 
 export const schoolProfile: SchoolProfile = {
   name: "SMK Telkom Lampung",
@@ -120,6 +120,81 @@ export const whyChooseUsItems: WhyChooseUsItem[] = [
     icon: "GraduationCap",
     highlight: "Masa depan jelas",
     sortOrder: 5,
+    isActive: true
+  }
+];
+
+export const schoolUVPItems: SchoolUVPItem[] = [
+  {
+    id: 1,
+    title: "Strategi BMW",
+    subtitle: "Bekerja, Melanjutkan, Wirausaha",
+    description:
+      "Tiga jalur masa depan siswa disiapkan secara serius: bekerja lewat magang industri, teaching factory, kelas expertise, job fair, career center, dan sertifikasi; melanjutkan lewat fast track, bimbel UTBK, IELTS/TOEFL, dan edu fair; serta wirausaha lewat bisnis digital, aplikasi, e-commerce, dan konten kreatif.",
+    category: "Pathway Karier",
+    icon: "Route",
+    highlight: "BMW Pathway",
+    sortOrder: 1,
+    isActive: true
+  },
+  {
+    id: 2,
+    title: "Centre of Excellence",
+    subtitle: "Digital Product Development",
+    description:
+      "SMK Telkom Lampung diarahkan sebagai The Real Informatic School dengan Centre of Excellence pada pengembangan produk digital. Siswa dibiasakan merancang solusi nyata dan membangun portofolio yang relevan.",
+    category: "Branding",
+    icon: "BadgeCheck",
+    highlight: "COE Digital Product Dev",
+    sortOrder: 2,
+    isActive: true
+  },
+  {
+    id: 3,
+    title: "Strategi Portofolio Siswa",
+    subtitle: "1 siswa 5 portofolio",
+    description:
+      "Setiap siswa diarahkan memiliki minimal lima portofolio berupa prestasi, karya, proyek, atau sertifikat. Strategi ini diperkuat talent mapping, career plan sejak kelas X, jejaring alumni, dan forum sharing karier.",
+    category: "Strategi Umum",
+    icon: "Layers3",
+    highlight: "Portofolio sejak sekolah",
+    sortOrder: 3,
+    isActive: true
+  },
+  {
+    id: 4,
+    title: "Karakter dan Pembinaan",
+    subtitle: "Disiplin, spiritual, dan tanggung jawab",
+    description:
+      "Pendidikan karakter diperkuat melalui salam sapa pagi, sholawat bersama, sholat berjamaah, Stella Zero Trash, serta pembinaan asrama yang menumbuhkan kebiasaan baik, karakter kuat, dan tahfiz Al-Quran.",
+    category: "Karakter",
+    icon: "ShieldCheck",
+    highlight: "Karakter produktif",
+    sortOrder: 4,
+    isActive: true
+  },
+  {
+    id: 5,
+    title: "Kompetensi Relevan Industri",
+    subtitle: "Re-engineering jurusan untuk masa depan",
+    description:
+      "TJAT diperkuat Smart Home dan Smart Village, TKJ diperkuat Cloud Infrastructure, RPL diperkuat AI dan Digital Product Development, sedangkan Animasi diarahkan ke Creative Digital Content bersama ekosistem agensi kreatif.",
+    category: "Kompetensi",
+    icon: "Cpu",
+    highlight: "Relevan industri",
+    sortOrder: 5,
+    isActive: true
+  },
+  {
+    id: 6,
+    title: "Target Tumbuh 2026",
+    subtitle: "Penerimaan terarah, kualitas tetap terjaga",
+    description:
+      "SPMB dirancang untuk menjangkau calon siswa yang tepat: siap belajar teknologi, siap dibina karakternya, dan siap bertumbuh bersama ekosistem industri digital Telkom Schools.",
+    category: "Target SPMB",
+    icon: "Target",
+    highlight: "224 siswa terarah",
+    sortOrder: 6,
     isActive: true
   }
 ];

@@ -114,6 +114,20 @@ export type WhyChooseUsItem = {
   updatedAt?: string;
 };
 
+export type SchoolUVPItem = {
+  id: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  category: string;
+  icon: string;
+  highlight: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type TeachingModule = {
   id: number;
   title: string;

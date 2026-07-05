@@ -74,6 +74,20 @@ type WhyChooseUsItem struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+type SchoolUVPItem struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Subtitle    string `json:"subtitle"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Icon        string `json:"icon"`
+	Highlight   string `json:"highlight"`
+	SortOrder   int    `json:"sortOrder"`
+	IsActive    bool   `json:"isActive"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
 type Major struct {
 	ID              int64    `json:"id"`
 	Name            string   `json:"name"`

@@ -461,6 +461,124 @@ func (r *Repository) DeleteWhyChooseUsItem(ctx context.Context, id int64) error 
 	return nil
 }
 
+func (r *Repository) SchoolUVPItems(ctx context.Context, includeInactive bool) ([]models.SchoolUVPItem, error) {
+	query := `
+		SELECT id, title, COALESCE(subtitle, ''), description, category, icon, COALESCE(highlight, ''), sort_order, is_active, created_at, updated_at
+		FROM school_uvp_items
+	`
+	if !includeInactive {
+		query += " WHERE is_active = true"
+	}
+	query += " ORDER BY sort_order ASC, id ASC"
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.SchoolUVPItem
+	for rows.Next() {
+		var item models.SchoolUVPItem
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Subtitle,
+			&item.Description,
+			&item.Category,
+			&item.Icon,
+			&item.Highlight,
+			&item.SortOrder,
+			&item.IsActive,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateSchoolUVPItem(ctx context.Context, item models.SchoolUVPItem) (int64, error) {
+	normalizeSchoolUVPItem(&item)
+	if strings.TrimSpace(item.Title) == "" {
+		return 0, errors.New("judul UVP wajib diisi")
+	}
+	if strings.TrimSpace(item.Description) == "" {
+		return 0, errors.New("deskripsi UVP wajib diisi")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO school_uvp_items (title, subtitle, description, category, icon, highlight, sort_order, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, item.Title, item.Subtitle, item.Description, item.Category, item.Icon, item.Highlight, item.SortOrder, item.IsActive)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func (r *Repository) UpdateSchoolUVPItem(ctx context.Context, id int64, item models.SchoolUVPItem) error {
+	if id <= 0 {
+		return errors.New("id tidak valid")
+	}
+	normalizeSchoolUVPItem(&item)
+	if strings.TrimSpace(item.Title) == "" {
+		return errors.New("judul UVP wajib diisi")
+	}
+	if strings.TrimSpace(item.Description) == "" {
+		return errors.New("deskripsi UVP wajib diisi")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE school_uvp_items
+		SET title = ?, subtitle = ?, description = ?, category = ?, icon = ?, highlight = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, item.Title, item.Subtitle, item.Description, item.Category, item.Icon, item.Highlight, item.SortOrder, item.IsActive, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteSchoolUVPItem(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM school_uvp_items WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func normalizeSchoolUVPItem(item *models.SchoolUVPItem) {
+	item.Title = strings.TrimSpace(item.Title)
+	item.Subtitle = strings.TrimSpace(item.Subtitle)
+	item.Description = strings.TrimSpace(item.Description)
+	item.Category = strings.TrimSpace(item.Category)
+	item.Icon = strings.TrimSpace(item.Icon)
+	item.Highlight = strings.TrimSpace(item.Highlight)
+	if item.Category == "" {
+		item.Category = "UVP"
+	}
+	if item.Icon == "" {
+		item.Icon = "Sparkles"
+	}
+}
+
 func (r *Repository) Majors(ctx context.Context) ([]models.Major, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, slug, summary, icon, cover_image, curriculum_json, career_prospects_json

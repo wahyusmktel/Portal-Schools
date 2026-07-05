@@ -6,16 +6,18 @@ import { Header } from "@/components/Header";
 import { HeroSlider } from "@/components/HeroSlider";
 import { MajorShowcase } from "@/components/MajorShowcase";
 import { MotionSection } from "@/components/MotionSection";
+import { SchoolUvpSection } from "@/components/SchoolUvpSection";
 import { TelkomEducationFoundation } from "@/components/TelkomEducationFoundation";
 import { WhyChooseUsSection } from "@/components/WhyChooseUsSection";
-import { getAgendas, getAnnouncements, getArticles, getHeroSlides, getMajors, getSchoolProfile, getWhyChooseUsItems } from "@/lib/api";
+import { getAgendas, getAnnouncements, getArticles, getHeroSlides, getMajors, getSchoolProfile, getSchoolUVPItems, getWhyChooseUsItems } from "@/lib/api";
 import { formatDate, readCount, readingTime } from "@/lib/article-utils";
 
 export default async function HomePage() {
-  const [profile, heroSlides, whyChooseUsItems, majors, articles, announcements, agendas] = await Promise.all([
+  const [profile, heroSlides, whyChooseUsItems, schoolUVPItems, majors, articles, announcements, agendas] = await Promise.all([
     getSchoolProfile(),
     getHeroSlides(),
     getWhyChooseUsItems(),
+    getSchoolUVPItems(),
     getMajors(),
     getArticles(),
     getAnnouncements(),
@@ -84,6 +86,8 @@ export default async function HomePage() {
         </MotionSection>
 
         <WhyChooseUsSection items={whyChooseUsItems} />
+
+        <SchoolUvpSection items={schoolUVPItems} />
 
         <MajorShowcase majors={majors} />
 
