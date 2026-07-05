@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 
 export default async function VisiMisiPage() {
   const profile = await getSchoolProfile().catch(() => null);
+  const missionItems = parseMissionItems(profile?.mission || "");
 
   return (
     <>
@@ -31,20 +32,20 @@ export default async function VisiMisiPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 items-stretch">
           {/* Visi */}
-          <div className="bg-white rounded-3xl p-8 md:p-12 shadow-xl shadow-rosebrand-500/5 relative overflow-hidden group border border-zinc-100">
+          <div className="bg-white rounded-3xl p-8 md:p-12 shadow-xl shadow-rosebrand-500/5 relative overflow-hidden group border border-zinc-100 h-full">
             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition duration-500">
               <Target size={120} />
             </div>
-            <div className="relative z-10">
+            <div className="relative z-10 flex h-full flex-col">
               <div className="h-16 w-16 bg-rosebrand-100 text-rosebrand-600 rounded-2xl grid place-items-center mb-8">
                 <Target size={32} />
               </div>
               <h2 className="text-3xl font-black text-zinc-900 mb-6">Visi Kami</h2>
               {profile?.vision ? (
                 <div 
-                  className="prose prose-lg prose-zinc max-w-none text-zinc-600 leading-relaxed font-medium"
+                  className="prose prose-lg prose-zinc max-w-none max-h-80 overflow-y-auto pr-3 text-zinc-600 leading-relaxed font-medium"
                   dangerouslySetInnerHTML={{ __html: profile.vision }}
                 />
               ) : (
@@ -56,20 +57,26 @@ export default async function VisiMisiPage() {
           </div>
 
           {/* Misi */}
-          <div className="bg-gradient-to-br from-rosebrand-600 to-rosebrand-800 rounded-3xl p-8 md:p-12 shadow-xl shadow-rosebrand-900/10 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-rosebrand-600 to-rosebrand-800 rounded-3xl p-8 md:p-12 shadow-xl shadow-rosebrand-900/10 relative overflow-hidden group h-full">
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition duration-500 text-white">
               <GraduationCap size={120} />
             </div>
-            <div className="relative z-10">
+            <div className="relative z-10 flex h-full flex-col">
               <div className="h-16 w-16 bg-white/10 text-white rounded-2xl grid place-items-center mb-8 backdrop-blur-sm">
                 <GraduationCap size={32} />
               </div>
               <h2 className="text-3xl font-black text-white mb-6">Misi Kami</h2>
-              {profile?.mission ? (
-                <div 
-                  className="prose prose-lg prose-invert max-w-none text-white/90 leading-relaxed font-medium"
-                  dangerouslySetInnerHTML={{ __html: profile.mission }}
-                />
+              {missionItems.length > 0 ? (
+                <ol className="grid max-h-80 gap-4 overflow-y-auto pr-3">
+                  {missionItems.map((item, index) => (
+                    <li key={`${item}-${index}`} className="grid grid-cols-[38px_1fr] gap-4">
+                      <span className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-sm font-black text-white ring-1 ring-white/15">
+                        {index + 1}
+                      </span>
+                      <span className="pt-1 text-base font-semibold leading-7 text-white/90">{item}</span>
+                    </li>
+                  ))}
+                </ol>
               ) : (
                 <p className="text-lg text-white/90 leading-relaxed font-medium italic">
                   Belum ada data misi sekolah.
@@ -83,4 +90,30 @@ export default async function VisiMisiPage() {
     <Footer profile={profile} />
     </>
   );
+}
+
+function parseMissionItems(value: string): string[] {
+  const source = value || "";
+  const listMatches = Array.from(source.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
+    .map((match) => stripHtml(match[1]))
+    .filter(Boolean);
+
+  if (listMatches.length > 0) {
+    return listMatches;
+  }
+
+  return stripHtml(source)
+    .split(/\n+|(?:^|\s)\d+[.)]\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function stripHtml(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .trim();
 }

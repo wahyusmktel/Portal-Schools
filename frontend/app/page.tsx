@@ -55,7 +55,9 @@ export default async function HomePage() {
               <div className="p-8">
                 <Quote className="text-rosebrand-500" size={34} aria-hidden />
                 <h2 className="mt-5 text-3xl font-black leading-tight">Sambutan Kepala Sekolah</h2>
-                <p className="mt-5 leading-8 text-white/75">{profile.principalMessage}</p>
+                <div className="mt-5 max-h-52 overflow-y-auto pr-3 leading-8 text-white/75 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                  <p>{profile.principalMessage}</p>
+                </div>
                 <div className="mt-7 border-t border-white/10 pt-5">
                   <p className="font-extrabold">{profile.principalName}</p>
                   <p className="text-sm text-white/60">{profile.principalTitle}</p>

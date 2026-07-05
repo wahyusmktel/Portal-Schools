@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Save } from "lucide-react";
+import { ImagePlus, Plus, Save, Trash2 } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 
@@ -28,6 +28,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
   const [spmbBrochureUploading, setSpmbBrochureUploading] = useState(false);
+  const [missionPoints, setMissionPoints] = useState<string[]>(() => parseMissionPoints(profile.mission || ""));
   
   const [principalImageFile, setPrincipalImageFile] = useState<File | null>(null);
   const [principalImagePreview, setPrincipalImagePreview] = useState(profile.principalImage || "");
@@ -180,7 +181,7 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
       footerLogo: footerLogoURL,
       footerText: form.footerText,
       vision: form.vision,
-      mission: form.mission,
+      mission: missionPointsToHtml(missionPoints),
       spmbBrochureUrl: form.spmbBrochureUrl,
       spmbAcademicYear: form.spmbAcademicYear || "2026/2027"
     };
@@ -210,6 +211,21 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
     setPrincipalImageFile(null);
     setFooterLogoFile(null);
     setNotice({ type: "success", message: "Profil sekolah berhasil diperbarui." });
+  }
+
+  function addMissionPoint() {
+    setMissionPoints((current) => [...current, ""]);
+  }
+
+  function updateMissionPoint(index: number, value: string) {
+    setMissionPoints((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function removeMissionPoint(index: number) {
+    setMissionPoints((current) => {
+      const next = current.filter((_, itemIndex) => itemIndex !== index);
+      return next.length > 0 ? next : [""];
+    });
   }
 
   return (
@@ -250,7 +266,44 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
           <h3 className="mb-4 text-lg font-bold text-zinc-900">Visi, Misi & SPMB</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <Textarea label="Visi" value={form.vision || ""} onChange={(value: string) => setForm({ ...form, vision: value })} rows={4} required={false} />
-            <Textarea label="Misi" value={form.mission || ""} onChange={(value: string) => setForm({ ...form, mission: value })} rows={4} required={false} />
+            <div className="grid gap-2 text-sm font-bold text-zinc-700">
+              <div className="flex items-center justify-between gap-3">
+                <span>Misi</span>
+                <button
+                  type="button"
+                  onClick={addMissionPoint}
+                  className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-rosebrand-50 px-3 text-xs font-black text-rosebrand-700 transition hover:bg-rosebrand-100"
+                >
+                  <Plus size={15} aria-hidden />
+                  Tambah Misi
+                </button>
+              </div>
+              <div className="grid max-h-72 gap-3 overflow-y-auto rounded-[8px] border border-zinc-200 bg-zinc-50 p-3">
+                {missionPoints.map((point, index) => (
+                  <div key={index} className="grid grid-cols-[32px_1fr_40px] items-start gap-2">
+                    <span className="grid h-10 place-items-center rounded-[8px] bg-white text-sm font-black text-rosebrand-600">
+                      {index + 1}
+                    </span>
+                    <textarea
+                      value={point}
+                      onChange={(event) => updateMissionPoint(index, event.target.value)}
+                      rows={2}
+                      placeholder={`Misi ${index + 1}`}
+                      className="min-h-10 rounded-[8px] border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 outline-none focus:border-rosebrand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeMissionPoint(index)}
+                      className="grid h-10 w-10 place-items-center rounded-[8px] bg-white text-zinc-500 transition hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Hapus misi ${index + 1}`}
+                    >
+                      <Trash2 size={16} aria-hidden />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs font-semibold text-zinc-500">Misi akan tampil sebagai poin bernomor di halaman Visi & Misi.</p>
+            </div>
           </div>
           <div className="mt-4">
             <Field label="Tahun Ajaran SPMB" value={form.spmbAcademicYear || "2026/2027"} onChange={(value: string) => setForm({ ...form, spmbAcademicYear: value })} required={false} />
@@ -442,4 +495,49 @@ function parseStats(value: string): Array<{ label: string; value: string }> {
       };
     })
     .filter((item) => item.label && item.value);
+}
+
+function parseMissionPoints(value: string): string[] {
+  const source = value || "";
+  const listItems = Array.from(source.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi))
+    .map((match) => stripHtml(match[1]))
+    .filter(Boolean);
+
+  if (listItems.length > 0) {
+    return listItems;
+  }
+
+  const textItems = stripHtml(source)
+    .split(/\n+|(?:^|\s)\d+[.)]\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return textItems.length > 0 ? textItems : [""];
+}
+
+function missionPointsToHtml(points: string[]): string {
+  const items = points.map((item) => item.trim()).filter(Boolean);
+  if (items.length === 0) {
+    return "";
+  }
+  return `<ol>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>`;
+}
+
+function stripHtml(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
