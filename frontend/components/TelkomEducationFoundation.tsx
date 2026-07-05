@@ -7,7 +7,15 @@ import { useRef, useState } from "react";
 
 const ecosystemSteps = [
   {
-    eyebrow: "01 / Fondasi Usia Dini",
+    eyebrow: "01 / Jaringan Pendidikan",
+    metric: "51 Satuan Pendidikan",
+    title: "Dari Indonesia untuk masa depan digital.",
+    body: "Satu visi besar: mencetak talenta unggul yang siap tumbuh bersama industri dan membawa dampak untuk Indonesia.",
+    icon: Network,
+    marker: "left-[50%] top-[42%]"
+  },
+  {
+    eyebrow: "02 / Fondasi Usia Dini",
     metric: "32 PAUD",
     title: "Awal terbaik untuk karakter dan rasa ingin tahu.",
     body: "Yayasan Pendidikan Telkom membangun fondasi belajar sejak usia dini melalui PAUD yang tersebar di berbagai wilayah Indonesia.",
@@ -15,7 +23,7 @@ const ecosystemSteps = [
     marker: "left-[56%] top-[44%]"
   },
   {
-    eyebrow: "02 / Pendidikan Dasar",
+    eyebrow: "03 / Pendidikan Dasar",
     metric: "3 SD",
     title: "Literasi, numerasi, dan kebiasaan belajar yang kuat.",
     body: "Sekolah dasar dalam ekosistem YPT menumbuhkan disiplin, keberanian bertanya, dan dasar akademik untuk perjalanan pendidikan berikutnya.",
@@ -23,7 +31,7 @@ const ecosystemSteps = [
     marker: "left-[62%] top-[53%]"
   },
   {
-    eyebrow: "03 / Masa Transisi",
+    eyebrow: "04 / Masa Transisi",
     metric: "4 SMP",
     title: "Menguatkan arah minat sebelum masuk dunia vokasi.",
     body: "Jenjang SMP menjadi ruang transisi yang membantu siswa mengenali potensi, teknologi, dan cara belajar yang lebih mandiri.",
@@ -31,7 +39,7 @@ const ecosystemSteps = [
     marker: "left-[72%] top-[56%]"
   },
   {
-    eyebrow: "04 / Vokasi Digital",
+    eyebrow: "05 / Vokasi Digital",
     metric: "12 SMK",
     title: "Salah satunya hadir di Lampung.",
     body: "SMK Telkom Lampung adalah bagian dari jaringan SMK Telkom Schools yang menyiapkan talenta vokasi digital, siap kerja, dan siap bersaing.",
