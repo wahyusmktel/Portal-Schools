@@ -141,7 +141,7 @@ export function SobatStellaChatbot() {
                       isUser ? "bg-rosebrand-600 text-white" : "border border-zinc-100 bg-white text-zinc-700"
                     }`}
                   >
-                    {message.content}
+                    <ChatMessageContent content={message.content} />
                   </div>
                 </div>
               );
@@ -203,6 +203,48 @@ export function SobatStellaChatbot() {
         {isOpen ? <X size={26} aria-hidden /> : <MessageCircle size={28} aria-hidden />}
         {!isOpen && <span className="absolute -left-36 hidden rounded-full bg-zinc-950 px-4 py-2 text-sm font-black text-white shadow-soft transition group-hover:-translate-x-1 sm:block">Sobat Stella</span>}
       </button>
+    </div>
+  );
+}
+
+function ChatMessageContent({ content }: { content: string }) {
+  const lines = content
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {lines.map((line, index) => {
+        const bulletMatch = line.match(/^[-•]\s+(.+)/);
+        const numberMatch = line.match(/^(\d+)[.)]\s+(.+)/);
+
+        if (bulletMatch) {
+          return (
+            <p key={`${line}-${index}`} className="grid grid-cols-[16px_1fr] gap-2">
+              <span aria-hidden>•</span>
+              <span>{bulletMatch[1]}</span>
+            </p>
+          );
+        }
+
+        if (numberMatch) {
+          return (
+            <p key={`${line}-${index}`} className="grid grid-cols-[24px_1fr] gap-2">
+              <span className="font-black">{numberMatch[1]}.</span>
+              <span>{numberMatch[2]}</span>
+            </p>
+          );
+        }
+
+        return <p key={`${line}-${index}`}>{line}</p>;
+      })}
     </div>
   );
 }
