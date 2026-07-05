@@ -189,19 +189,36 @@ func (r *Repository) UpdateSchoolProfile(ctx context.Context, profile models.Sch
 		return err
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE school_profiles
 		SET name = ?, tagline = ?, description = ?, address = ?, phone = ?, email = ?,
 		    map_embed_url = ?, youtube_embed_url = ?, principal_name = ?, principal_title = ?, principal_message = ?,
 		    principal_image = ?, stats_json = ?, social_media = ?, partner_links = ?,
 		    header_logo = ?, footer_logo = ?, footer_text = ?, vision = ?, mission = ?, spmb_brochure_url = ?,
 		    spmb_academic_year = ?
-		WHERE id = 1
+		ORDER BY id ASC
+		LIMIT 1
 	`, profile.Name, profile.Tagline, profile.Description, profile.Address, profile.Phone, profile.Email,
 		profile.MapEmbedURL, profile.YoutubeEmbedURL, profile.PrincipalName, profile.PrincipalTitle, profile.PrincipalMessage,
 		profile.PrincipalImage, statsJSON, socialMediaJSON, partnerLinksJSON, profile.HeaderLogo, profile.FooterLogo, profile.FooterText,
 		profile.Vision, profile.Mission, profile.SpmbBrochureURL, profile.SpmbAcademicYear)
-	return err
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		var count int
+		if countErr := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM school_profiles").Scan(&count); countErr != nil {
+			return countErr
+		}
+		if count == 0 {
+			return sql.ErrNoRows
+		}
+	}
+	return nil
 }
 
 func (r *Repository) HeroSlides(ctx context.Context, includeInactive bool) ([]models.HeroSlide, error) {

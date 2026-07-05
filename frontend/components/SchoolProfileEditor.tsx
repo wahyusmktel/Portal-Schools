@@ -208,6 +208,8 @@ export function SchoolProfileEditor({ profile }: SchoolProfileEditorProps) {
     }
 
     setForm((value) => ({ ...value, principalImage: principalImageURL, footerLogo: footerLogoURL }));
+    setPrincipalImagePreview(principalImageURL || "");
+    setFooterLogoPreview(footerLogoURL || "");
     setPrincipalImageFile(null);
     setFooterLogoFile(null);
     setNotice({ type: "success", message: "Profil sekolah berhasil diperbarui." });
