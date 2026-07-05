@@ -56,6 +56,14 @@ export function SobatStellaChatbot() {
     setIsLoading(true);
 
     try {
+      const apiMessages = nextMessages
+        .slice(-8)
+        .filter((message) => !(message.role === "assistant" && message.content === initialMessages[0].content))
+        .map((message) => ({
+          role: message.role,
+          content: message.content
+        }));
+
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
@@ -63,10 +71,7 @@ export function SobatStellaChatbot() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          messages: nextMessages.slice(-8).map((message) => ({
-            role: message.role,
-            content: message.content
-          }))
+          messages: apiMessages
         })
       });
 

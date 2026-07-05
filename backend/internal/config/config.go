@@ -53,7 +53,7 @@ func Load() Config {
 		CookieDomain:           env("COOKIE_DOMAIN", ""),
 		CookieSecure:           env("COOKIE_SECURE", "false") == "true",
 		GoogleAIAPIKey:         env("GOOGLE_AI_API_KEY", env("GEMINI_API_KEY", "")),
-		GoogleAIModel:          env("GOOGLE_AI_MODEL", "gemini-2.0-flash"),
+		GoogleAIModel:          env("GOOGLE_AI_MODEL", "gemini-flash-latest"),
 		SeedSuperadminName:     env("SEED_SUPERADMIN_NAME", "Super Admin"),
 		SeedSuperadminEmail:    env("SEED_SUPERADMIN_EMAIL", "superadmin@smktelkom-lpg.sch.id"),
 		SeedSuperadminPassword: env("SEED_SUPERADMIN_PASSWORD", "ChangeMe123!"),

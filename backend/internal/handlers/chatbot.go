@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -47,7 +48,9 @@ func (h *Handler) aiChat(w http.ResponseWriter, r *http.Request) {
 
 	reply, err := h.generateSobatStellaReply(ctx, messages)
 	if err != nil {
-		httpx.Error(w, http.StatusBadGateway, "Sobat Stella sedang sulit terhubung. Coba beberapa saat lagi.")
+		log.Printf("sobat stella error: %v", err)
+		status, message := classifySobatStellaError(err)
+		httpx.Error(w, status, message)
 		return
 	}
 
@@ -75,6 +78,14 @@ func normalizeChatMessages(messages []chatMessage) []chatMessage {
 		}
 		if role == "assistant" {
 			role = "model"
+		}
+
+		if len(result) == 0 && role == "model" {
+			continue
+		}
+		if len(result) > 0 && result[len(result)-1].Role == role {
+			result[len(result)-1].Content += "\n\n" + content
+			continue
 		}
 		result = append(result, chatMessage{Role: role, Content: content})
 	}
@@ -111,7 +122,7 @@ func (h *Handler) generateSobatStellaReply(ctx context.Context, messages []chatM
 
 	model := strings.TrimPrefix(strings.TrimSpace(h.cfg.GoogleAIModel), "models/")
 	if model == "" {
-		model = "gemini-2.0-flash"
+		model = "gemini-flash-latest"
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf(geminiEndpoint, model), bytes.NewReader(body))
@@ -134,7 +145,7 @@ func (h *Handler) generateSobatStellaReply(ctx context.Context, messages []chatM
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		if geminiResponse.Error.Message != "" {
-			return "", fmt.Errorf("gemini error: %s", geminiResponse.Error.Message)
+			return "", fmt.Errorf("gemini error %d %s: %s", res.StatusCode, geminiResponse.Error.Status, geminiResponse.Error.Message)
 		}
 		return "", fmt.Errorf("gemini status: %d", res.StatusCode)
 	}
@@ -149,6 +160,25 @@ func (h *Handler) generateSobatStellaReply(ctx context.Context, messages []chatM
 	}
 
 	return "", fmt.Errorf("gemini returned empty response")
+}
+
+func classifySobatStellaError(err error) (int, string) {
+	message := strings.ToLower(err.Error())
+
+	if strings.Contains(message, "api key") || strings.Contains(message, "apikey") || strings.Contains(message, "permission") || strings.Contains(message, "unauthenticated") {
+		return http.StatusBadGateway, "Konfigurasi API key Sobat Stella belum valid. Periksa GOOGLE_AI_API_KEY di backend."
+	}
+	if strings.Contains(message, "quota") || strings.Contains(message, "rate") || strings.Contains(message, "resource_exhausted") {
+		return http.StatusTooManyRequests, "Kuota atau rate limit AI sedang penuh. Coba lagi beberapa saat lagi."
+	}
+	if strings.Contains(message, "model") || strings.Contains(message, "not found") || strings.Contains(message, "not_supported") {
+		return http.StatusBadGateway, "Model AI tidak tersedia untuk API key ini. Periksa GOOGLE_AI_MODEL di backend."
+	}
+	if strings.Contains(message, "deadline") || strings.Contains(message, "timeout") || strings.Contains(message, "context canceled") {
+		return http.StatusGatewayTimeout, "Koneksi ke layanan AI terlalu lama. Coba lagi beberapa saat lagi."
+	}
+
+	return http.StatusBadGateway, "Sobat Stella sedang sulit terhubung. Coba beberapa saat lagi."
 }
 
 func (h *Handler) sobatStellaSystemPrompt(ctx context.Context) string {
@@ -313,5 +343,7 @@ type geminiGenerateResponse struct {
 	} `json:"candidates"`
 	Error struct {
 		Message string `json:"message"`
+		Status  string `json:"status"`
+		Code    int    `json:"code"`
 	} `json:"error"`
 }
