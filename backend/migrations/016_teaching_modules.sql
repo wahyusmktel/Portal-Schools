@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS teaching_modules (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(220) NOT NULL,
+  slug VARCHAR(240) NOT NULL UNIQUE,
+  description TEXT NOT NULL,
+  subject VARCHAR(160) NOT NULL DEFAULT 'Umum',
+  grade_level VARCHAR(80) NOT NULL DEFAULT 'Semua Tingkat',
+  author_name VARCHAR(160) NOT NULL DEFAULT 'SMK Telkom Lampung',
+  cover_image TEXT,
+  file_url TEXT NOT NULL,
+  file_size BIGINT NOT NULL DEFAULT 0,
+  page_count INT NOT NULL DEFAULT 0,
+  view_count INT NOT NULL DEFAULT 0,
+  download_count INT NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_published BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FULLTEXT KEY ft_teaching_modules_search (title, description, subject),
+  INDEX idx_teaching_modules_published_sort (is_published, sort_order, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

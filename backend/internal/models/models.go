@@ -73,6 +73,26 @@ type Major struct {
 	CareerProspects []string `json:"careerProspects"`
 }
 
+type TeachingModule struct {
+	ID            int64  `json:"id"`
+	Title         string `json:"title"`
+	Slug          string `json:"slug"`
+	Description   string `json:"description"`
+	Subject       string `json:"subject"`
+	GradeLevel    string `json:"gradeLevel"`
+	AuthorName    string `json:"authorName"`
+	CoverImage    string `json:"coverImage"`
+	FileURL       string `json:"fileUrl"`
+	FileSize      int64  `json:"fileSize"`
+	PageCount     int    `json:"pageCount"`
+	ViewCount     int    `json:"viewCount"`
+	DownloadCount int    `json:"downloadCount"`
+	SortOrder     int    `json:"sortOrder"`
+	IsPublished   bool   `json:"isPublished"`
+	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
+}
+
 type Article struct {
 	ID          int64     `json:"id"`
 	Title       string    `json:"title"`

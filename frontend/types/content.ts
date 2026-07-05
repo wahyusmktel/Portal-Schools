@@ -102,6 +102,26 @@ export type HeroSlide = {
   updatedAt?: string;
 };
 
+export type TeachingModule = {
+  id: number;
+  title: string;
+  slug: string;
+  description: string;
+  subject: string;
+  gradeLevel: string;
+  authorName: string;
+  coverImage: string;
+  fileUrl: string;
+  fileSize: number;
+  pageCount: number;
+  viewCount: number;
+  downloadCount: number;
+  sortOrder: number;
+  isPublished: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type SchoolProfile = {
   name: string;
   tagline: string;

@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import {
   Bell,
   BookOpen,
+  BookOpenCheck,
   Calendar,
   FileText,
   MessageCircle,
@@ -36,6 +37,7 @@ const menu = [
   { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard },
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
   { href: "/dashboard/hero-slides", label: "Slider Hero", icon: Images },
+  { href: "/dashboard/teaching-modules", label: "Modul Ajar", icon: BookOpenCheck },
   { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
   { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },

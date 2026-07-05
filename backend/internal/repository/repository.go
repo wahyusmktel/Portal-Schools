@@ -460,6 +460,182 @@ func (r *Repository) DeleteMajor(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *Repository) TeachingModules(ctx context.Context, includeUnpublished bool) ([]models.TeachingModule, error) {
+	query := `
+		SELECT id, title, slug, description, subject, grade_level, author_name, cover_image, file_url,
+		       file_size, page_count, view_count, download_count, sort_order, is_published, created_at, updated_at
+		FROM teaching_modules
+	`
+	if !includeUnpublished {
+		query += " WHERE is_published = true"
+	}
+	query += " ORDER BY sort_order ASC, created_at DESC"
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.TeachingModule
+	for rows.Next() {
+		var item models.TeachingModule
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Slug,
+			&item.Description,
+			&item.Subject,
+			&item.GradeLevel,
+			&item.AuthorName,
+			&item.CoverImage,
+			&item.FileURL,
+			&item.FileSize,
+			&item.PageCount,
+			&item.ViewCount,
+			&item.DownloadCount,
+			&item.SortOrder,
+			&item.IsPublished,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) TeachingModuleBySlug(ctx context.Context, slug string, includeUnpublished bool) (models.TeachingModule, error) {
+	var item models.TeachingModule
+	query := `
+		SELECT id, title, slug, description, subject, grade_level, author_name, cover_image, file_url,
+		       file_size, page_count, view_count, download_count, sort_order, is_published, created_at, updated_at
+		FROM teaching_modules
+		WHERE slug = ?
+	`
+	if !includeUnpublished {
+		query += " AND is_published = true"
+	}
+	err := r.db.QueryRowContext(ctx, query, slug).Scan(
+		&item.ID,
+		&item.Title,
+		&item.Slug,
+		&item.Description,
+		&item.Subject,
+		&item.GradeLevel,
+		&item.AuthorName,
+		&item.CoverImage,
+		&item.FileURL,
+		&item.FileSize,
+		&item.PageCount,
+		&item.ViewCount,
+		&item.DownloadCount,
+		&item.SortOrder,
+		&item.IsPublished,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+	)
+	return item, err
+}
+
+func (r *Repository) CreateTeachingModule(ctx context.Context, item models.TeachingModule) (int64, error) {
+	if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Description) == "" || strings.TrimSpace(item.FileURL) == "" {
+		return 0, errors.New("judul, deskripsi, dan file modul wajib diisi")
+	}
+	if strings.TrimSpace(item.Subject) == "" {
+		item.Subject = "Umum"
+	}
+	if strings.TrimSpace(item.GradeLevel) == "" {
+		item.GradeLevel = "Semua Tingkat"
+	}
+	if strings.TrimSpace(item.AuthorName) == "" {
+		item.AuthorName = "SMK Telkom Lampung"
+	}
+	if item.PageCount < 0 {
+		item.PageCount = 0
+	}
+	if item.FileSize < 0 {
+		item.FileSize = 0
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO teaching_modules (title, slug, description, subject, grade_level, author_name, cover_image, file_url, file_size, page_count, sort_order, is_published)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, item.Title, uniqueSlug(item.Title), item.Description, item.Subject, item.GradeLevel, item.AuthorName, item.CoverImage, item.FileURL, item.FileSize, item.PageCount, item.SortOrder, item.IsPublished)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func (r *Repository) UpdateTeachingModule(ctx context.Context, id int64, item models.TeachingModule) error {
+	if id <= 0 {
+		return errors.New("id modul tidak valid")
+	}
+	if strings.TrimSpace(item.Title) == "" || strings.TrimSpace(item.Description) == "" || strings.TrimSpace(item.FileURL) == "" {
+		return errors.New("judul, deskripsi, dan file modul wajib diisi")
+	}
+	if strings.TrimSpace(item.Subject) == "" {
+		item.Subject = "Umum"
+	}
+	if strings.TrimSpace(item.GradeLevel) == "" {
+		item.GradeLevel = "Semua Tingkat"
+	}
+	if strings.TrimSpace(item.AuthorName) == "" {
+		item.AuthorName = "SMK Telkom Lampung"
+	}
+	if item.PageCount < 0 {
+		item.PageCount = 0
+	}
+	if item.FileSize < 0 {
+		item.FileSize = 0
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE teaching_modules
+		SET title = ?, description = ?, subject = ?, grade_level = ?, author_name = ?, cover_image = ?,
+		    file_url = ?, file_size = ?, page_count = ?, sort_order = ?, is_published = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, item.Title, item.Description, item.Subject, item.GradeLevel, item.AuthorName, item.CoverImage, item.FileURL, item.FileSize, item.PageCount, item.SortOrder, item.IsPublished, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteTeachingModule(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM teaching_modules WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) IncrementTeachingModuleView(ctx context.Context, slug string) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE teaching_modules SET view_count = view_count + 1 WHERE slug = ? AND is_published = true", slug)
+	return err
+}
+
+func (r *Repository) IncrementTeachingModuleDownload(ctx context.Context, slug string) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE teaching_modules SET download_count = download_count + 1 WHERE slug = ? AND is_published = true", slug)
+	return err
+}
+
 func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.Article, error) {
 	query := `
 		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status, a.view_count,

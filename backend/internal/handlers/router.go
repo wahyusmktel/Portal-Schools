@@ -52,6 +52,10 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/school-profile", h.schoolProfile)
 		r.Get("/hero-slides", h.heroSlides)
 		r.Get("/majors", h.majors)
+		r.Get("/teaching-modules", h.teachingModules)
+		r.Get("/teaching-modules/{slug}", h.teachingModuleBySlug)
+		r.Post("/teaching-modules/{slug}/view", h.incrementTeachingModuleView)
+		r.Post("/teaching-modules/{slug}/download", h.incrementTeachingModuleDownload)
 		r.Get("/articles", h.articles)
 		r.Get("/articles/{slug}", h.articleBySlug)
 		r.Post("/articles/{slug}/view", h.incrementArticleView)
@@ -80,6 +84,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Get("/admin/articles", h.requireAnyRole(h.adminArticles, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/announcements", h.requireAnyRole(h.adminAnnouncements, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/hero-slides", h.requireAnyRole(h.adminHeroSlides, models.RoleSuperadmin, models.RoleAdmin))
+			protected.Get("/admin/teaching-modules", h.requireAnyRole(h.adminTeachingModules, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/spmb/registrations", h.requireAnyRole(h.adminSpmbRegistrations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
@@ -93,7 +98,11 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/hero-slides", h.requireCSRF(h.requireAnyRole(h.createHeroSlide, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/hero-slides/{id}", h.requireCSRF(h.requireAnyRole(h.updateHeroSlide, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/hero-slides/{id}", h.requireCSRF(h.requireAnyRole(h.deleteHeroSlide, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/teaching-modules", h.requireCSRF(h.requireAnyRole(h.createTeachingModule, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Put("/teaching-modules/{id}", h.requireCSRF(h.requireAnyRole(h.updateTeachingModule, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Delete("/teaching-modules/{id}", h.requireCSRF(h.requireAnyRole(h.deleteTeachingModule, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/uploads/documents", h.requireCSRF(h.requireAnyRole(h.uploadDocument, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Get("/admin/comments", h.requireAnyRole(h.adminComments, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Put("/admin/comments/{id}/status", h.requireCSRF(h.requireAnyRole(h.updateCommentStatus, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Get("/users", h.requireAnyRole(h.users, models.RoleSuperadmin))
@@ -132,7 +141,9 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
+		if !strings.HasPrefix(r.URL.Path, "/uploads/documents/") {
+			w.Header().Set("X-Frame-Options", "DENY")
+		}
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		next.ServeHTTP(w, r)
@@ -526,6 +537,67 @@ func (h *Handler) uploadImage(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusCreated, map[string]string{
 		"url": absoluteUploadURL(r, "/uploads/images/"+filename),
+	})
+}
+
+func (h *Handler) uploadDocument(w http.ResponseWriter, r *http.Request) {
+	const maxUploadSize = 100 << 20
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "ukuran PDF maksimal 100MB")
+		return
+	}
+
+	file, header, err := r.FormFile("document")
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "file PDF wajib diunggah")
+		return
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	read, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		httpx.Error(w, http.StatusBadRequest, "gagal membaca PDF")
+		return
+	}
+
+	contentType := http.DetectContentType(buffer[:read])
+	if contentType != "application/pdf" && !strings.HasPrefix(string(buffer[:read]), "%PDF") {
+		httpx.Error(w, http.StatusBadRequest, "file modul harus berformat PDF")
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal memproses PDF")
+		return
+	}
+
+	targetDir := filepath.Join("uploads", "documents")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal membuat folder dokumen")
+		return
+	}
+
+	filename := fmt.Sprintf("%d-%s.pdf", time.Now().UnixNano(), safeFilename(header.Filename))
+	targetPath := filepath.Join(targetDir, filename)
+	destination, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menyimpan PDF")
+		return
+	}
+	defer destination.Close()
+
+	written, err := io.Copy(destination, file)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menulis PDF")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, map[string]any{
+		"url":      absoluteUploadURL(r, "/uploads/documents/"+filename),
+		"fileSize": written,
 	})
 }
 

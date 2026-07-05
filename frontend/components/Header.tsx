@@ -193,6 +193,9 @@ export function Header({ logoUrl }: HeaderProps) {
           <Link href="/spmb" className="px-4 py-2.5 rounded-full transition-colors hover:bg-zinc-50 hover:text-rosebrand-600">
             SPMB
           </Link>
+          <Link href="/modul-ajar" className="px-4 py-2.5 rounded-full transition-colors hover:bg-zinc-50 hover:text-rosebrand-600">
+            Modul Ajar
+          </Link>
         </nav>
 
         {/* RIGHT SIDE ACTIONS */}
@@ -248,6 +251,7 @@ export function Header({ logoUrl }: HeaderProps) {
                 <Link href="/prestasi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Prestasi</Link>
                 <Link href="/alumni" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Alumni</Link>
                 <Link href="/bantuan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Pusat Bantuan</Link>
+                <Link href="/modul-ajar" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Modul Ajar</Link>
               </div>
 
               <div className="flex flex-col gap-2 mt-4">

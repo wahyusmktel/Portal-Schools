@@ -1,6 +1,6 @@
 import { agendas, announcements, articles, heroSlides, majors, schoolProfile } from "@/lib/fallback-data";
 import { API_URL } from "@/lib/api-config";
-import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ, HeroSlide } from "@/types/content";
+import type { Agenda, Announcement, Article, Major, SchoolProfile, Achievement, IndustryPartner, Alumni, AlumniStat, FAQ, HeroSlide, TeachingModule } from "@/types/content";
 
 const PUBLIC_API_REVALIDATE_SECONDS = Number(process.env.API_REVALIDATE_SECONDS || 60);
 
@@ -57,6 +57,15 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
   const data = await getJson("/hero-slides", heroSlides);
   const activeSlides = (data || []).filter((slide) => slide.isActive !== false && slide.imageUrl);
   return activeSlides.length > 0 ? activeSlides : heroSlides;
+}
+
+export async function getTeachingModules(): Promise<TeachingModule[]> {
+  const data = await getJson("/teaching-modules", [] as TeachingModule[]);
+  return data || [];
+}
+
+export function getTeachingModule(slug: string): Promise<TeachingModule | null> {
+  return getJson(`/teaching-modules/${slug}`, null as TeachingModule | null);
 }
 
 export async function getArticles(): Promise<Article[]> {
