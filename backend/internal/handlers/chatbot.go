@@ -166,6 +166,9 @@ func classifySobatStellaError(err error) (int, string) {
 	message := strings.ToLower(err.Error())
 
 	if strings.Contains(message, "api key") || strings.Contains(message, "apikey") || strings.Contains(message, "permission") || strings.Contains(message, "unauthenticated") {
+		if strings.Contains(message, "denied access") || strings.Contains(message, "permission_denied") {
+			return http.StatusBadGateway, "Project Google AI untuk Sobat Stella ditolak aksesnya oleh Gemini API. Gunakan project/API key Google AI Studio lain atau hubungi Google Support."
+		}
 		return http.StatusBadGateway, "Konfigurasi API key Sobat Stella belum valid. Periksa GOOGLE_AI_API_KEY di backend."
 	}
 	if strings.Contains(message, "quota") || strings.Contains(message, "rate") || strings.Contains(message, "resource_exhausted") {
