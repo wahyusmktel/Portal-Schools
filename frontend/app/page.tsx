@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { HeroSlider } from "@/components/HeroSlider";
 import { MajorShowcase } from "@/components/MajorShowcase";
 import { MotionSection } from "@/components/MotionSection";
+import { TelkomEducationFoundation } from "@/components/TelkomEducationFoundation";
 import { getAgendas, getAnnouncements, getArticles, getHeroSlides, getMajors, getSchoolProfile } from "@/lib/api";
 import { formatDate, readCount, readingTime } from "@/lib/article-utils";
 
@@ -81,6 +82,8 @@ export default async function HomePage() {
         </MotionSection>
 
         <MajorShowcase majors={majors} />
+
+        <TelkomEducationFoundation />
 
         <MotionSection className="py-20" id="artikel">
           <div className="container-page">

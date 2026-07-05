@@ -60,3 +60,53 @@ a {
 .focus-ring:focus-visible {
   outline-color: var(--rose);
 }
+
+.smooth-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 63, 107, 0.42) transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.smooth-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.smooth-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.smooth-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 107, 0.34);
+  border-radius: 999px;
+}
+
+.smooth-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 107, 0.52);
+}
+
+.foundation-marquee-track {
+  animation: foundation-marquee 34s linear infinite;
+}
+
+.foundation-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes foundation-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foundation-marquee-track {
+    animation: none;
+    width: 100%;
+    overflow-x: auto;
+  }
+}

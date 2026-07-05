@@ -104,7 +104,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-softgray">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-zinc-200 bg-white p-5 lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col border-r border-zinc-200 bg-white p-5 lg:flex">
         <Link href="/" className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-rosebrand-500 text-white">
             <ShieldCheck size={22} aria-hidden />
@@ -114,7 +114,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <span className="text-sm text-zinc-500">SMK Telkom Lampung</span>
           </span>
         </Link>
-        <nav className="mt-10 grid gap-2">
+        <nav className="smooth-sidebar-scroll mt-10 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
           {visibleMenu.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
@@ -133,7 +133,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="absolute inset-x-5 bottom-5 grid gap-2">
+        <div className="mt-4 grid gap-2 border-t border-zinc-100 pt-4">
           <Link href="/" className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100">
             <Home size={18} aria-hidden />
             Lihat Website
@@ -189,7 +189,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </button>
             </div>
             
-            <nav className="mt-8 grid gap-2 overflow-y-auto flex-1 pb-4">
+            <nav className="smooth-sidebar-scroll mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
               {visibleMenu.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 return (
