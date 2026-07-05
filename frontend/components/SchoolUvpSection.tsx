@@ -122,22 +122,22 @@ export function SchoolUvpSection({ items }: { items: SchoolUVPItem[] }) {
 
             <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
               <div className="self-center">
-                <p className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black uppercase text-rosebrand-700 shadow-soft">
-                  <Target size={16} aria-hidden />
-                  Unique Value Proposition
-                </p>
-                <div className="relative mt-8">
-                  <motion.p
-                    key={`index-${activeItem.id}`}
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-[116px] font-black leading-none text-white/10 sm:text-[150px] lg:text-[190px]"
-                  >
-                    {String(active + 1).padStart(2, "0")}
-                  </motion.p>
-                  <div className="absolute inset-x-0 bottom-3">
-                    <h2 className="max-w-3xl text-4xl font-black leading-tight md:text-6xl">
+                <div className="grid gap-6">
+                  <p className="relative z-20 inline-flex w-max items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black uppercase text-rosebrand-700 shadow-soft">
+                    <Target size={16} aria-hidden />
+                    Unique Value Proposition
+                  </p>
+                  <div className="relative isolate pt-5">
+                    <motion.p
+                      key={`index-${activeItem.id}`}
+                      initial={{ opacity: 0, y: 24 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="pointer-events-none absolute -left-2 top-0 z-0 text-[112px] font-black leading-none text-white/10 sm:text-[150px] lg:-left-4 lg:-top-4 lg:text-[188px]"
+                    >
+                      {String(active + 1).padStart(2, "0")}
+                    </motion.p>
+                    <h2 className="relative z-10 max-w-3xl text-4xl font-black leading-tight md:text-6xl">
                       Strategi sekolah yang terasa seperti peta masa depan.
                     </h2>
                   </div>
