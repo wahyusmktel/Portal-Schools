@@ -339,6 +339,111 @@ func (r *Repository) DeleteHeroSlide(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *Repository) WhyChooseUs(ctx context.Context, includeInactive bool) ([]models.WhyChooseUsItem, error) {
+	query := `
+		SELECT id, title, description, icon, COALESCE(highlight, ''), sort_order, is_active, created_at, updated_at
+		FROM why_choose_us
+	`
+	if !includeInactive {
+		query += " WHERE is_active = true"
+	}
+	query += " ORDER BY sort_order ASC, id ASC"
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.WhyChooseUsItem
+	for rows.Next() {
+		var item models.WhyChooseUsItem
+		if err := rows.Scan(
+			&item.ID,
+			&item.Title,
+			&item.Description,
+			&item.Icon,
+			&item.Highlight,
+			&item.SortOrder,
+			&item.IsActive,
+			&item.CreatedAt,
+			&item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateWhyChooseUsItem(ctx context.Context, item models.WhyChooseUsItem) (int64, error) {
+	if strings.TrimSpace(item.Title) == "" {
+		return 0, errors.New("judul alasan wajib diisi")
+	}
+	if strings.TrimSpace(item.Description) == "" {
+		return 0, errors.New("deskripsi alasan wajib diisi")
+	}
+	if strings.TrimSpace(item.Icon) == "" {
+		item.Icon = "Network"
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO why_choose_us (title, description, icon, highlight, sort_order, is_active)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, item.Title, item.Description, item.Icon, item.Highlight, item.SortOrder, item.IsActive)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+func (r *Repository) UpdateWhyChooseUsItem(ctx context.Context, id int64, item models.WhyChooseUsItem) error {
+	if id <= 0 {
+		return errors.New("id tidak valid")
+	}
+	if strings.TrimSpace(item.Title) == "" {
+		return errors.New("judul alasan wajib diisi")
+	}
+	if strings.TrimSpace(item.Description) == "" {
+		return errors.New("deskripsi alasan wajib diisi")
+	}
+	if strings.TrimSpace(item.Icon) == "" {
+		item.Icon = "Network"
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE why_choose_us
+		SET title = ?, description = ?, icon = ?, highlight = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, item.Title, item.Description, item.Icon, item.Highlight, item.SortOrder, item.IsActive, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *Repository) DeleteWhyChooseUsItem(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM why_choose_us WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (r *Repository) Majors(ctx context.Context) ([]models.Major, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, slug, summary, icon, cover_image, curriculum_json, career_prospects_json

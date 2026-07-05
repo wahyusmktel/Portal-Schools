@@ -102,6 +102,18 @@ export type HeroSlide = {
   updatedAt?: string;
 };
 
+export type WhyChooseUsItem = {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+  highlight: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type TeachingModule = {
   id: number;
   title: string;

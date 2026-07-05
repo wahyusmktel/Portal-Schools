@@ -1,4 +1,4 @@
-import type { Agenda, Announcement, Article, HeroSlide, Major, SchoolProfile } from "@/types/content";
+import type { Agenda, Announcement, Article, HeroSlide, Major, SchoolProfile, WhyChooseUsItem } from "@/types/content";
 
 export const schoolProfile: SchoolProfile = {
   name: "SMK Telkom Lampung",
@@ -67,6 +67,59 @@ export const heroSlides: HeroSlide[] = [
     secondText: "Profil Jurusan",
     secondUrl: "#jurusan",
     sortOrder: 3,
+    isActive: true
+  }
+];
+
+export const whyChooseUsItems: WhyChooseUsItem[] = [
+  {
+    id: 1,
+    title: "Bagian dari Telkom Schools",
+    description:
+      "SMK Telkom Lampung berada dalam ekosistem Yayasan Pendidikan Telkom yang membawa standar budaya digital, jejaring nasional, dan semangat inovasi ke ruang belajar siswa.",
+    icon: "Network",
+    highlight: "Ekosistem nasional",
+    sortOrder: 1,
+    isActive: true
+  },
+  {
+    id: 2,
+    title: "Kurikulum Vokasi Digital",
+    description:
+      "Pembelajaran disiapkan untuk dunia teknologi hari ini: jaringan, perangkat lunak, kreativitas digital, dan kompetensi produktif yang relevan dengan kebutuhan industri.",
+    icon: "Code2",
+    highlight: "Siap industri",
+    sortOrder: 2,
+    isActive: true
+  },
+  {
+    id: 3,
+    title: "Belajar Berbasis Praktik",
+    description:
+      "Siswa tidak hanya memahami teori. Mereka dibiasakan membuat proyek, berlatih di lab, memecahkan masalah nyata, dan membangun portofolio sejak sekolah.",
+    icon: "Cpu",
+    highlight: "Project based",
+    sortOrder: 3,
+    isActive: true
+  },
+  {
+    id: 4,
+    title: "Karakter, Disiplin, dan Percaya Diri",
+    description:
+      "Lingkungan sekolah membentuk kebiasaan profesional: disiplin, tanggung jawab, komunikasi, kerja tim, dan keberanian tampil sebagai talenta muda.",
+    icon: "ShieldCheck",
+    highlight: "Karakter kuat",
+    sortOrder: 4,
+    isActive: true
+  },
+  {
+    id: 5,
+    title: "Peluang Karier dan Lanjut Studi",
+    description:
+      "Lulusan diarahkan agar siap memilih jalur terbaik: bekerja, berwirausaha, masuk industri digital, atau melanjutkan studi ke perguruan tinggi.",
+    icon: "GraduationCap",
+    highlight: "Masa depan jelas",
+    sortOrder: 5,
     isActive: true
   }
 ];

@@ -62,6 +62,18 @@ type HeroSlide struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+type WhyChooseUsItem struct {
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Highlight   string `json:"highlight"`
+	SortOrder   int    `json:"sortOrder"`
+	IsActive    bool   `json:"isActive"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
 type Major struct {
 	ID              int64    `json:"id"`
 	Name            string   `json:"name"`
