@@ -78,6 +78,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/alumni/stats", h.alumniStats)
 		r.Get("/faqs", h.faqs)
 		r.Post("/spmb/registrations", h.createSpmbRegistration)
+		r.With(httprate.LimitByIP(20, time.Minute)).Post("/ai/chat", h.aiChat)
 
 		r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)

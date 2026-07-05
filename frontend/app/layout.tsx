@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SobatStellaChatbot } from "@/components/SobatStellaChatbot";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -64,7 +65,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SobatStellaChatbot />
+      </body>
     </html>
   );
 }

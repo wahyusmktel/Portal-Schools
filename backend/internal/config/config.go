@@ -23,6 +23,8 @@ type Config struct {
 	JWTTTL                 time.Duration
 	CookieDomain           string
 	CookieSecure           bool
+	GoogleAIAPIKey         string
+	GoogleAIModel          string
 	SeedSuperadminName     string
 	SeedSuperadminEmail    string
 	SeedSuperadminPassword string
@@ -50,6 +52,8 @@ func Load() Config {
 		JWTTTL:                 time.Duration(ttlMinutes) * time.Minute,
 		CookieDomain:           env("COOKIE_DOMAIN", ""),
 		CookieSecure:           env("COOKIE_SECURE", "false") == "true",
+		GoogleAIAPIKey:         env("GOOGLE_AI_API_KEY", env("GEMINI_API_KEY", "")),
+		GoogleAIModel:          env("GOOGLE_AI_MODEL", "gemini-2.0-flash"),
 		SeedSuperadminName:     env("SEED_SUPERADMIN_NAME", "Super Admin"),
 		SeedSuperadminEmail:    env("SEED_SUPERADMIN_EMAIL", "superadmin@smktelkom-lpg.sch.id"),
 		SeedSuperadminPassword: env("SEED_SUPERADMIN_PASSWORD", "ChangeMe123!"),
