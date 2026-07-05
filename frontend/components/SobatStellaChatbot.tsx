@@ -3,7 +3,6 @@
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Bot, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { PUBLIC_API_URL } from "@/lib/api-config";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -57,7 +56,7 @@ export function SobatStellaChatbot() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${PUBLIC_API_URL}/ai/chat`, {
+      const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           Accept: "application/json",
