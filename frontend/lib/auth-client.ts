@@ -7,7 +7,7 @@ export type LoginResult = {
   message: string;
 };
 
-export async function login(email: string, password: string): Promise<LoginResult> {
+export async function login(email: string, password: string, captchaId: string, captchaValue: string): Promise<LoginResult> {
   const response = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -15,7 +15,7 @@ export async function login(email: string, password: string): Promise<LoginResul
       "Content-Type": "application/json",
       Accept: "application/json"
     },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password, captchaId, captchaValue })
   });
 
   if (!response.ok) {

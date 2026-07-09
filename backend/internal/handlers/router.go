@@ -252,11 +252,18 @@ func (h *Handler) agendas(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email        string `json:"email"`
+		Password     string `json:"password"`
+		CaptchaID    string `json:"captchaId"`
+		CaptchaValue string `json:"captchaValue"`
 	}
 	if err := httpx.DecodeJSON(r, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	if !captcha.VerifyString(payload.CaptchaID, payload.CaptchaValue) {
+		httpx.Error(w, http.StatusBadRequest, "kode captcha tidak valid")
 		return
 	}
 
