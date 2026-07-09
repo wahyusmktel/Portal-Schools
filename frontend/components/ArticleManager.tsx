@@ -252,6 +252,12 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    const contentText = form.content.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+    if (!contentText) {
+      setNotice({ type: "error", message: "Isi artikel wajib diisi melalui editor WYSIWYG." });
+      return;
+    }
+
     const actionLabel = modalMode === "edit" ? "menyimpan perubahan artikel" : "menerbitkan artikel baru";
     if (!window.confirm(`Yakin ingin ${actionLabel}?`)) {
       return;
