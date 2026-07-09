@@ -53,9 +53,10 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const articleUrl = `${siteUrl}/artikel/${article.slug}`;
   const related = relatedArticles(article, articles);
-  const articleBody =
+  const articleBody = formatArticleBody(
     article.content ||
-    `${article.excerpt}\n\nKonten lengkap artikel akan diambil dari dashboard admin. Struktur halaman ini sudah disiapkan untuk kebutuhan SEO dengan metadata, Open Graph, dan schema Article.`;
+      `${article.excerpt}\n\nKonten lengkap artikel akan diambil dari dashboard admin. Struktur halaman ini sudah disiapkan untuk kebutuhan SEO dengan metadata, Open Graph, dan schema Article.`
+  );
 
   const articleJsonLd = {
     "@context": "https://schema.org",
@@ -127,9 +128,9 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
                 <CopyLinkButton url={articleUrl} />
               </div>
 
-              <div 
-                className="mt-10 max-w-3xl text-lg leading-9 text-zinc-700 prose prose-lg prose-rosebrand text-justify"
-                dangerouslySetInnerHTML={{ __html: articleBody }} 
+              <div
+                className="article-rich-content mt-10 max-w-3xl"
+                dangerouslySetInnerHTML={{ __html: articleBody }}
               />
 
               <div className="mt-12">
@@ -168,6 +169,31 @@ export default async function ArticleDetailPage({ params }: ArticleDetailProps) 
       <Footer profile={profile} />
     </>
   );
+}
+
+function formatArticleBody(value: string): string {
+  const source = value.trim();
+  if (!source) {
+    return "";
+  }
+
+  if (/<[a-z][\s\S]*>/i.test(source)) {
+    return source;
+  }
+
+  return source
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
+    .join("");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function ShareLink({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
