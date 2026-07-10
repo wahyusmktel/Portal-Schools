@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { Plus, Edit2, Trash2, X, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, X } from "lucide-react";
 import { Agenda } from "@/types/content";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
-import { formatDate } from "@/lib/article-utils";
+import { formatDateRange } from "@/lib/article-utils";
+
+function toDatetimeLocal(value: string | Date) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
 
 export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
   const [items, setItems] = useState<Agenda[]>(initialItems || []);
@@ -17,26 +25,26 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
     id: 0,
     title: "",
     location: "",
-    startsAt: ""
+    startsAt: "",
+    endsAt: ""
   });
 
   function openCreate() {
     // Format required for input type="datetime-local": YYYY-MM-DDThh:mm
     const now = new Date();
-    const formatted = now.toISOString().slice(0, 16);
-    setForm({ id: 0, title: "", location: "", startsAt: formatted });
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    setForm({ id: 0, title: "", location: "", startsAt: toDatetimeLocal(now), endsAt: toDatetimeLocal(oneHourLater) });
     setNotice(null);
     setModalMode("create");
   }
 
   function openEdit(item: Agenda) {
-    const d = new Date(item.startsAt);
-    const formatted = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     setForm({
       id: item.id,
       title: item.title,
       location: item.location,
-      startsAt: formatted
+      startsAt: toDatetimeLocal(item.startsAt),
+      endsAt: toDatetimeLocal(item.endsAt || item.startsAt)
     });
     setNotice(null);
     setModalMode("edit");
@@ -55,8 +63,24 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
     setLoading(true);
     setNotice(null);
 
+    const startsAt = new Date(form.startsAt);
+    const endsAt = new Date(form.endsAt);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      setLoading(false);
+      setNotice({ type: "error", message: "Tanggal mulai dan selesai wajib diisi." });
+      return;
+    }
+    if (endsAt < startsAt) {
+      setLoading(false);
+      setNotice({ type: "error", message: "Tanggal selesai tidak boleh lebih awal dari tanggal mulai." });
+      return;
+    }
+
     const endpoint = modalMode === "edit" ? `${API_URL}/agendas/${form.id}` : `${API_URL}/agendas`;
-    const { id, ...payload } = form;
+    const payload = {
+      title: form.title,
+      location: form.location
+    };
 
     const res = await fetch(endpoint, {
       method: modalMode === "edit" ? "PUT" : "POST",
@@ -65,7 +89,7 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
         "X-CSRF-Token": getCookie("csrf_token")
       },
       credentials: "include",
-      body: JSON.stringify({ ...payload, startsAt: new Date(payload.startsAt).toISOString() })
+      body: JSON.stringify({ ...payload, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() })
     }).catch(() => null);
 
     setLoading(false);
@@ -114,7 +138,7 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
           <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600">
             <tr>
               <th className="px-6 py-4 font-extrabold">Nama Kegiatan</th>
-              <th className="px-6 py-4 font-extrabold">Waktu Pelaksanaan</th>
+              <th className="px-6 py-4 font-extrabold">Rentang Pelaksanaan</th>
               <th className="px-6 py-4 font-extrabold">Lokasi</th>
               <th className="px-6 py-4 font-extrabold text-right">Aksi</th>
             </tr>
@@ -123,7 +147,7 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
             {items.map((item) => (
               <tr key={item.id} className="hover:bg-zinc-50/50 transition">
                 <td className="px-6 py-4 font-bold text-zinc-900">{item.title}</td>
-                <td className="px-6 py-4 text-zinc-600">{formatDate(item.startsAt, true)}</td>
+                <td className="px-6 py-4 text-zinc-600">{formatDateRange(item.startsAt, item.endsAt, true)}</td>
                 <td className="px-6 py-4 text-zinc-600">{item.location}</td>
                 <td className="px-6 py-4 text-right space-x-2">
                   <button onClick={() => openEdit(item)} className="p-2 text-zinc-500 hover:text-rosebrand-600 hover:bg-rosebrand-50 rounded-[6px] transition">
@@ -173,16 +197,29 @@ export function AgendaManager({ initialItems }: { initialItems: Agenda[] }) {
                   className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
                 />
               </label>
-              <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                Waktu Pelaksanaan
-                <input
-                  type="datetime-local"
-                  required
-                  value={form.startsAt}
-                  onChange={e => setForm({ ...form, startsAt: e.target.value })}
-                  className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
-                />
-              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                  Mulai Pelaksanaan
+                  <input
+                    type="datetime-local"
+                    required
+                    value={form.startsAt}
+                    onChange={e => setForm({ ...form, startsAt: e.target.value })}
+                    className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
+                  />
+                </label>
+                <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                  Selesai Pelaksanaan
+                  <input
+                    type="datetime-local"
+                    required
+                    min={form.startsAt}
+                    value={form.endsAt}
+                    onChange={e => setForm({ ...form, endsAt: e.target.value })}
+                    className="rounded-[8px] border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500"
+                  />
+                </label>
+              </div>
               <label className="grid gap-2 text-sm font-bold text-zinc-700">
                 Lokasi Pelaksanaan
                 <input

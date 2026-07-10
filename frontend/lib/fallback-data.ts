@@ -349,12 +349,14 @@ export const agendas: Agenda[] = [
     id: 1,
     title: "Workshop keamanan siber dasar",
     location: "Laboratorium Jaringan",
-    startsAt: "2026-07-08T09:00:00+07:00"
+    startsAt: "2026-07-08T09:00:00+07:00",
+    endsAt: "2026-07-08T12:00:00+07:00"
   },
   {
     id: 2,
     title: "Rapat orang tua peserta didik",
     location: "Aula Sekolah",
-    startsAt: "2026-07-12T08:30:00+07:00"
+    startsAt: "2026-07-12T08:30:00+07:00",
+    endsAt: "2026-07-12T10:30:00+07:00"
   }
 ];

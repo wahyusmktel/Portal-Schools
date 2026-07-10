@@ -10,7 +10,7 @@ import { SchoolUvpSection } from "@/components/SchoolUvpSection";
 import { TelkomEducationFoundation } from "@/components/TelkomEducationFoundation";
 import { WhyChooseUsSection } from "@/components/WhyChooseUsSection";
 import { getAgendas, getAnnouncements, getArticles, getHeroSlides, getMajors, getSchoolProfile, getSchoolUVPItems, getWhyChooseUsItems } from "@/lib/api";
-import { formatDate, readCount, readingTime } from "@/lib/article-utils";
+import { formatDate, formatDateRange, readCount, readingTime } from "@/lib/article-utils";
 
 export default async function HomePage() {
   const [profile, heroSlides, whyChooseUsItems, schoolUVPItems, majors, articles, announcements, agendas] = await Promise.all([
@@ -170,7 +170,7 @@ export default async function HomePage() {
                 {(agendas || []).map((item) => (
                   <article key={item.id} className="rounded-[8px] bg-zinc-900 p-5 text-white">
                     <p className="flex items-center gap-2 text-sm font-bold text-rosebrand-300">
-                      <CalendarDays size={17} aria-hidden /> {formatDate(item.startsAt)}
+                      <CalendarDays size={17} aria-hidden /> {formatDateRange(item.startsAt, item.endsAt)}
                     </p>
                     <h3 className="mt-3 text-xl font-black">{item.title}</h3>
                     <p className="mt-2 text-white/60">{item.location}</p>

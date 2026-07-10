@@ -13,6 +13,23 @@ export function formatDate(value: string, includeTime?: boolean) {
   return new Intl.DateTimeFormat("id-ID", options).format(new Date(value));
 }
 
+export function formatDateRange(startsAt: string, endsAt?: string, includeTime?: boolean) {
+  if (!endsAt) {
+    return formatDate(startsAt, includeTime);
+  }
+
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start.getTime() === end.getTime()) {
+    return formatDate(startsAt, includeTime);
+  }
+  if (!includeTime && start.toDateString() === end.toDateString()) {
+    return formatDate(startsAt);
+  }
+
+  return `${formatDate(startsAt, includeTime)} - ${formatDate(endsAt, includeTime)}`;
+}
+
 export function readingTime(article: Article): number {
   const text = `${article.title} ${article.excerpt} ${article.content || ""}`;
   const words = text.trim().split(/\s+/).filter(Boolean).length;

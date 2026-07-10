@@ -26,6 +26,7 @@ export type Agenda = {
   title: string;
   location: string;
   startsAt: string;
+  endsAt: string;
 };
 
 export interface Achievement {

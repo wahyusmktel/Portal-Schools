@@ -146,6 +146,7 @@ type Agenda struct {
 	Title    string    `json:"title"`
 	Location string    `json:"location"`
 	StartsAt time.Time `json:"startsAt"`
+	EndsAt   time.Time `json:"endsAt"`
 }
 
 type SocialLink struct {

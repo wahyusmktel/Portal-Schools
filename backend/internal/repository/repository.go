@@ -1057,9 +1057,9 @@ func (r *Repository) CreateAnnouncement(ctx context.Context, title string, body 
 
 func (r *Repository) Agendas(ctx context.Context) ([]models.Agenda, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, title, location, starts_at
+		SELECT id, title, location, starts_at, COALESCE(ends_at, starts_at)
 		FROM agendas
-		WHERE starts_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+		WHERE COALESCE(ends_at, starts_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
 		ORDER BY starts_at ASC
 		LIMIT 20
 	`)
@@ -1071,7 +1071,7 @@ func (r *Repository) Agendas(ctx context.Context) ([]models.Agenda, error) {
 	var items []models.Agenda
 	for rows.Next() {
 		var item models.Agenda
-		if err := rows.Scan(&item.ID, &item.Title, &item.Location, &item.StartsAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Title, &item.Location, &item.StartsAt, &item.EndsAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -1079,11 +1079,11 @@ func (r *Repository) Agendas(ctx context.Context) ([]models.Agenda, error) {
 	return items, rows.Err()
 }
 
-func (r *Repository) CreateAgenda(ctx context.Context, title string, location string, startsAt time.Time) (int64, error) {
+func (r *Repository) CreateAgenda(ctx context.Context, title string, location string, startsAt time.Time, endsAt time.Time) (int64, error) {
 	result, err := r.db.ExecContext(ctx, `
-		INSERT INTO agendas (title, location, starts_at)
-		VALUES (?, ?, ?)
-	`, title, location, startsAt)
+		INSERT INTO agendas (title, location, starts_at, ends_at)
+		VALUES (?, ?, ?, ?)
+	`, title, location, startsAt, endsAt)
 	if err != nil {
 		return 0, err
 	}
@@ -1135,12 +1135,12 @@ func (r *Repository) DeleteAnnouncement(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (r *Repository) UpdateAgenda(ctx context.Context, id int64, title string, location string, startsAt time.Time) error {
+func (r *Repository) UpdateAgenda(ctx context.Context, id int64, title string, location string, startsAt time.Time, endsAt time.Time) error {
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE agendas
-		SET title = ?, location = ?, starts_at = ?
+		SET title = ?, location = ?, starts_at = ?, ends_at = ?
 		WHERE id = ?
-	`, title, location, startsAt, id)
+	`, title, location, startsAt, endsAt, id)
 	if err != nil {
 		return err
 	}

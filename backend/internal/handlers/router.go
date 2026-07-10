@@ -414,15 +414,28 @@ func (h *Handler) createAnnouncement(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) createAgenda(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Title    string    `json:"title"`
-		Location string    `json:"location"`
-		StartsAt time.Time `json:"startsAt"`
+		Title    string     `json:"title"`
+		Location string     `json:"location"`
+		StartsAt time.Time  `json:"startsAt"`
+		EndsAt   *time.Time `json:"endsAt"`
 	}
 	if err := httpx.DecodeJSON(r, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
 		return
 	}
-	id, err := h.repo.CreateAgenda(r.Context(), payload.Title, payload.Location, payload.StartsAt)
+	if payload.StartsAt.IsZero() {
+		httpx.Error(w, http.StatusBadRequest, "tanggal mulai wajib diisi")
+		return
+	}
+	endsAt := payload.StartsAt
+	if payload.EndsAt != nil {
+		endsAt = *payload.EndsAt
+	}
+	if endsAt.Before(payload.StartsAt) {
+		httpx.Error(w, http.StatusBadRequest, "tanggal selesai tidak boleh lebih awal dari tanggal mulai")
+		return
+	}
+	id, err := h.repo.CreateAgenda(r.Context(), payload.Title, payload.Location, payload.StartsAt, endsAt)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "gagal menyimpan agenda")
 		return
@@ -697,16 +710,29 @@ func (h *Handler) updateAgenda(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var payload struct {
-		Title    string    `json:"title"`
-		Location string    `json:"location"`
-		StartsAt time.Time `json:"startsAt"`
+		Title    string     `json:"title"`
+		Location string     `json:"location"`
+		StartsAt time.Time  `json:"startsAt"`
+		EndsAt   *time.Time `json:"endsAt"`
 	}
 	if err := httpx.DecodeJSON(r, &payload); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
 		return
 	}
+	if payload.StartsAt.IsZero() {
+		httpx.Error(w, http.StatusBadRequest, "tanggal mulai wajib diisi")
+		return
+	}
+	endsAt := payload.StartsAt
+	if payload.EndsAt != nil {
+		endsAt = *payload.EndsAt
+	}
+	if endsAt.Before(payload.StartsAt) {
+		httpx.Error(w, http.StatusBadRequest, "tanggal selesai tidak boleh lebih awal dari tanggal mulai")
+		return
+	}
 
-	if err := h.repo.UpdateAgenda(r.Context(), id, payload.Title, payload.Location, payload.StartsAt); errors.Is(err, sql.ErrNoRows) {
+	if err := h.repo.UpdateAgenda(r.Context(), id, payload.Title, payload.Location, payload.StartsAt, endsAt); errors.Is(err, sql.ErrNoRows) {
 		httpx.Error(w, http.StatusNotFound, "agenda tidak ditemukan")
 		return
 	} else if err != nil {
