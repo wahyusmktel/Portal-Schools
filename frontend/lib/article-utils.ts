@@ -1,10 +1,13 @@
 import type { Article } from "@/types/content";
 
+const SITE_TIME_ZONE = "Asia/Jakarta";
+
 export function formatDate(value: string, includeTime?: boolean) {
   const options: Intl.DateTimeFormatOptions = {
     day: "numeric",
     month: "long",
-    year: "numeric"
+    year: "numeric",
+    timeZone: SITE_TIME_ZONE
   };
   if (includeTime) {
     options.hour = "2-digit";
@@ -23,7 +26,7 @@ export function formatDateRange(startsAt: string, endsAt?: string, includeTime?:
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start.getTime() === end.getTime()) {
     return formatDate(startsAt, includeTime);
   }
-  if (!includeTime && start.toDateString() === end.toDateString()) {
+  if (!includeTime && formatDate(startsAt) === formatDate(endsAt)) {
     return formatDate(startsAt);
   }
 
