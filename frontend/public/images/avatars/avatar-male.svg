@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-male" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E2E8F0"/>
+      <stop offset="100%" stop-color="#CBD5E1"/>
+    </linearGradient>
+    <linearGradient id="shirt-male" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E11D48"/>
+      <stop offset="100%" stop-color="#BE123C"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <circle cx="64" cy="64" r="64" fill="url(#bg-male)"/>
+  <!-- Body/Suit -->
+  <path d="M24 116 C24 92 40 82 64 82 C88 82 104 92 104 116 Z" fill="url(#shirt-male)"/>
+  <!-- Inner Collar / Shirt -->
+  <polygon points="64,96 54,82 74,82" fill="#FFFFFF"/>
+  <polygon points="64,104 60,82 68,82" fill="#9F1239"/>
+  <!-- Neck -->
+  <rect x="56" y="66" width="16" height="20" rx="3" fill="#FDBA74"/>
+  <!-- Head -->
+  <ellipse cx="64" cy="52" rx="20" ry="24" fill="#FDBA74"/>
+  <!-- Male Hair (Short Professional Cut) -->
+  <path d="M42 48 C42 28 54 26 64 26 C74 26 86 28 86 48 C86 44 82 34 76 34 C70 34 66 38 64 38 C62 38 58 34 52 34 C46 34 42 44 42 48 Z" fill="#1E293B"/>
+  <!-- Ears -->
+  <circle cx="43" cy="53" r="4" fill="#FDBA74"/>
+  <circle cx="85" cy="53" r="4" fill="#FDBA74"/>
+  <!-- Eyeglasses (Optional smart teacher look) -->
+  <rect x="47" y="47" width="13" height="10" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
+  <rect x="68" y="47" width="13" height="10" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
+  <line x1="60" y1="52" x2="68" y2="52" stroke="#334155" stroke-width="2"/>
+</svg>

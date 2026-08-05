@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, FormEvent, DragEvent, useRef } from "react";
-import { Plus, Edit2, Trash2, X, Users, UploadCloud, AlertCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  Plus, Edit2, Trash2, X, Users, UploadCloud, AlertCircle, Search, 
+  ChevronLeft, ChevronRight, FileSpreadsheet, Download, CheckCircle2, 
+  RefreshCw, FileText
+} from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import { motion, AnimatePresence } from "framer-motion";
+import * as XLSX from "xlsx";
 
 type SocialLink = {
   label: string;
@@ -23,9 +28,57 @@ type Employee = {
   sortOrder: number;
 };
 
+type ParsedEmployeeRow = {
+  name: string;
+  role: string;
+  gender: "L" | "P";
+  biography: string;
+  imageUrl: string;
+  socialLinks: SocialLink[];
+  employmentPeriod: string;
+  isActive: boolean;
+  sortOrder: number;
+  isValid: boolean;
+  errorReason?: string;
+};
+
+const DEFAULT_MALE_AVATAR = "/images/avatars/avatar-male.svg";
+const DEFAULT_FEMALE_AVATAR = "/images/avatars/avatar-female.svg";
+
+function detectGender(name: string, role: string, genderStr?: string): "L" | "P" {
+  if (genderStr) {
+    const trimmed = genderStr.trim().toLowerCase();
+    if (["p", "perempuan", "wanita", "female", "w", "f"].includes(trimmed)) {
+      return "P";
+    }
+    if (["l", "laki-laki", "pria", "male", "m"].includes(trimmed)) {
+      return "L";
+    }
+  }
+
+  const nameLower = name.toLowerCase();
+  const roleLower = role.toLowerCase();
+
+  // Pattern detection for Indonesian names & roles
+  if (
+    /\b(ibu|bu|siti|sri|ayu|dewi|putri|nur|novi|fitri|indah|anisa|perempuan|wanita|diah|ratna|mira|titi|linda|lilis|nita)\b/.test(nameLower) ||
+    roleLower.includes("wanita") ||
+    roleLower.includes("perempuan")
+  ) {
+    return "P";
+  }
+
+  return "L";
+}
+
+function getDefaultAvatar(gender: "L" | "P"): string {
+  return gender === "P" ? DEFAULT_FEMALE_AVATAR : DEFAULT_MALE_AVATAR;
+}
+
 export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) {
   const [items, setItems] = useState<Employee[]>(initialItems || []);
   const [isEditing, setIsEditing] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   
   // Search, Filter, Pagination
@@ -34,10 +87,11 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Form State
+  // Single Form State
   const [id, setId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [gender, setGender] = useState<"L" | "P">("L");
   const [biography, setBiography] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -48,9 +102,18 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
   
   const [notice, setNotice] = useState<{type: 'success'|'error', message: string} | null>(null);
 
-  // Drag and Drop State
+  // Excel Import States
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedEmployeeRow[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+  const [isImportDragging, setIsImportDragging] = useState(false);
+
+  // Drag and Drop State for single photo
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = items
     .filter(item => item.name.toLowerCase().includes(search.toLowerCase()) || item.role.toLowerCase().includes(search.toLowerCase()))
@@ -68,6 +131,7 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
     setId(null);
     setName("");
     setRole("");
+    setGender("L");
     setBiography("");
     setImageUrl("");
     setImageFile(null);
@@ -79,10 +143,21 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
     setNotice(null);
   }
 
+  function resetImportState() {
+    setImportFile(null);
+    setParsedData([]);
+    setImporting(false);
+    setImportProgress(0);
+    setImportResult(null);
+    setIsImportModalOpen(false);
+  }
+
   function handleEdit(item: Employee) {
     setId(item.id);
     setName(item.name);
     setRole(item.role);
+    const g = detectGender(item.name, item.role);
+    setGender(g);
     setBiography(item.biography);
     setImageUrl(item.imageUrl);
     setImageFile(null);
@@ -117,6 +192,229 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
       }
     }
   };
+
+  // Excel Drag & Drop Handlers
+  const handleExcelDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsImportDragging(true);
+  };
+
+  const handleExcelDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsImportDragging(false);
+  };
+
+  const handleExcelDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsImportDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+        setImportFile(file);
+        parseExcelFile(file);
+      } else {
+        alert('Mohon unggah berkas Excel (.xlsx, .xls) atau CSV.');
+      }
+    }
+  };
+
+  function parseExcelFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        const parsed: ParsedEmployeeRow[] = json.map((row, idx) => {
+          const findVal = (keys: string[]) => {
+            for (const key of keys) {
+              const foundKey = Object.keys(row).find(
+                k => k.trim().toLowerCase() === key.toLowerCase()
+              );
+              if (foundKey && row[foundKey] !== undefined && row[foundKey] !== "") {
+                return String(row[foundKey]).trim();
+              }
+            }
+            return "";
+          };
+
+          const rowName = findVal(["nama lengkap*", "nama lengkap", "nama", "name"]);
+          const rowRole = findVal(["jabatan*", "jabatan", "peran", "role"]);
+          const genderVal = findVal(["jenis kelamin (l/p)", "jenis kelamin", "gender", "jk"]);
+          const bio = findVal(["biografi", "bio", "biography"]);
+          let imgUrl = findVal(["foto profil url (opsional)", "foto profil", "foto", "image url", "image"]);
+          const statusVal = findVal(["status (aktif/tidak aktif)", "status", "is active", "aktif"]);
+          const period = findVal(["periode kerja (jika tidak aktif)", "periode kerja", "periode", "employment period"]);
+          const socialVal = findVal(["sosial media (format: label=url)", "sosial media (format: instagram=url)", "sosial media", "social links", "social"]);
+
+          const rowGender = detectGender(rowName, rowRole, genderVal);
+
+          // Assign default gender avatar if profile picture is empty
+          if (!imgUrl) {
+            imgUrl = getDefaultAvatar(rowGender);
+          }
+
+          const isRowActive = statusVal === "" ? true : !["tidak aktif", "nonaktif", "false", "0", "purna", "inactive"].includes(statusVal.toLowerCase());
+
+          const socialLinks: SocialLink[] = socialVal
+            ? socialVal.split(/[\n,;]+/).map(s => {
+                const [lbl, ...val] = s.split("=");
+                return { label: (lbl || "Social").trim(), value: val.join("=").trim() };
+              }).filter(s => s.value !== "")
+            : [];
+
+          const isValid = Boolean(rowName && rowRole);
+          const errorReason = !rowName ? "Nama wajib diisi" : !rowRole ? "Jabatan wajib diisi" : undefined;
+
+          return {
+            name: rowName,
+            role: rowRole,
+            gender: rowGender,
+            biography: bio,
+            imageUrl: imgUrl,
+            socialLinks,
+            employmentPeriod: isRowActive ? "" : period,
+            isActive: isRowActive,
+            sortOrder: idx + 1,
+            isValid,
+            errorReason
+          };
+        });
+
+        setParsedData(parsed);
+        setImportResult(null);
+      } catch (err) {
+        alert("Gagal membaca berkas Excel. Pastikan format file sesuai.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function downloadTemplate() {
+    const headers = [
+      [
+        "Nama Lengkap*", 
+        "Jabatan*", 
+        "Jenis Kelamin (L/P)", 
+        "Biografi", 
+        "Foto Profil URL (Opsional)", 
+        "Status (Aktif/Tidak Aktif)", 
+        "Periode Kerja (Jika Tidak Aktif)", 
+        "Sosial Media (Format: Label=URL)"
+      ],
+      [
+        "Dr. Budi Santoso, M.Pd", 
+        "Kepala Sekolah", 
+        "L", 
+        "Kepala Sekolah SMK Telkom yang berdedikasi.", 
+        "", 
+        "Aktif", 
+        "", 
+        "Instagram=https://instagram.com/budisantoso"
+      ],
+      [
+        "Siti Rahmawati, S.Pd", 
+        "Guru Matematika", 
+        "P", 
+        "Guru Matematika berprestasi.", 
+        "", 
+        "Aktif", 
+        "", 
+        "Instagram=https://instagram.com/sitirahma"
+      ],
+      [
+        "Drs. Ahmad Hidayat", 
+        "Guru Bahasa Indonesia", 
+        "L", 
+        "Guru senior pengampu mata pelajaran Bahasa Indonesia.", 
+        "", 
+        "Tidak Aktif", 
+        "2010 - 2024", 
+        "Email=mailto:ahmad@smktelkom.sch.id"
+      ]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    
+    // Set column widths for convenience
+    ws['!cols'] = [
+      { wch: 25 }, // Nama Lengkap
+      { wch: 22 }, // Jabatan
+      { wch: 20 }, // Jenis Kelamin
+      { wch: 40 }, // Biografi
+      { wch: 30 }, // Foto Profil URL
+      { wch: 22 }, // Status
+      { wch: 25 }, // Periode Kerja
+      { wch: 40 }  // Sosial Media
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template Pegawai");
+    XLSX.writeFile(wb, "Template_Import_Pegawai_SMK_Telkom.xlsx");
+  }
+
+  async function processImport() {
+    const validRows = parsedData.filter(r => r.isValid);
+    if (validRows.length === 0) return;
+
+    setImporting(true);
+    setImportProgress(0);
+    let successCount = 0;
+    let failedCount = 0;
+    const newItems: Employee[] = [];
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i];
+      const payload = {
+        name: row.name,
+        role: row.role,
+        biography: row.biography,
+        imageUrl: row.imageUrl,
+        socialLinks: row.socialLinks,
+        employmentPeriod: row.employmentPeriod,
+        isActive: row.isActive,
+        sortOrder: Number(row.sortOrder)
+      };
+
+      try {
+        const res = await fetch(`${API_URL}/employees`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCookie("csrf_token")
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const resData = await res.json();
+          successCount++;
+          newItems.push({
+            ...payload,
+            id: resData.id
+          } as Employee);
+        } else {
+          failedCount++;
+        }
+      } catch {
+        failedCount++;
+      }
+
+      setImportProgress(Math.round(((i + 1) / validRows.length) * 100));
+    }
+
+    if (newItems.length > 0) {
+      setItems(prev => [...prev, ...newItems]);
+    }
+
+    setImporting(false);
+    setImportResult({ success: successCount, failed: failedCount });
+  }
 
   async function uploadImage(file: File): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
     const formData = new FormData();
@@ -153,6 +451,12 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
         return;
       }
       finalImageUrl = uploadResult.url;
+    }
+
+    // Default gender avatar assignment if no custom image was provided or uploaded
+    if (!finalImageUrl) {
+      const selectedGender = gender || detectGender(name, role);
+      finalImageUrl = getDefaultAvatar(selectedGender);
     }
     
     const socialLinks = socialLinksText.split('\n')
@@ -228,7 +532,6 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
       if (res.ok) {
         setItems(items.filter(item => item.id !== deleteId));
         
-        // Handle pagination edge case when deleting last item on a page
         const newFilteredLength = items.filter(item => item.id !== deleteId).length;
         if (currentPage > 1 && newFilteredLength <= (currentPage - 1) * itemsPerPage) {
           setCurrentPage(prev => prev - 1);
@@ -243,20 +546,31 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
 
   return (
     <div className="grid gap-8">
+      {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-zinc-100">
         <div>
           <h2 className="text-xl font-black text-zinc-800">Daftar Pegawai</h2>
           <p className="text-sm text-zinc-500 mt-1">Total: {items.length} profil tercatat</p>
         </div>
-        <button 
-          onClick={() => setIsEditing(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-rosebrand-500 px-6 py-3 text-sm font-extrabold text-white transition hover:bg-rosebrand-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <Plus size={18} />
-          Tambah Pegawai
-        </button>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-emerald-700 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <FileSpreadsheet size={18} />
+            Import Excel
+          </button>
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-rosebrand-500 px-5 py-3 text-sm font-extrabold text-white transition hover:bg-rosebrand-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <Plus size={18} />
+            Tambah Pegawai
+          </button>
+        </div>
       </div>
 
+      {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-4 mb-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
@@ -279,6 +593,245 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
         </select>
       </div>
 
+      {/* Excel Import Modal */}
+      <AnimatePresence>
+        {isImportModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl my-8 relative overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-zinc-100 px-6 py-5 flex items-center justify-between z-10 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
+                    <FileSpreadsheet size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-zinc-900">Import Data Pegawai dari Excel</h2>
+                    <p className="text-xs text-zinc-500">Tambahkan banyak data pegawai sekaligus dengan format file spreadsheet.</p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={resetImportState} 
+                  disabled={importing}
+                  className="p-2 text-zinc-400 hover:text-zinc-600 bg-zinc-50 rounded-full hover:bg-zinc-100 transition disabled:opacity-50"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto flex-1 grid gap-6">
+                {/* Template Download Banner */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-emerald-50/60 p-4 rounded-xl border border-emerald-100">
+                  <div className="flex items-center gap-3">
+                    <FileText className="text-emerald-600 shrink-0" size={24} />
+                    <div>
+                      <p className="text-sm font-bold text-emerald-900">Belum punya format Excel yang sesuai?</p>
+                      <p className="text-xs text-emerald-700 mt-0.5">Unduh berkas contoh template Excel untuk diisi data pegawai sekolah Anda.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadTemplate}
+                    className="shrink-0 flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
+                  >
+                    <Download size={14} />
+                    Unduh Template Excel
+                  </button>
+                </div>
+
+                {/* Upload File Zone */}
+                {!importFile ? (
+                  <div 
+                    onDragOver={handleExcelDragOver}
+                    onDragLeave={handleExcelDragLeave}
+                    onDrop={handleExcelDrop}
+                    onClick={() => excelInputRef.current?.click()}
+                    className={`flex flex-col items-center justify-center p-10 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
+                      isImportDragging ? "border-emerald-500 bg-emerald-50" : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100 hover:border-zinc-300"
+                    }`}
+                  >
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls, .csv" 
+                      className="hidden" 
+                      ref={excelInputRef}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setImportFile(file);
+                          parseExcelFile(file);
+                        }
+                      }}
+                    />
+                    <div className="p-4 rounded-full bg-white shadow-sm border border-zinc-100 text-emerald-600 mb-3">
+                      <UploadCloud size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-zinc-800">Klik untuk memilih file atau seret file ke sini</p>
+                    <p className="text-xs text-zinc-500 mt-1">Mendukung file berformat .XLSX, .XLS, atau .CSV</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {/* Selected File Info */}
+                    <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-zinc-200">
+                      <div className="flex items-center gap-3 truncate">
+                        <FileSpreadsheet className="text-emerald-600 shrink-0" size={24} />
+                        <div className="truncate">
+                          <p className="text-sm font-bold text-zinc-800 truncate">{importFile.name}</p>
+                          <p className="text-xs text-zinc-500">{(importFile.size / 1024).toFixed(1)} KB • {parsedData.length} baris terdeteksi</p>
+                        </div>
+                      </div>
+                      {!importing && !importResult && (
+                        <button
+                          onClick={() => { setImportFile(null); setParsedData([]); }}
+                          className="px-3 py-1.5 text-xs font-bold text-rosebrand-600 hover:bg-rosebrand-50 rounded-lg transition"
+                        >
+                          Ganti File
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Progress Bar when importing */}
+                    {importing && (
+                      <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-900 mb-2">
+                          <span>Mengimpor data pegawai ke database...</span>
+                          <span>{importProgress}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-emerald-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-600 transition-all duration-300 rounded-full" 
+                            style={{ width: `${importProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Import Result Notification */}
+                    {importResult && (
+                      <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
+                        <CheckCircle2 className="text-emerald-600 shrink-0 mt-0.5" size={20} />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-900">Proses Import Selesai!</p>
+                          <p className="text-xs text-emerald-700 mt-1">
+                            Berhasil menambahkan <strong>{importResult.success}</strong> pegawai baru. 
+                            {importResult.failed > 0 && ` (Gagal: ${importResult.failed} pegawai)`}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Preview Table */}
+                    <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
+                      <div className="bg-zinc-50 px-4 py-3 border-b border-zinc-200 flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-600">
+                          Pratinjau Data ({parsedData.filter(r => r.isValid).length} Valid dari {parsedData.length} Baris)
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          *Foto kosong otomatis diberikan avatar default pria/wanita
+                        </span>
+                      </div>
+                      
+                      <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-zinc-100/70 text-zinc-700 font-bold border-b border-zinc-200 sticky top-0">
+                            <tr>
+                              <th className="p-3">#</th>
+                              <th className="p-3">Avatar</th>
+                              <th className="p-3">Nama Lengkap</th>
+                              <th className="p-3">Jabatan</th>
+                              <th className="p-3">Gender</th>
+                              <th className="p-3">Status</th>
+                              <th className="p-3">Validasi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100">
+                            {parsedData.map((row, idx) => (
+                              <tr key={idx} className={row.isValid ? "hover:bg-zinc-50/80" : "bg-red-50/40"}>
+                                <td className="p-3 font-mono text-zinc-400">{idx + 1}</td>
+                                <td className="p-3">
+                                  <img 
+                                    src={row.imageUrl} 
+                                    alt="Avatar" 
+                                    className="w-8 h-8 rounded-full object-cover border border-zinc-200 bg-white"
+                                  />
+                                </td>
+                                <td className="p-3 font-bold text-zinc-800">{row.name || <span className="text-red-500 italic">(Kosong)</span>}</td>
+                                <td className="p-3 text-zinc-600">{row.role || <span className="text-red-500 italic">(Kosong)</span>}</td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.gender === 'P' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    {row.gender === 'P' ? 'Wanita (P)' : 'Pria (L)'}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200 text-zinc-700'}`}>
+                                    {row.isActive ? 'Aktif' : 'Purna'}
+                                  </span>
+                                </td>
+                                <td className="p-3">
+                                  {row.isValid ? (
+                                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                      <CheckCircle2 size={12} /> Valid
+                                    </span>
+                                  ) : (
+                                    <span className="text-red-600 font-bold flex items-center gap-1">
+                                      <AlertCircle size={12} /> {row.errorReason}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white border-t border-zinc-100 px-6 py-4 flex justify-end gap-3 rounded-b-2xl z-10 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <button 
+                  type="button" 
+                  onClick={resetImportState}
+                  disabled={importing}
+                  className="rounded-xl border border-zinc-200 px-6 py-2.5 text-sm font-bold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  {importResult ? "Tutup" : "Batal"}
+                </button>
+                
+                {parsedData.length > 0 && !importResult && (
+                  <button 
+                    type="button" 
+                    onClick={processImport}
+                    disabled={importing || parsedData.filter(r => r.isValid).length === 0}
+                    className="rounded-xl bg-emerald-600 px-8 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                  >
+                    {importing ? (
+                      <>
+                        <RefreshCw size={16} className="animate-spin" />
+                        Mengimpor...
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={16} />
+                        Mulai Import ({parsedData.filter(r => r.isValid).length} Pegawai)
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Single Employee Form Modal */}
       <AnimatePresence>
         {isEditing && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm overflow-y-auto">
@@ -335,7 +888,11 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
                             className="w-full h-full object-cover" 
                           />
                         ) : (
-                          <Users className="w-8 h-8 text-zinc-300" />
+                          <img 
+                            src={getDefaultAvatar(gender)} 
+                            alt="Default Avatar" 
+                            className="w-full h-full object-cover" 
+                          />
                         )}
                       </div>
                       
@@ -344,7 +901,7 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
                           <UploadCloud size={18} className="text-rosebrand-500" />
                           Pilih foto atau seret ke sini
                         </p>
-                        <p className="text-xs text-zinc-500 mt-1">Format PNG, JPG, JPEG. Maksimal ukuran 2MB disarankan untuk performa terbaik.</p>
+                        <p className="text-xs text-zinc-500 mt-1">Jika dikosongkan, avatar default {gender === 'P' ? 'wanita' : 'pria'} akan digunakan secara otomatis.</p>
                         {imageFile && (
                           <p className="text-xs font-bold text-rosebrand-600 mt-2 truncate w-48 mx-auto sm:mx-0">{imageFile.name}</p>
                         )}
@@ -376,6 +933,30 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
                     </label>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                      Jenis Kelamin (Untuk Avatar Default)
+                      <select
+                        value={gender}
+                        onChange={e => setGender(e.target.value as "L" | "P")}
+                        className="rounded-xl border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500 focus:ring-2 focus:ring-rosebrand-500/20 transition-all bg-white font-medium cursor-pointer"
+                      >
+                        <option value="L">Laki-laki (Pria)</option>
+                        <option value="P">Perempuan (Wanita)</option>
+                      </select>
+                    </label>
+
+                    <label className="grid gap-2 text-sm font-bold text-zinc-700">
+                      Urutan Tampil (Makin kecil makin awal)
+                      <input
+                        type="number"
+                        value={sortOrder}
+                        onChange={e => setSortOrder(Number(e.target.value))}
+                        className="rounded-xl border border-zinc-200 px-4 py-3 outline-none focus:border-rosebrand-500 transition-all bg-white"
+                      />
+                    </label>
+                  </div>
+
                   <label className="grid gap-2 text-sm font-bold text-zinc-700">
                     Biografi Singkat
                     <textarea
@@ -398,7 +979,7 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
                     />
                   </label>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-5 bg-zinc-50 rounded-xl border border-zinc-100">
+                  <div className="p-5 bg-zinc-50 rounded-xl border border-zinc-100">
                     <label className="flex items-center gap-3 text-sm font-bold text-zinc-800 cursor-pointer w-fit">
                       <div className="relative flex items-center">
                         <input
@@ -412,16 +993,6 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
                         </svg>
                       </div>
                       Status Pegawai Masih Aktif
-                    </label>
-
-                    <label className="grid gap-2 text-sm font-bold text-zinc-700">
-                      Urutan Tampil (Makin kecil makin awal)
-                      <input
-                        type="number"
-                        value={sortOrder}
-                        onChange={e => setSortOrder(Number(e.target.value))}
-                        className="rounded-lg border border-zinc-200 px-4 py-2 outline-none focus:border-rosebrand-500"
-                      />
                     </label>
                   </div>
 
@@ -478,6 +1049,7 @@ export function EmployeeManager({ initialItems }: { initialItems: Employee[] }) 
         )}
       </AnimatePresence>
 
+      {/* Main List Table */}
       <div className="grid gap-4">
         {paginatedItems.map(item => (
           <div key={item.id} className="group flex flex-col sm:flex-row gap-4 items-center justify-between rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition-all hover:border-rosebrand-200 hover:shadow-md">
