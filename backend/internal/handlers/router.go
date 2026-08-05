@@ -109,6 +109,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Get("/admin/teaching-modules", h.requireAnyRole(h.adminTeachingModules, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/spmb/registrations", h.requireAnyRole(h.adminSpmbRegistrations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/ai/generate-article", h.requireCSRF(h.requireAnyRole(h.generateAIArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.deleteArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/announcements", h.requireCSRF(h.requireAnyRole(h.createAnnouncement, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))

@@ -16,7 +16,9 @@ import {
   X,
   Maximize2,
   Minimize2,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Wand2
 } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { API_URL } from "@/lib/api";
@@ -68,6 +70,68 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // AI Generator Modal State
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiParagraphs, setAiParagraphs] = useState<number | string>(5);
+  const [aiSentences, setAiSentences] = useState<number | string>("");
+  const [aiCategory, setAiCategory] = useState("Teknologi");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function handleGenerateAIArticle(e?: FormEvent) {
+    if (e) e.preventDefault();
+    if (!aiTopic.trim()) {
+      setAiError("Detail atau topik artikel wajib diisi.");
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/ai/generate-article`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCookie("csrf_token")
+        },
+        body: JSON.stringify({
+          topic: aiTopic.trim(),
+          paragraphs: Number(aiParagraphs) || 5,
+          sentencesPerParagraph: Number(aiSentences) || 0,
+          category: aiCategory.trim() || "Sekolah"
+        })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.message || "Gagal menghasilkan artikel dengan AI.");
+      }
+
+      setForm({
+        title: data.title || "",
+        excerpt: data.excerpt || "",
+        content: data.content || "",
+        coverImage: "",
+        category: data.category || aiCategory || "Sekolah",
+        status: "published"
+      });
+
+      setModalMode("create");
+      setAiModalOpen(false);
+      setNotice({
+        type: "success",
+        message: "✨ Artikel SEO berhasil dihasilkan AI! Silakan cek kembali dan klik Simpan."
+      });
+    } catch (err: any) {
+      setAiError(err?.message || "Gagal menghasilkan artikel dengan AI.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -347,14 +411,27 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
             Kelola artikel SEO, status publikasi, kategori, cover, dan isi berita portal sekolah.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-rosebrand-500 px-5 text-sm font-extrabold text-white transition hover:bg-rosebrand-600"
-        >
-          <Plus size={18} aria-hidden />
-          Tambah Artikel
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setAiError(null);
+              setAiModalOpen(true);
+            }}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-amber-500 via-rose-500 to-rosebrand-600 px-5 text-sm font-extrabold text-white shadow-sm transition hover:brightness-110"
+          >
+            <Sparkles size={18} aria-hidden />
+            Hasilkan dengan AI
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-zinc-200 bg-white px-5 text-sm font-extrabold text-zinc-700 transition hover:bg-zinc-50"
+          >
+            <Plus size={18} aria-hidden />
+            Tambah Manual
+          </button>
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
@@ -699,7 +776,162 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
             </div>
           </form>
         </div>
-      ) : null}
+      {/* AI Generator Modal */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-zinc-950/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[12px] bg-white p-6 shadow-2xl border border-zinc-100 grid gap-5">
+            <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-rosebrand-600 text-white shadow-md">
+                  <Sparkles size={20} />
+                </span>
+                <div>
+                  <h2 className="text-xl font-black text-zinc-900">Hasilkan Artikel dengan AI (SEO Google Page 1)</h2>
+                  <p className="text-xs font-semibold text-zinc-500">
+                    Otomatis buat artikel berstruktur SEO, internal link portal, & external link kredibel.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiModalOpen(false)}
+                className="grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {aiError && (
+              <div className="rounded-[8px] bg-rose-50 border border-rose-200 p-3.5 text-xs font-bold text-rose-800">
+                {aiError}
+              </div>
+            )}
+
+            <form onSubmit={handleGenerateAIArticle} className="grid gap-4">
+              {/* Field 1: Topik / Detail */}
+              <div className="grid gap-2">
+                <label className="text-sm font-extrabold text-zinc-800 flex items-center gap-2">
+                  1. Artikel tentang apa? (Detail / Prompt) *
+                </label>
+                <textarea
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  rows={4}
+                  required
+                  placeholder="Contoh: Artikel tentang inovasi pembelajaran coding di jurusan RPL SMK Telkom Lampung, dilengkapi tanggapan positif Kepala Sekolah mengenai lulusan yang siap kerja dan kuliah."
+                  className="rounded-[8px] border border-zinc-200 bg-zinc-50/50 p-3.5 text-sm font-semibold text-zinc-800 outline-none transition focus:border-rosebrand-500 focus:bg-white focus:ring-4 focus:ring-rosebrand-100"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="text-[11px] font-bold text-zinc-400">Rekomendasi Prompt:</span>
+                  {[
+                    "Pembelajaran Jurusan RPL & Project-Based Learning",
+                    "Kegiatan Praktikum Jurusan TKJ & Cloud Infra",
+                    "Teknologi 5G & Fiber Optic Jurusan TJAT",
+                    "Prestasi Lomba Animasi & Konten Digital Siswa",
+                    "Pendapat Kepala Sekolah tentang Beasiswa SPMB 2026"
+                  ].map((promptText) => (
+                    <button
+                      key={promptText}
+                      type="button"
+                      onClick={() => setAiTopic(promptText)}
+                      className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-bold text-zinc-600 hover:bg-rosebrand-50 hover:text-rosebrand-700 transition"
+                    >
+                      + {promptText}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Field 2 & 3: Paragraf & Kalimat */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-extrabold text-zinc-800">
+                    2. Berapa Paragraf?
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={15}
+                    value={aiParagraphs}
+                    onChange={(e) => setAiParagraphs(e.target.value)}
+                    className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
+                  />
+                  <p className="text-[11px] font-semibold text-zinc-400">Default: 5 paragraf</p>
+                </div>
+
+                <div className="grid gap-2">
+                  <label className="text-sm font-extrabold text-zinc-800">
+                    3. Berapa Kalimat per Paragraf? <span className="text-xs font-normal text-zinc-400">(Opsional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={aiSentences}
+                    onChange={(e) => setAiSentences(e.target.value)}
+                    placeholder="Kosongkan = Otomatis/Random"
+                    className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
+                  />
+                  <p className="text-[11px] font-semibold text-zinc-400">Kosongkan untuk penyesuaian alami</p>
+                </div>
+              </div>
+
+              {/* Field 4: Kategori */}
+              <div className="grid gap-2">
+                <label className="text-sm font-extrabold text-zinc-800">
+                  4. Kategori Artikel
+                </label>
+                <input
+                  list="ai-category-options"
+                  value={aiCategory}
+                  onChange={(e) => setAiCategory(e.target.value)}
+                  placeholder="Teknologi, Pembelajaran, Berita, Prestasi..."
+                  className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
+                />
+                <datalist id="ai-category-options">
+                  {["Teknologi", "Pembelajaran", "Berita", "Prestasi", "Sekolah", "E-Sport"].map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
+
+              <div className="rounded-[8px] bg-rosebrand-50/70 p-3.5 border border-rosebrand-100 flex items-start gap-2.5 text-xs text-rosebrand-900 font-semibold">
+                <Sparkles size={16} className="shrink-0 text-rosebrand-600 mt-0.5" />
+                <span>
+                  <strong>Fitur Otomatis SEO:</strong> AI akan menghasilkan Judul Catchy, Meta Excerpt, HTML Sub-heading, Internal Links (ke /jurusan, /spmb, /profil, /prestasi), dan External Links kredibel untuk mengoptimalkan Google Page One.
+                </span>
+              </div>
+
+              <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAiModalOpen(false)}
+                  className="h-11 rounded-[8px] border border-zinc-200 px-5 text-sm font-extrabold text-zinc-700 hover:bg-zinc-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={aiLoading}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-amber-500 via-rose-500 to-rosebrand-600 px-6 text-sm font-extrabold text-white shadow-md transition hover:brightness-110 disabled:opacity-60"
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Membuat Artikel SEO (AI)...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={18} />
+                      Buat Artikel Sekarang
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
