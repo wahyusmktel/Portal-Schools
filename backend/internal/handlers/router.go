@@ -38,7 +38,24 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 	r.Use(securityHeaders)
 	r.Use(httprate.LimitByIP(180, time.Minute))
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.CORSAllowedOrigins,
+		AllowedOrigins: cfg.CORSAllowedOrigins,
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			if origin == "" {
+				return true
+			}
+			for _, allowed := range cfg.CORSAllowedOrigins {
+				if allowed == "*" || allowed == origin {
+					return true
+				}
+			}
+			if strings.HasSuffix(origin, ".smktelkom-lpg.id") || strings.HasSuffix(origin, ".smktelkom-lpg.sch.id") || origin == "https://web.smktelkom-lpg.id" {
+				return true
+			}
+			if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+				return true
+			}
+			return false
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
