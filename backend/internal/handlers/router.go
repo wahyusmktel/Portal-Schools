@@ -118,6 +118,10 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Put("/admin/comments/{id}/status", h.requireCSRF(h.requireAnyRole(h.updateCommentStatus, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Get("/users", h.requireAnyRole(h.users, models.RoleSuperadmin))
 			protected.Post("/users", h.requireCSRF(h.requireAnyRole(h.createUser, models.RoleSuperadmin)))
+			protected.Get("/ai-config", h.requireAnyRole(h.getAISetting, models.RoleSuperadmin))
+			protected.Put("/ai-config", h.requireCSRF(h.requireAnyRole(h.updateAISetting, models.RoleSuperadmin)))
+			protected.Post("/ai-config/test", h.requireCSRF(h.requireAnyRole(h.testAIConnection, models.RoleSuperadmin)))
+
 			protected.Put("/announcements/{id}", h.requireCSRF(h.requireAnyRole(h.updateAnnouncement, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/announcements/{id}", h.requireCSRF(h.requireAnyRole(h.deleteAnnouncement, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/agendas/{id}", h.requireCSRF(h.requireAnyRole(h.updateAgenda, models.RoleSuperadmin, models.RoleAdmin)))

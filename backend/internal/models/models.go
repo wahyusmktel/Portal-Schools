@@ -243,3 +243,13 @@ type SpmbRegistration struct {
 	AcademicYear       string `json:"academicYear"`
 	CreatedAt          string `json:"createdAt"`
 }
+
+type AISetting struct {
+	ID        int64  `json:"id"`
+	BaseURL   string `json:"baseUrl"`
+	APIKey    string `json:"apiKey"`
+	Model     string `json:"model"`
+	IsActive  bool   `json:"isActive"`
+	UpdatedAt string `json:"updatedAt"`
+}
+

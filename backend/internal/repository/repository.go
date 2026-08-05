@@ -1785,3 +1785,49 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 func newSpmbRegistrationNumber() string {
 	return "SPMB-" + time.Now().Format("20060102-150405000000000")
 }
+
+func (r *Repository) GetAISetting(ctx context.Context) (models.AISetting, error) {
+	var item models.AISetting
+	var updatedAt time.Time
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, base_url, api_key, model, is_active, updated_at
+		FROM ai_settings
+		WHERE id = 1
+	`).Scan(&item.ID, &item.BaseURL, &item.APIKey, &item.Model, &item.IsActive, &updatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.AISetting{
+			ID:       1,
+			BaseURL:  "https://waverouter.web.id/v1",
+			APIKey:   "",
+			Model:    "glm-5.2",
+			IsActive: true,
+		}, nil
+	}
+	if err != nil {
+		return item, err
+	}
+	item.UpdatedAt = updatedAt.Format(time.RFC3339)
+	return item, nil
+}
+
+func (r *Repository) UpdateAISetting(ctx context.Context, setting models.AISetting) error {
+	if strings.TrimSpace(setting.BaseURL) == "" {
+		setting.BaseURL = "https://waverouter.web.id/v1"
+	}
+	if strings.TrimSpace(setting.Model) == "" {
+		setting.Model = "glm-5.2"
+	}
+
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO ai_settings (id, base_url, api_key, model, is_active, updated_at)
+		VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(id) DO UPDATE SET
+			base_url = excluded.base_url,
+			api_key = excluded.api_key,
+			model = excluded.model,
+			is_active = excluded.is_active,
+			updated_at = CURRENT_TIMESTAMP
+	`, setting.BaseURL, setting.APIKey, setting.Model, setting.IsActive)
+	return err
+}
+

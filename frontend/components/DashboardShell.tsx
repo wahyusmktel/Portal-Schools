@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import {
+  Bot,
   Bell,
   BookOpen,
   BookOpenCheck,
@@ -54,6 +55,7 @@ const menu = [
   { href: "/dashboard/alumni", label: "Alumni", icon: GraduationCap },
   { href: "/dashboard/faqs", label: "Pusat Bantuan", icon: HelpCircle },
   { href: "/dashboard/users", label: "Pengguna", icon: Users },
+  { href: "/dashboard/ai-config", label: "Config AI", icon: Bot },
 ];
 
 export function DashboardShell({ children }: { children: ReactNode }) {
@@ -101,10 +103,18 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  const visibleMenu =
-    role === "admin-spmb"
-      ? menu.filter((item) => item.href === "/dashboard/spmb")
-      : menu.filter((item) => item.href !== "/dashboard/spmb" || role === "superadmin" || role === "admin");
+  const visibleMenu = menu.filter((item) => {
+    if (role === "admin-spmb") {
+      return item.href === "/dashboard/spmb";
+    }
+    if (item.href === "/dashboard/spmb") {
+      return role === "superadmin" || role === "admin";
+    }
+    if (item.href === "/dashboard/users" || item.href === "/dashboard/ai-config") {
+      return role === "superadmin";
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-softgray">
