@@ -102,10 +102,11 @@ Keluarkan HANYA JSON murni tanpa markdown triple backticks. Format JSON:
 			{"role": "system", "content": "You are a professional SEO content writer. Always output clean JSON only."},
 			{"role": "user", "content": prompt},
 		},
+		"max_tokens":  1500,
 		"temperature": 0.7,
 	})
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 	aiReq, err := http.NewRequestWithContext(r.Context(), "POST", endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "URL AI Endpoint tidak valid: "+err.Error())
