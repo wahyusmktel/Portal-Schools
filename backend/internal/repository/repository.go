@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 	"time"
 
@@ -907,13 +908,21 @@ func (r *Repository) Articles(ctx context.Context, includeDraft bool) ([]models.
 
 func (r *Repository) ArticleBySlug(ctx context.Context, slug string) (models.Article, error) {
 	var item models.Article
+	rawSlug := strings.TrimSpace(slug)
+	decodedSlug, _ := url.QueryUnescape(rawSlug)
+	cleanedSlug := slugify(decodedSlug)
+
 	err := r.db.QueryRowContext(ctx, `
 		SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.cover_image, a.category, a.status, a.view_count,
 		       COALESCE(a.published_at, a.created_at), COALESCE(u.name, 'Admin Sekolah')
 		FROM articles a
 		LEFT JOIN users u ON u.id = a.author_id
-		WHERE a.slug = ? AND a.status = 'published'
-	`, slug).Scan(&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.ViewCount, &item.PublishedAt, &item.AuthorName)
+		WHERE (a.slug = ? OR a.slug = ? OR a.slug LIKE ? OR a.slug LIKE ?) AND a.status = 'published'
+		ORDER BY a.id DESC
+		LIMIT 1
+	`, rawSlug, decodedSlug, rawSlug+"%", cleanedSlug+"%").Scan(
+		&item.ID, &item.Title, &item.Slug, &item.Excerpt, &item.Content, &item.CoverImage, &item.Category, &item.Status, &item.ViewCount, &item.PublishedAt, &item.AuthorName,
+	)
 	return item, err
 }
 
@@ -1241,15 +1250,34 @@ func uniqueSlug(title string) string {
 
 func slugify(title string) string {
 	slug := strings.ToLower(strings.TrimSpace(title))
-	replacer := strings.NewReplacer(" ", "-", "_", "-", "/", "-", "\\", "-", ".", "", ",", "", "'", "", "\"", "")
-	slug = replacer.Replace(slug)
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
+
+	// Clean typography punctuation
+	slug = strings.ReplaceAll(slug, "’", "")
+	slug = strings.ReplaceAll(slug, "‘", "")
+	slug = strings.ReplaceAll(slug, "“", "")
+	slug = strings.ReplaceAll(slug, "”", "")
+	slug = strings.ReplaceAll(slug, "—", "-")
+	slug = strings.ReplaceAll(slug, "–", "-")
+
+	var buf strings.Builder
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			buf.WriteRune(r)
+		} else if r == ' ' || r == '-' || r == '_' || r == '/' || r == '\\' || r == ':' || r == '.' || r == ',' || r == '!' || r == '?' || r == '(' || r == ')' {
+			buf.WriteRune('-')
+		}
 	}
-	if len(slug) > 90 {
-		slug = slug[:90]
+
+	res := buf.String()
+	for strings.Contains(res, "--") {
+		res = strings.ReplaceAll(res, "--", "-")
 	}
-	return strings.Trim(slug, "-")
+
+	runes := []rune(res)
+	if len(runes) > 80 {
+		res = string(runes[:80])
+	}
+	return strings.Trim(res, "-")
 }
 
 func (r *Repository) Employees(ctx context.Context) ([]models.Employee, error) {
