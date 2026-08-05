@@ -776,6 +776,8 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
             </div>
           </form>
         </div>
+      ) : null}
+
       {/* AI Generator Modal */}
       {aiModalOpen && (
         <div className="fixed inset-0 z-[100] grid place-items-center bg-zinc-950/60 p-4 backdrop-blur-md">
