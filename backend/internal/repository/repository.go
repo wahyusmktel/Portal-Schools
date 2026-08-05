@@ -1789,6 +1789,19 @@ func newSpmbRegistrationNumber() string {
 func (r *Repository) GetAISetting(ctx context.Context) (models.AISetting, error) {
 	var item models.AISetting
 	var updatedAt time.Time
+
+	_, _ = r.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS ai_settings (
+		  id BIGINT PRIMARY KEY,
+		  base_url VARCHAR(255) NOT NULL DEFAULT 'https://waverouter.web.id/v1',
+		  api_key VARCHAR(255) NOT NULL DEFAULT '',
+		  model VARCHAR(100) NOT NULL DEFAULT 'glm-5.2',
+		  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, base_url, api_key, model, is_active, updated_at
 		FROM ai_settings
@@ -1817,6 +1830,18 @@ func (r *Repository) UpdateAISetting(ctx context.Context, setting models.AISetti
 	if strings.TrimSpace(setting.Model) == "" {
 		setting.Model = "glm-5.2"
 	}
+
+	_, _ = r.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS ai_settings (
+		  id BIGINT PRIMARY KEY,
+		  base_url VARCHAR(255) NOT NULL DEFAULT 'https://waverouter.web.id/v1',
+		  api_key VARCHAR(255) NOT NULL DEFAULT '',
+		  model VARCHAR(100) NOT NULL DEFAULT 'glm-5.2',
+		  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
 
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_settings (id, base_url, api_key, model, is_active, updated_at)

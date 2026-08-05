@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,12 @@ type generateArticleResponse struct {
 }
 
 func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			httpx.Error(w, http.StatusInternalServerError, fmt.Sprintf("Terjadi kesalahan sistem pada pemrosesan AI: %v", rec))
+		}
+	}()
+
 	var req generateArticleRequest
 	if err := httpx.DecodeJSON(r, &req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
@@ -45,7 +52,7 @@ func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
 
 	setting, err := h.repo.GetAISetting(r.Context())
 	if err != nil || !setting.IsActive || strings.TrimSpace(setting.APIKey) == "" {
-		httpx.Error(w, http.StatusBadRequest, "Layanan AI belum dikonfigurasi atau belum aktif. Silakan atur API Key di menu Config AI (Superadmin).")
+		httpx.Error(w, http.StatusBadRequest, "Layanan AI belum dikonfigurasi atau belum aktif. Silakan atur API Key terlebih dahulu di menu Config AI (Superadmin).")
 		return
 	}
 
@@ -106,8 +113,11 @@ Keluarkan HANYA JSON murni tanpa markdown triple backticks. Format JSON:
 		"temperature": 0.7,
 	})
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	aiReq, err := http.NewRequestWithContext(r.Context(), "POST", endpoint, bytes.NewBuffer(reqBody))
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	defer cancel()
+
+	client := &http.Client{Timeout: 35 * time.Second}
+	aiReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "URL AI Endpoint tidak valid: "+err.Error())
 		return
