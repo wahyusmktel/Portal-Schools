@@ -38,7 +38,11 @@ export function HeaderLiveSearch({ onNavigate }: { onNavigate?: () => void }) {
     let cancelled = false;
 
     async function loadSearchData() {
-      if (!focused || articles.length || announcements.length || agendas.length) {
+      const hasArticles = Array.isArray(articles) && articles.length > 0;
+      const hasAnnouncements = Array.isArray(announcements) && announcements.length > 0;
+      const hasAgendas = Array.isArray(agendas) && agendas.length > 0;
+
+      if (!focused || hasArticles || hasAnnouncements || hasAgendas) {
         return;
       }
 
@@ -52,9 +56,13 @@ export function HeaderLiveSearch({ onNavigate }: { onNavigate?: () => void }) {
 
         if (cancelled) return;
 
-        setArticles(articleRes.ok ? await articleRes.json() : []);
-        setAnnouncements(announcementRes.ok ? await announcementRes.json() : []);
-        setAgendas(agendaRes.ok ? await agendaRes.json() : []);
+        const artJson = articleRes.ok ? await articleRes.json() : [];
+        const annJson = announcementRes.ok ? await announcementRes.json() : [];
+        const ageJson = agendaRes.ok ? await agendaRes.json() : [];
+
+        setArticles(Array.isArray(artJson) ? artJson : []);
+        setAnnouncements(Array.isArray(annJson) ? annJson : []);
+        setAgendas(Array.isArray(ageJson) ? ageJson : []);
       } catch {
         if (!cancelled) {
           setArticles([]);
@@ -70,41 +78,45 @@ export function HeaderLiveSearch({ onNavigate }: { onNavigate?: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [agendas.length, announcements.length, articles.length, focused]);
+  }, [agendas, announcements, articles, focused]);
 
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (term.length < 2) return [];
 
-    const articleResults: SearchResult[] = articles
-      .filter((item) => `${item.title} ${item.excerpt} ${item.category}`.toLowerCase().includes(term))
+    const safeArticles = Array.isArray(articles) ? articles : [];
+    const safeAnnouncements = Array.isArray(announcements) ? announcements : [];
+    const safeAgendas = Array.isArray(agendas) ? agendas : [];
+
+    const articleResults: SearchResult[] = safeArticles
+      .filter((item) => item && `${item.title || ""} ${item.excerpt || ""} ${item.category || ""}`.toLowerCase().includes(term))
       .slice(0, 4)
       .map((item) => ({
         id: `article-${item.id}`,
-        title: item.title,
-        description: item.excerpt,
+        title: item.title || "",
+        description: item.excerpt || "",
         type: "Artikel",
         href: `/artikel/${item.slug}`
       }));
 
-    const announcementResults: SearchResult[] = announcements
-      .filter((item) => `${item.title} ${item.body}`.toLowerCase().includes(term))
+    const announcementResults: SearchResult[] = safeAnnouncements
+      .filter((item) => item && `${item.title || ""} ${item.body || ""}`.toLowerCase().includes(term))
       .slice(0, 3)
       .map((item) => ({
         id: `announcement-${item.id}`,
-        title: item.title,
-        description: item.body,
+        title: item.title || "",
+        description: item.body || "",
         type: "Pengumuman",
         href: "/#agenda"
       }));
 
-    const agendaResults: SearchResult[] = agendas
-      .filter((item) => `${item.title} ${item.location}`.toLowerCase().includes(term))
+    const agendaResults: SearchResult[] = safeAgendas
+      .filter((item) => item && `${item.title || ""} ${item.location || ""}`.toLowerCase().includes(term))
       .slice(0, 3)
       .map((item) => ({
         id: `agenda-${item.id}`,
-        title: item.title,
-        description: item.location,
+        title: item.title || "",
+        description: item.location || "",
         type: "Agenda",
         href: "/#agenda"
       }));
