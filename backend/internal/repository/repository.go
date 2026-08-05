@@ -1821,11 +1821,11 @@ func (r *Repository) UpdateAISetting(ctx context.Context, setting models.AISetti
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO ai_settings (id, base_url, api_key, model, is_active, updated_at)
 		VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(id) DO UPDATE SET
-			base_url = excluded.base_url,
-			api_key = excluded.api_key,
-			model = excluded.model,
-			is_active = excluded.is_active,
+		ON DUPLICATE KEY UPDATE
+			base_url = VALUES(base_url),
+			api_key = VALUES(api_key),
+			model = VALUES(model),
+			is_active = VALUES(is_active),
 			updated_at = CURRENT_TIMESTAMP
 	`, setting.BaseURL, setting.APIKey, setting.Model, setting.IsActive)
 	return err
