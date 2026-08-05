@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -76,7 +77,7 @@ Detail Permintaan Artikel:
 - Kategori: %s
 
 ATURAN STRUKTUR & SEO WAJIB:
-1. JUDUL: Buat judul yang sangat menarik (click-worthy), mengandung kata kunci utama, dan berstandar SEO.
+1. JUDUL: Buat judul yang sangat menarik (click-worthy), mengandung kata kunci utama, dan berstandar SEO (tanpa tanda petik ganda di dalam string judul).
 2. RINGKASAN/EXCERPT: Buat meta description / ringkasan artikel 140-160 karakter yang menggugah pembaca.
 3. KONTEN DENGAN HTML MODEREN:
    - Gunakan <h2> dan <h3> untuk sub-judul yang rapi dan terstruktur.
@@ -92,8 +93,10 @@ ATURAN STRUKTUR & SEO WAJIB:
      * '/alumni' (Tracer Alumni)
    - Selipkan 1-2 LINK EKSTERNAL kredibel menggunakan tag <a href="..." target="_blank" rel="noopener noreferrer"> (contoh: 'https://telkom-schools.sch.id', 'https://kemdikbud.go.id', 'https://id.wikipedia.org').
 
-FORMAT OUTPUT:
-Keluarkan HANYA JSON murni tanpa markdown triple backticks. Format JSON:
+FORMAT OUTPUT WAJIB:
+Keluarkan HANYA JSON murni tanpa markdown triple backticks.
+PENTING: Jangan gunakan enter/line break mentah di dalam nilai string JSON. Gunakan \n untuk baris baru.
+Format JSON:
 {
   "title": "...",
   "excerpt": "...",
@@ -106,10 +109,10 @@ Keluarkan HANYA JSON murni tanpa markdown triple backticks. Format JSON:
 	reqBody, _ := json.Marshal(map[string]interface{}{
 		"model": setting.Model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a professional SEO content writer. Always output clean JSON only."},
+			{"role": "system", "content": "You are a professional SEO content writer. Always output clean valid JSON only with keys: title, excerpt, category, content."},
 			{"role": "user", "content": prompt},
 		},
-		"max_tokens":  1500,
+		"max_tokens":  2000,
 		"temperature": 0.7,
 	})
 
@@ -157,21 +160,162 @@ Keluarkan HANYA JSON murni tanpa markdown triple backticks. Format JSON:
 	}
 
 	rawContent := aiResult.Choices[0].Message.Content
-	rawContent = strings.TrimSpace(rawContent)
-	rawContent = strings.TrimPrefix(rawContent, "```json")
-	rawContent = strings.TrimPrefix(rawContent, "```")
-	rawContent = strings.TrimSuffix(rawContent, "```")
-	rawContent = strings.TrimSpace(rawContent)
+	articleRes := parseAIArticleResponse(rawContent, req.Topic)
 
-	var articleRes generateArticleResponse
-	if err := json.Unmarshal([]byte(rawContent), &articleRes); err != nil {
-		articleRes = generateArticleResponse{
-			Title:    "Artikel AI: " + req.Topic,
-			Excerpt:  "Artikel yang dihasilkan otomatis oleh AI.",
-			Category: "Berita",
-			Content:  rawContent,
+	httpx.JSON(w, http.StatusOK, articleRes)
+}
+
+func parseAIArticleResponse(rawContent string, fallbackTopic string) generateArticleResponse {
+	rawContent = strings.TrimSpace(rawContent)
+	if idx := strings.Index(rawContent, "{"); idx != -1 {
+		if lastIdx := strings.LastIndex(rawContent, "}"); lastIdx > idx {
+			rawContent = rawContent[idx : lastIdx+1]
 		}
 	}
 
-	httpx.JSON(w, http.StatusOK, articleRes)
+	var res generateArticleResponse
+	if err := json.Unmarshal([]byte(rawContent), &res); err == nil && res.Title != "" && res.Content != "" {
+		return res
+	}
+
+	sanitized := sanitizeJSONStringLiterals(rawContent)
+	if err := json.Unmarshal([]byte(sanitized), &res); err == nil && res.Title != "" && res.Content != "" {
+		return res
+	}
+
+	res.Title = extractJSONStringField(rawContent, "title")
+	res.Excerpt = extractJSONStringField(rawContent, "excerpt")
+	res.Category = extractJSONStringField(rawContent, "category")
+	res.Content = extractJSONStringField(rawContent, "content")
+
+	if res.Title == "" {
+		res.Title = fallbackTopic
+	}
+	if res.Category == "" {
+		res.Category = "Teknologi"
+	}
+	if res.Content == "" {
+		res.Content = rawContent
+	}
+	if res.Excerpt == "" {
+		plain := stripTags(res.Content)
+		if len(plain) > 155 {
+			res.Excerpt = plain[:152] + "..."
+		} else {
+			res.Excerpt = plain
+		}
+	}
+
+	return res
+}
+
+func sanitizeJSONStringLiterals(s string) string {
+	var buf strings.Builder
+	inString := false
+	escaped := false
+
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if inString {
+			if escaped {
+				escaped = false
+				buf.WriteByte(ch)
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				buf.WriteByte(ch)
+				continue
+			}
+			if ch == '"' {
+				inString = false
+				buf.WriteByte(ch)
+				continue
+			}
+			if ch == '\n' {
+				buf.WriteString(`\n`)
+				continue
+			}
+			if ch == '\r' {
+				buf.WriteString(`\r`)
+				continue
+			}
+			if ch == '\t' {
+				buf.WriteString(`\t`)
+				continue
+			}
+			buf.WriteByte(ch)
+		} else {
+			if ch == '"' {
+				inString = true
+			}
+			buf.WriteByte(ch)
+		}
+	}
+	return buf.String()
+}
+
+func extractJSONStringField(jsonStr string, fieldName string) string {
+	re := regexp.MustCompile(fmt.Sprintf(`"%s"\s*:\s*"`, fieldName))
+	loc := re.FindStringIndex(jsonStr)
+	if loc == nil {
+		return ""
+	}
+	startIdx := loc[1]
+	sub := jsonStr[startIdx:]
+
+	var buf strings.Builder
+	escaped := false
+	for i := 0; i < len(sub); i++ {
+		ch := sub[i]
+		if escaped {
+			switch ch {
+			case 'n':
+				buf.WriteByte('\n')
+			case 'r':
+				buf.WriteByte('\r')
+			case 't':
+				buf.WriteByte('\t')
+			case '"':
+				buf.WriteByte('"')
+			case '\\':
+				buf.WriteByte('\\')
+			default:
+				buf.WriteByte(ch)
+			}
+			escaped = false
+			continue
+		}
+		if ch == '\\' {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			rest := strings.TrimSpace(sub[i+1:])
+			if len(rest) == 0 || strings.HasPrefix(rest, ",") || strings.HasPrefix(rest, "}") || strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r") {
+				break
+			}
+		}
+		buf.WriteByte(ch)
+	}
+	return strings.TrimSpace(buf.String())
+}
+
+func stripTags(html string) string {
+	var buf strings.Builder
+	inTag := false
+	for _, r := range html {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			buf.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(buf.String())
 }
