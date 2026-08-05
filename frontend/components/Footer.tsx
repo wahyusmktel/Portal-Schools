@@ -71,7 +71,9 @@ export function Footer({ profile }: { profile?: SchoolProfile | null }) {
   return (
     <footer className="relative bg-zinc-950 text-zinc-300 overflow-hidden font-sans border-t border-zinc-800/80">
       {/* Top Accent Gradient Ribbon */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-rosebrand-600 via-red-500 to-amber-500" />
+      <div className="relative h-1.5 w-full overflow-hidden">
+        <div className="absolute inset-0 animate-running-light shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+      </div>
 
       {/* Ambient Radial Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-rosebrand-600/5 blur-[120px] pointer-events-none rounded-full" />

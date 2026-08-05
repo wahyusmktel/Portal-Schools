@@ -171,3 +171,27 @@ a {
   max-width: 100%;
   border-radius: 8px;
 }
+
+@keyframes runningLight {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-running-light {
+  background: linear-gradient(
+    90deg,
+    #be123f 0%,
+    #ffffff 20%,
+    #e11d4f 40%,
+    #ffffff 60%,
+    #f43f6b 80%,
+    #be123f 100%
+  );
+  background-size: 200% 100%;
+  animation: runningLight 1.2s linear infinite;
+}
+
