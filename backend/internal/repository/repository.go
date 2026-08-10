@@ -1068,7 +1068,7 @@ func (r *Repository) Agendas(ctx context.Context) ([]models.Agenda, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, title, location, starts_at, COALESCE(ends_at, starts_at)
 		FROM agendas
-		WHERE COALESCE(ends_at, starts_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+		WHERE COALESCE(ends_at, starts_at) >= CURDATE()
 		ORDER BY starts_at ASC
 		LIMIT 20
 	`)

@@ -16,6 +16,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "daily",
       priority: 0.9
+    },
+    {
+      url: `${siteUrl}/agenda`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8
     }
   ];
 }

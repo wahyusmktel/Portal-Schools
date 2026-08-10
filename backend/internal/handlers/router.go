@@ -74,6 +74,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Post("/articles/{slug}/comments", h.createComment)
 		r.Get("/announcements", h.announcements)
 		r.Get("/agendas", h.agendas)
+		r.Get("/agendas/all", h.allAgendas)
 		r.Get("/employees", h.employees)
 
 		r.Get("/captcha/new", h.newCaptcha)
@@ -274,6 +275,15 @@ func (h *Handler) agendas(w http.ResponseWriter, r *http.Request) {
 	items, err := h.repo.Agendas(r.Context())
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "gagal memuat agenda")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) allAgendas(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repo.AdminAgendas(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal memuat daftar agenda")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, items)

@@ -167,7 +167,7 @@ export default async function HomePage() {
               <p className="text-sm font-extrabold uppercase text-rosebrand-600">Agenda Terdekat</p>
               <h2 className="mt-3 text-4xl font-black">Kegiatan sekolah</h2>
               <div className="mt-8 grid gap-4">
-                {(agendas || []).map((item) => (
+                {(agendas || []).slice(0, 2).map((item) => (
                   <article key={item.id} className="rounded-[8px] bg-zinc-900 p-5 text-white">
                     <p className="flex items-center gap-2 text-sm font-bold text-rosebrand-300">
                       <CalendarDays size={17} aria-hidden /> {formatDateRange(item.startsAt, item.endsAt)}
@@ -177,6 +177,14 @@ export default async function HomePage() {
                   </article>
                 ))}
               </div>
+              <Link
+                href="/agenda"
+                className="group mt-5 inline-flex h-12 items-center gap-3 rounded-full border border-zinc-300 bg-white px-5 text-sm font-extrabold text-zinc-900 transition duration-300 hover:-translate-y-0.5 hover:border-rosebrand-500 hover:text-rosebrand-600"
+              >
+                <CalendarDays size={18} aria-hidden />
+                Lihat agenda lengkap
+                <ArrowRight size={17} className="transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
+              </Link>
             </div>
           </div>
         </MotionSection>

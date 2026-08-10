@@ -100,6 +100,11 @@ export async function getAgendas(): Promise<Agenda[]> {
   return data || [];
 }
 
+export async function getAllAgendas(): Promise<Agenda[]> {
+  const data = await getJson("/agendas/all", [] as Agenda[]);
+  return data || [];
+}
+
 export async function getAchievements(): Promise<Achievement[]> {
   const data = await getJson("/achievements", [] as Achievement[]);
   return data || [];
