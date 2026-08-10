@@ -1088,6 +1088,29 @@ func (r *Repository) Agendas(ctx context.Context) ([]models.Agenda, error) {
 	return items, rows.Err()
 }
 
+func (r *Repository) AdminAgendas(ctx context.Context) ([]models.Agenda, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, title, location, starts_at, COALESCE(ends_at, starts_at)
+		FROM agendas
+		ORDER BY starts_at ASC
+		LIMIT 1000
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.Agenda, 0)
+	for rows.Next() {
+		var item models.Agenda
+		if err := rows.Scan(&item.ID, &item.Title, &item.Location, &item.StartsAt, &item.EndsAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *Repository) CreateAgenda(ctx context.Context, title string, location string, startsAt time.Time, endsAt time.Time) (int64, error) {
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO agendas (title, location, starts_at, ends_at)
@@ -1097,6 +1120,49 @@ func (r *Repository) CreateAgenda(ctx context.Context, title string, location st
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+func (r *Repository) ImportAgendas(ctx context.Context, items []models.Agenda) (int, int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+
+	statement, err := tx.PrepareContext(ctx, `
+		INSERT INTO agendas (title, location, starts_at, ends_at)
+		SELECT ?, ?, ?, ?
+		WHERE NOT EXISTS (
+			SELECT 1 FROM agendas
+			WHERE title = ? AND location = ? AND starts_at = ? AND COALESCE(ends_at, starts_at) = ?
+		)
+	`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer statement.Close()
+
+	inserted := 0
+	for _, item := range items {
+		result, err := statement.ExecContext(
+			ctx,
+			item.Title, item.Location, item.StartsAt, item.EndsAt,
+			item.Title, item.Location, item.StartsAt, item.EndsAt,
+		)
+		if err != nil {
+			return 0, 0, err
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return 0, 0, err
+		}
+		inserted += int(rowsAffected)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, 0, err
+	}
+	return inserted, len(items) - inserted, nil
 }
 
 func (r *Repository) UpdateAnnouncement(ctx context.Context, id int64, title string, body string, status string) error {
@@ -1883,4 +1949,3 @@ func (r *Repository) UpdateAISetting(ctx context.Context, setting models.AISetti
 	`, setting.BaseURL, setting.APIKey, setting.Model, setting.IsActive)
 	return err
 }
-

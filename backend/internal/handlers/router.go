@@ -95,6 +95,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/auth/logout", h.requireCSRF(h.logout))
 			protected.Get("/admin/articles", h.requireAnyRole(h.adminArticles, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/announcements", h.requireAnyRole(h.adminAnnouncements, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
+			protected.Get("/admin/agendas", h.requireAnyRole(h.adminAgendas, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/hero-slides", h.requireAnyRole(h.adminHeroSlides, models.RoleSuperadmin, models.RoleAdmin))
 			protected.Get("/admin/why-choose-us", h.requireAnyRole(h.adminWhyChooseUs, models.RoleSuperadmin, models.RoleAdmin))
 			protected.Get("/admin/school-uvp", h.requireAnyRole(h.adminSchoolUVPItems, models.RoleSuperadmin, models.RoleAdmin))
@@ -106,6 +107,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Delete("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.deleteArticle, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/announcements", h.requireCSRF(h.requireAnyRole(h.createAnnouncement, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/agendas", h.requireCSRF(h.requireAnyRole(h.createAgenda, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/agendas/import", h.requireCSRF(h.requireAnyRole(h.importAgendas, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/majors", h.requireCSRF(h.requireAnyRole(h.createMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.updateMajor, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/majors/{id}", h.requireCSRF(h.requireAnyRole(h.deleteMajor, models.RoleSuperadmin, models.RoleAdmin)))
@@ -468,6 +470,53 @@ func (h *Handler) createAgenda(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) adminAgendas(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repo.AdminAgendas(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal memuat seluruh agenda")
+		return
+	}
+	httpx.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) importAgendas(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Items []models.Agenda `json:"items"`
+	}
+	if err := httpx.DecodeJSON(r, &payload); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "file Excel tidak dapat diproses")
+		return
+	}
+	if len(payload.Items) == 0 || len(payload.Items) > 500 {
+		httpx.Error(w, http.StatusBadRequest, "jumlah agenda harus antara 1 sampai 500 baris")
+		return
+	}
+
+	for index := range payload.Items {
+		item := &payload.Items[index]
+		item.Title = strings.TrimSpace(item.Title)
+		item.Location = strings.TrimSpace(item.Location)
+		if item.Location == "" {
+			item.Location = "SMK Telkom Lampung"
+		}
+		if item.Title == "" || item.StartsAt.IsZero() || item.EndsAt.IsZero() {
+			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("data agenda pada baris %d belum lengkap", index+1))
+			return
+		}
+		if item.EndsAt.Before(item.StartsAt) {
+			httpx.Error(w, http.StatusBadRequest, fmt.Sprintf("tanggal selesai pada baris %d tidak valid", index+1))
+			return
+		}
+	}
+
+	inserted, skipped, err := h.repo.ImportAgendas(r.Context(), payload.Items)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal mengimpor agenda")
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, map[string]int{"inserted": inserted, "skipped": skipped})
 }
 
 func (h *Handler) createMajor(w http.ResponseWriter, r *http.Request) {
