@@ -1,4 +1,5 @@
 import type { SpmbRegistration } from "@/types/content";
+import { KOP_SMK_TELKOM_BASE64 } from "@/lib/spmb-kop-base64";
 
 type TextOptions = {
   size?: number;
@@ -49,12 +50,12 @@ function strokeColor(hex: string): string {
   return `${rgb(hex)} RG`;
 }
 
-function field(label: string, value: string, x: number, y: number, width = 240, height = 34): string {
+function field(label: string, value: string, x: number, y: number, width = 255, height = 34): string {
   return [
     rect(x, y - 6, width, height, "F9FAFB"),
     strokeRect(x, y - 6, width, height, "E5E7EB", 0.75),
     text(x + 8, y + 18, label.toUpperCase(), { size: 6.5, font: "bold", color: "6B7280" }),
-    text(x + 8, y + 4, value || "-", { size: 8.5, font: "bold", color: "111827" })
+    text(x + 8, y + 4, String(value || "-").slice(0, 48), { size: 8.5, font: "bold", color: "111827" })
   ].join("\n");
 }
 
@@ -78,6 +79,16 @@ function wrapText(value: string, maxLength: number): string[] {
   return rows.slice(0, 3);
 }
 
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = typeof window !== "undefined" ? window.atob(base64) : Buffer.from(base64, "base64").toString("binary");
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
   const formattedAddress = [
     registration.currentAddress,
@@ -94,49 +105,36 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     ? new Date(registration.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
     : new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
 
+  const imageWidth = 1024;
+  const imageHeight = 178;
+  const kopHeight = 595 * (imageHeight / imageWidth); // 103.41 pt
+  const kopY = 842 - kopHeight; // Flush to top (738.59 pt)
+
   const commands = [
     // Background Canvas
     rect(0, 0, 595, 842, "FFFFFF"),
 
-    // Outer Frame Border
-    strokeRect(28, 28, 539, 786, "D1D5DB", 1),
-    strokeRect(30, 30, 535, 782, "E5E7EB", 0.5),
+    // 1. KOP SURAT (0 MARGIN ATAS, KANAN, KIRI)
+    `q\n595 0 0 ${kopHeight.toFixed(2)} 0 ${kopY.toFixed(2)} cm\n/Im1 Do\nQ`,
 
-    // Top Brand Accent Bar (Telkom Red)
-    rect(30, 804, 535, 8, "E11D48"),
+    // Outer frame boundary below the Kop Surat
+    strokeRect(30, 25, 535, 705, "E5E7EB", 1),
 
-    // ==========================================
-    // KOP SURAT RESMI
-    // ==========================================
-    text(45, 782, "YAYASAN PENDIDIKAN TELKOM (YPT)", { size: 9, font: "bold", color: "4B5563" }),
-    text(45, 764, "SMK TELKOM LAMPUNG", { size: 17, font: "bold", color: "BE123C" }),
-    text(45, 750, "TERAKREDITASI 'A' • NPSN: 69947477 • KODE SEKOLAH: 1803001", { size: 7.5, font: "bold", color: "374151" }),
-    text(45, 739, "Alamat Kampus: Jl. Raya Gadingrejo No. 272, Pringsewu / Natar, Lampung", { size: 7, color: "6B7280" }),
-    text(45, 729, "Website: https://smktelkom-lpg.sch.id • Helpdesk SPMB: 0811-799-8800", { size: 7, color: "6B7280" }),
-
-    // Kop Double Line
-    line(45, 722, 550, 722, "111827", 1.5),
-    line(45, 719, 550, 719, "9CA3AF", 0.5),
-
-    // ==========================================
-    // JUDUL KARTU & BADGE REGISTRASI
-    // ==========================================
-    rect(45, 664, 320, 46, "F9FAFB"),
-    strokeRect(45, 664, 320, 46, "E5E7EB", 1),
-    text(55, 696, "KARTU TANDA BUKTI PENDAFTARAN", { size: 11, font: "bold", color: "111827" }),
-    text(55, 683, `SISTEM PENERIMAAN MURID BARU (SPMB) T.A. ${registration.academicYear}`, { size: 8, font: "bold", color: "BE123C" }),
-    text(55, 672, `Tanggal Pendaftaran: ${createdDate}`, { size: 7.5, color: "4B5563" }),
+    // 2. JUDUL KARTU & BADGE REGISTRASI (y = 668)
+    rect(45, 668, 335, 46, "F9FAFB"),
+    strokeRect(45, 668, 335, 46, "E5E7EB", 1),
+    text(55, 700, "KARTU TANDA BUKTI PENDAFTARAN", { size: 11, font: "bold", color: "111827" }),
+    text(55, 687, `SISTEM PENERIMAAN MURID BARU (SPMB) T.A. ${registration.academicYear}`, { size: 8, font: "bold", color: "BE123C" }),
+    text(55, 676, `Tanggal Registrasi: ${createdDate}`, { size: 7.5, color: "4B5563" }),
 
     // Box Nomor Pendaftaran
-    rect(375, 664, 175, 46, "111827"),
-    rect(375, 664, 5, 46, "E11D48"),
-    text(388, 696, "NOMOR REGISTRASI", { size: 6.5, font: "bold", color: "9CA3AF" }),
-    text(388, 679, registration.registrationNumber, { size: 12, font: "bold", color: "FFFFFF" }),
-    text(388, 669, `Jalur: ${registration.registrationTrack || "Reguler"}`, { size: 7.5, font: "bold", color: "FCA5A5" }),
+    rect(390, 668, 160, 46, "111827"),
+    rect(390, 668, 5, 46, "E11D48"),
+    text(402, 700, "NOMOR REGISTRASI", { size: 6.5, font: "bold", color: "9CA3AF" }),
+    text(402, 683, registration.registrationNumber, { size: 12, font: "bold", color: "FFFFFF" }),
+    text(402, 673, `Jalur: ${registration.registrationTrack || "Reguler"}`, { size: 7.5, font: "bold", color: "FCA5A5" }),
 
-    // ==========================================
-    // A. DATA DIRI CALON SISWA
-    // ==========================================
+    // 3. A. IDENTITAS CALON SISWA (y = 642)
     rect(45, 642, 505, 18, "F3F4F6"),
     text(55, 647, "A. IDENTITAS CALON SISWA", { size: 8, font: "bold", color: "111827" }),
 
@@ -152,11 +150,9 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     field("Nomor WhatsApp / HP", registration.whatsappNumber, 173, 522, 120),
     field("Alamat Email Aktif", registration.email, 302, 522, 248),
 
-    // ==========================================
-    // B. KOMPETENSI KEAHLIAN & ASAL SEKOLAH
-    // ==========================================
+    // 4. B. PILIHAN JURUSAN & ASAL SEKOLAH (y = 496)
     rect(45, 496, 505, 18, "F3F4F6"),
-    text(55, 501, "B. PILIHAN JURUSAN & SEKOLAH ASAL", { size: 8, font: "bold", color: "111827" }),
+    text(55, 501, "B. PILIHAN JURUSAN & ASAL SEKOLAH", { size: 8, font: "bold", color: "111827" }),
 
     field("Kompetensi Keahlian (Pilihan Jurusan)", registration.selectedMajorName, 45, 456, 320),
     field("Prioritas Pilihan", registration.choicePriority || "Pilihan Utama", 373, 456, 177),
@@ -166,9 +162,7 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
 
     field("Alamat Lengkap Asal Sekolah", registration.previousSchoolAddress, 45, 376, 505),
 
-    // ==========================================
-    // C. DATA ORANG TUA / WALI & ALAMAT
-    // ==========================================
+    // 5. C. DATA ORANG TUA / WALI & ALAMAT (y = 350)
     rect(45, 350, 505, 18, "F3F4F6"),
     text(55, 355, "C. DATA ORANG TUA / WALI & ALAMAT RUMAH", { size: 8, font: "bold", color: "111827" }),
 
@@ -179,64 +173,124 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     field("Nomor Telepon Ibu", registration.motherPhone || "-", 302, 270, 248),
 
     // Alamat Rumah
-    rect(45, 218, 505, 44, "F9FAFB"),
-    strokeRect(45, 218, 505, 44, "E5E7EB", 0.75),
+    rect(45, 222, 505, 40, "F9FAFB"),
+    strokeRect(45, 222, 505, 40, "E5E7EB", 0.75),
     text(53, 250, "ALAMAT TEMPAT TINGGAL LENGKAP SISWA", { size: 6.5, font: "bold", color: "6B7280" }),
     ...addressRows.map((r, i) => text(53, 238 - i * 11, r, { size: 8, font: i === 0 ? "bold" : "regular", color: "111827" })),
 
-    // ==========================================
-    // D. PETUNJUK VERIFIKASI & DAFTAR ULANG
-    // ==========================================
-    rect(45, 138, 505, 72, "FEF2F2"),
-    strokeRect(45, 138, 505, 72, "FECDD3", 1),
-    text(55, 196, "PETUNJUK BAGI CALON SISWA & ORANG TUA / WALI:", { size: 7.5, font: "bold", color: "991B1B" }),
-    text(55, 184, "1. Simpan dan bawa cetakan Kartu Bukti Pendaftaran ini saat verifikasi berkas fisik atau tes seleksi di sekolah.", { size: 7, color: "1F2937" }),
-    text(55, 173, "2. Siapkan dokumen asli dan fotokopi: Akta Kelahiran, Kartu Keluarga, Rapor/Ijazah, dan Sertifikat Prestasi (jika ada).", { size: 7, color: "1F2937" }),
-    text(55, 162, "3. Mengenakan seragam sekolah asal lengkap, rapi, dan bersepatu saat hadir ke kampus SMK Telkom Lampung.", { size: 7, color: "1F2937" }),
-    text(55, 151, "4. Informasi kelulusan & jadwal tes dapat dipantau di web.smktelkom-lpg.id atau Helpdesk SPMB: 0811-799-8800.", { size: 7, color: "1F2937" }),
+    // 6. D. PETUNJUK VERIFIKASI & DAFTAR ULANG (y = 144)
+    rect(45, 144, 505, 70, "FEF2F2"),
+    strokeRect(45, 144, 505, 70, "FECDD3", 1),
+    text(55, 200, "PETUNJUK BAGI CALON SISWA & ORANG TUA / WALI:", { size: 7.5, font: "bold", color: "991B1B" }),
+    text(55, 188, "1. Simpan dan bawa cetakan Kartu Bukti Pendaftaran ini saat verifikasi berkas fisik atau tes seleksi di sekolah.", { size: 7, color: "1F2937" }),
+    text(55, 177, "2. Siapkan dokumen asli dan fotokopi: Akta Kelahiran, Kartu Keluarga, Rapor/Ijazah, dan Sertifikat Prestasi (jika ada).", { size: 7, color: "1F2937" }),
+    text(55, 166, "3. Mengenakan seragam sekolah asal lengkap, rapi, dan bersepatu saat hadir ke kampus SMK Telkom Lampung.", { size: 7, color: "1F2937" }),
+    text(55, 155, "4. Informasi kelulusan & jadwal tes dapat dipantau di web.smktelkom-lpg.sch.id atau Helpdesk SPMB: 0811-799-8800.", { size: 7, color: "1F2937" }),
 
-    // ==========================================
-    // TANDA TANGAN RESMI
-    // ==========================================
-    text(70, 118, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
-    line(55, 62, 195, 62, "9CA3AF", 0.75),
-    text(70, 52, `( ${registration.fullName.slice(0, 22)} )`, { size: 7, font: "bold", color: "111827" }),
+    // 7. TANDA TANGAN RESMI (y = 120)
+    text(70, 122, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
+    line(55, 68, 195, 68, "9CA3AF", 0.75),
+    text(70, 58, `( ${registration.fullName.slice(0, 22)} )`, { size: 7, font: "bold", color: "111827" }),
 
-    text(375, 126, `Lampung, ${createdDate}`, { size: 7, color: "4B5563" }),
-    text(375, 116, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
-    strokeRect(390, 72, 70, 28, "FCA5A5", 0.5),
-    text(400, 84, "CAP RESMI SPMB", { size: 6, font: "bold", color: "EF4444" }),
-    line(355, 62, 515, 62, "9CA3AF", 0.75),
-    text(370, 52, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),
+    text(375, 130, `Lampung, ${createdDate}`, { size: 7, color: "4B5563" }),
+    text(375, 120, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
+    strokeRect(390, 78, 70, 26, "FCA5A5", 0.5),
+    text(398, 88, "CAP RESMI SPMB", { size: 6, font: "bold", color: "EF4444" }),
+    line(355, 68, 515, 68, "9CA3AF", 0.75),
+    text(370, 58, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),
 
     // Footer Watermark
-    text(45, 36, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung. Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
+    text(45, 34, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung. Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
   ];
 
-  const stream = commands.join("\n");
-  const objects = [
-    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj",
-    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj",
-    `6 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`
+  const streamContent = commands.join("\n");
+  const encoder = new TextEncoder();
+  const streamBytes = encoder.encode(streamContent);
+  const jpgBytes = base64ToUint8Array(KOP_SMK_TELKOM_BASE64);
+
+  // PDF Structure:
+  // 1: Catalog, 2: Pages, 3: Page, 4: Font F1, 5: Font F2, 6: Content Stream, 7: Image XObject
+  const obj1 = "<< /Type /Catalog /Pages 2 0 R >>";
+  const obj2 = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+  const obj3 = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> /XObject << /Im1 7 0 R >> >> /Contents 6 0 R >>";
+  const obj4 = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  const obj5 = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
+  const obj6Header = `<< /Length ${streamBytes.length} >>\nstream\n`;
+  const obj6Footer = `\nendstream`;
+  const obj7Header = `<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpgBytes.length} >>\nstream\n`;
+  const obj7Footer = `\nendstream`;
+
+  // Calculate byte offsets accurately
+  let currentOffset = 0;
+  const offsets: number[] = [];
+
+  function recordOffset(len: number) {
+    offsets.push(currentOffset);
+    currentOffset += len;
+  }
+
+  // Header: %PDF-1.4\n
+  const pdfHeader = "%PDF-1.4\n";
+  currentOffset += pdfHeader.length;
+
+  // Obj 1
+  const bObj1 = `1 0 obj\n${obj1}\nendobj\n`;
+  recordOffset(encoder.encode(bObj1).length);
+
+  // Obj 2
+  const bObj2 = `2 0 obj\n${obj2}\nendobj\n`;
+  recordOffset(encoder.encode(bObj2).length);
+
+  // Obj 3
+  const bObj3 = `3 0 obj\n${obj3}\nendobj\n`;
+  recordOffset(encoder.encode(bObj3).length);
+
+  // Obj 4
+  const bObj4 = `4 0 obj\n${obj4}\nendobj\n`;
+  recordOffset(encoder.encode(bObj4).length);
+
+  // Obj 5
+  const bObj5 = `5 0 obj\n${obj5}\nendobj\n`;
+  recordOffset(encoder.encode(bObj5).length);
+
+  // Obj 6
+  const bObj6Prefix = `6 0 obj\n${obj6Header}`;
+  const bObj6Suffix = `${obj6Footer}\nendobj\n`;
+  const bObj6Len = encoder.encode(bObj6Prefix).length + streamBytes.length + encoder.encode(bObj6Suffix).length;
+  recordOffset(bObj6Len);
+
+  // Obj 7 (Image)
+  const bObj7Prefix = `7 0 obj\n${obj7Header}`;
+  const bObj7Suffix = `${obj7Footer}\nendobj\n`;
+  const bObj7Len = encoder.encode(bObj7Prefix).length + jpgBytes.length + encoder.encode(bObj7Suffix).length;
+  recordOffset(bObj7Len);
+
+  // XRef Table
+  const startXref = currentOffset;
+  let xref = `xref\n0 8\n0000000000 65535 f \n`;
+  for (let i = 0; i < 7; i++) {
+    xref += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  xref += `trailer\n<< /Size 8 /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`;
+
+  // Assembling all chunks into final Blob
+  const blobParts: BlobPart[] = [
+    pdfHeader,
+    bObj1,
+    bObj2,
+    bObj3,
+    bObj4,
+    bObj5,
+    bObj6Prefix,
+    streamBytes as unknown as BlobPart,
+    bObj6Suffix,
+    bObj7Prefix,
+    jpgBytes as unknown as BlobPart,
+    bObj7Suffix,
+    xref
   ];
 
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for (const object of objects) {
-    offsets.push(pdf.length);
-    pdf += `${object}\n`;
-  }
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  for (let index = 1; index <= objects.length; index += 1) {
-    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
-  }
-  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-
-  return new Blob([pdf], { type: "application/pdf" });
+  return new Blob(blobParts, { type: "application/pdf" });
 }
 
 export function downloadSpmbCardPdf(registration: SpmbRegistration): void {
