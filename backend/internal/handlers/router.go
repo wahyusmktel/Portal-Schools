@@ -88,6 +88,9 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Get("/alumni/stats", h.alumniStats)
 		r.Get("/faqs", h.faqs)
 		r.Post("/spmb/registrations", h.createSpmbRegistration)
+		r.Post("/spmb/payment-confirmations", h.createPaymentConfirmation)
+		r.Post("/spmb/supplementary-documents", h.createSupplementaryDocument)
+		r.Post("/spmb/uploads", h.uploadSpmbFile)
 		r.With(httprate.LimitByIP(20, time.Minute)).Post("/ai/chat", h.aiChat)
 
 		r.Group(func(protected chi.Router) {
@@ -102,6 +105,9 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Get("/admin/school-uvp", h.requireAnyRole(h.adminSchoolUVPItems, models.RoleSuperadmin, models.RoleAdmin))
 			protected.Get("/admin/teaching-modules", h.requireAnyRole(h.adminTeachingModules, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor))
 			protected.Get("/admin/spmb/registrations", h.requireAnyRole(h.adminSpmbRegistrations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
+			protected.Get("/admin/spmb/payment-confirmations", h.requireAnyRole(h.adminPaymentConfirmations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
+			protected.Put("/admin/spmb/payment-confirmations/{id}/status", h.requireCSRF(h.requireAnyRole(h.adminUpdatePaymentConfirmationStatus, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB)))
+			protected.Get("/admin/spmb/supplementary-documents", h.requireAnyRole(h.adminSupplementaryDocuments, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Post("/articles", h.requireCSRF(h.requireAnyRole(h.createArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Post("/ai/generate-article", h.requireCSRF(h.requireAnyRole(h.generateAIArticle, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/articles/{id}", h.requireCSRF(h.requireAnyRole(h.updateArticle, models.RoleSuperadmin, models.RoleAdmin)))
@@ -1064,4 +1070,76 @@ func (h *Handler) captchaImage(w http.ResponseWriter, r *http.Request) {
 	if err := captcha.WriteImage(w, id, captcha.StdWidth, captcha.StdHeight); err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
+}
+
+func (h *Handler) uploadSpmbFile(w http.ResponseWriter, r *http.Request) {
+	const maxUploadSize = 10 << 20 // 10MB
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "ukuran file maksimal 10MB")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "file wajib diunggah")
+		return
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	read, err := file.Read(buffer)
+	if err != nil && err != io.EOF {
+		httpx.Error(w, http.StatusBadRequest, "gagal membaca file")
+		return
+	}
+
+	contentType := http.DetectContentType(buffer[:read])
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	isValid := false
+	if strings.HasPrefix(contentType, "image/") || contentType == "application/pdf" || strings.HasPrefix(string(buffer[:read]), "%PDF") {
+		isValid = true
+	}
+	if ext == ".pdf" || ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" {
+		isValid = true
+	}
+
+	if !isValid {
+		httpx.Error(w, http.StatusBadRequest, "file harus berupa gambar (JPG/PNG/WEBP) atau PDF")
+		return
+	}
+
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "gagal memproses file")
+		return
+	}
+
+	targetDir := filepath.Join("uploads", "spmb")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal membuat folder upload spmb")
+		return
+	}
+
+	extName := filepath.Ext(header.Filename)
+	if extName == "" {
+		extName = ".jpg"
+	}
+	filename := fmt.Sprintf("%d-%s%s", time.Now().UnixNano(), safeFilename(strings.TrimSuffix(header.Filename, extName)), extName)
+	targetPath := filepath.Join(targetDir, filename)
+	destination, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menyimpan file")
+		return
+	}
+	defer destination.Close()
+
+	if _, err := io.Copy(destination, file); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menulis file")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, map[string]string{
+		"url": absoluteUploadURL(r, "/uploads/spmb/"+filename),
+	})
 }

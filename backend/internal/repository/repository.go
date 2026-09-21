@@ -1786,7 +1786,77 @@ func (r *Repository) DeleteFAQ(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *Repository) ensureSpmbTables(ctx context.Context) {
+	_, _ = r.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS spmb_payment_confirmations (
+		  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+		  registration_number VARCHAR(40) NOT NULL,
+		  student_name VARCHAR(220) NOT NULL,
+		  batch VARCHAR(50) NOT NULL,
+		  amount BIGINT NOT NULL DEFAULT 0,
+		  proof_file VARCHAR(255) NOT NULL,
+		  status ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'pending',
+		  notes TEXT NULL,
+		  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		  INDEX idx_spmb_pay_reg (registration_number),
+		  INDEX idx_spmb_pay_status (status)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
+	_, _ = r.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS spmb_supplementary_documents (
+		  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+		  registration_number VARCHAR(40) NOT NULL,
+		  student_name VARCHAR(220) NOT NULL,
+		  document_type VARCHAR(120) NOT NULL,
+		  file_url VARCHAR(255) NOT NULL,
+		  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		  INDEX idx_spmb_doc_reg (registration_number)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`)
+
+	newCols := []string{
+		"class_grade VARCHAR(100) NOT NULL DEFAULT 'Kelas 9 SMP/Sederajat (Tahun Pelajaran 2027/2028)'",
+		"nik VARCHAR(30) NOT NULL DEFAULT ''",
+		"nisn VARCHAR(30) NOT NULL DEFAULT ''",
+		"gender VARCHAR(20) NOT NULL DEFAULT 'Laki-laki'",
+		"religion VARCHAR(30) NOT NULL DEFAULT 'Islam'",
+		"birth_date VARCHAR(30) NOT NULL DEFAULT ''",
+		"email VARCHAR(190) NOT NULL DEFAULT ''",
+		"province VARCHAR(100) NOT NULL DEFAULT ''",
+		"city VARCHAR(100) NOT NULL DEFAULT ''",
+		"district VARCHAR(100) NOT NULL DEFAULT ''",
+		"previous_school_address TEXT NULL",
+		"school_type VARCHAR(50) NOT NULL DEFAULT 'Sekolah Menengah Pertama (SMP)'",
+		"ministry VARCHAR(80) NOT NULL DEFAULT 'Kementerian Pendidikan'",
+		"registration_track VARCHAR(80) NOT NULL DEFAULT 'Reguler'",
+		"father_education VARCHAR(80) NOT NULL DEFAULT ''",
+		"father_occupation VARCHAR(100) NOT NULL DEFAULT ''",
+		"father_birth_date VARCHAR(30) NOT NULL DEFAULT ''",
+		"father_phone VARCHAR(40) NOT NULL DEFAULT ''",
+		"mother_education VARCHAR(80) NOT NULL DEFAULT ''",
+		"mother_occupation VARCHAR(100) NOT NULL DEFAULT ''",
+		"mother_birth_date VARCHAR(30) NOT NULL DEFAULT ''",
+		"mother_phone VARCHAR(40) NOT NULL DEFAULT ''",
+		"student_card_file VARCHAR(255) NOT NULL DEFAULT ''",
+		"family_card_file VARCHAR(255) NOT NULL DEFAULT ''",
+		"birth_certificate_file VARCHAR(255) NOT NULL DEFAULT ''",
+		"achievement_certificate_file VARCHAR(255) NOT NULL DEFAULT ''",
+		"affiliator_name VARCHAR(160) NOT NULL DEFAULT ''",
+		"reason TEXT NULL",
+		"choice_priority VARCHAR(160) NOT NULL DEFAULT 'Pilihan Utama'",
+		"achievements_note TEXT NULL",
+	}
+
+	for _, colDef := range newCols {
+		_, _ = r.db.ExecContext(ctx, "ALTER TABLE spmb_registrations ADD COLUMN "+colDef)
+	}
+}
+
 func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.SpmbRegistration) (models.SpmbRegistration, error) {
+	r.ensureSpmbTables(ctx)
+
 	item.FullName = strings.TrimSpace(item.FullName)
 	item.WhatsappNumber = strings.TrimSpace(item.WhatsappNumber)
 	item.CurrentAddress = strings.TrimSpace(item.CurrentAddress)
@@ -1797,9 +1867,33 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 	item.AcademicYear = strings.TrimSpace(item.AcademicYear)
 
 	if item.FullName == "" || item.WhatsappNumber == "" || item.CurrentAddress == "" ||
-		item.PreviousSchool == "" || item.InfoSource == "" || item.FatherName == "" ||
-		item.MotherName == "" || item.SelectedMajorID <= 0 {
-		return item, errors.New("semua data pendaftaran wajib diisi")
+		item.PreviousSchool == "" || item.SelectedMajorID <= 0 {
+		return item, errors.New("data nama lengkap, no whatsapp, alamat, sekolah asal, dan jurusan wajib diisi")
+	}
+
+	if item.ClassGrade == "" {
+		item.ClassGrade = "Kelas 9 SMP/Sederajat (Tahun Pelajaran 2027/2028)"
+	}
+	if item.Gender == "" {
+		item.Gender = "Laki-laki"
+	}
+	if item.Religion == "" {
+		item.Religion = "Islam"
+	}
+	if item.RegistrationTrack == "" {
+		item.RegistrationTrack = "Reguler"
+	}
+	if item.SchoolType == "" {
+		item.SchoolType = "Sekolah Menengah Pertama (SMP)"
+	}
+	if item.Ministry == "" {
+		item.Ministry = "Kementerian Pendidikan"
+	}
+	if item.ChoicePriority == "" {
+		item.ChoicePriority = "Pilihan Utama"
+	}
+	if item.InfoSource == "" {
+		item.InfoSource = "Website Sekolah"
 	}
 
 	err := r.db.QueryRowContext(ctx, `
@@ -1821,12 +1915,35 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO spmb_registrations (
-			registration_number, full_name, whatsapp_number, current_address, previous_school,
-			info_source, father_name, mother_name, selected_major_id, selected_major_name, academic_year
+			registration_number, class_grade, full_name, nik, nisn, gender, religion, birth_date,
+			whatsapp_number, email, province, city, district, current_address, previous_school,
+			previous_school_address, school_type, ministry, selected_major_id, selected_major_name,
+			registration_track, father_name, father_education, father_occupation, father_birth_date,
+			father_phone, mother_name, mother_education, mother_occupation, mother_birth_date,
+			mother_phone, student_card_file, family_card_file, birth_certificate_file,
+			achievement_certificate_file, info_source, affiliator_name, reason, choice_priority,
+			achievements_note, academic_year
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, item.RegistrationNumber, item.FullName, item.WhatsappNumber, item.CurrentAddress, item.PreviousSchool,
-		item.InfoSource, item.FatherName, item.MotherName, item.SelectedMajorID, item.SelectedMajorName, item.AcademicYear)
+		VALUES (
+			?, ?, ?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?
+		)
+	`,
+		item.RegistrationNumber, item.ClassGrade, item.FullName, item.NIK, item.NISN, item.Gender, item.Religion, item.BirthDate,
+		item.WhatsappNumber, item.Email, item.Province, item.City, item.District, item.CurrentAddress, item.PreviousSchool,
+		item.PreviousSchoolAddress, item.SchoolType, item.Ministry, item.SelectedMajorID, item.SelectedMajorName,
+		item.RegistrationTrack, item.FatherName, item.FatherEducation, item.FatherOccupation, item.FatherBirthDate,
+		item.FatherPhone, item.MotherName, item.MotherEducation, item.MotherOccupation, item.MotherBirthDate,
+		item.MotherPhone, item.StudentCardFile, item.FamilyCardFile, item.BirthCertificateFile,
+		item.AchievementCertificateFile, item.InfoSource, item.AffiliatorName, item.Reason, item.ChoicePriority,
+		item.AchievementsNote, item.AcademicYear,
+	)
 	if err != nil {
 		return item, err
 	}
@@ -1838,13 +1955,22 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 }
 
 func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegistration, error) {
+	r.ensureSpmbTables(ctx)
+
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, registration_number, full_name, whatsapp_number, current_address, previous_school,
-		       info_source, father_name, mother_name, COALESCE(selected_major_id, 0), selected_major_name,
+		SELECT id, registration_number, COALESCE(class_grade, ''), full_name, COALESCE(nik, ''), COALESCE(nisn, ''),
+		       COALESCE(gender, ''), COALESCE(religion, ''), COALESCE(birth_date, ''), whatsapp_number, COALESCE(email, ''),
+		       COALESCE(province, ''), COALESCE(city, ''), COALESCE(district, ''), current_address, previous_school,
+		       COALESCE(previous_school_address, ''), COALESCE(school_type, ''), COALESCE(ministry, ''),
+		       COALESCE(selected_major_id, 0), selected_major_name, COALESCE(registration_track, ''),
+		       father_name, COALESCE(father_education, ''), COALESCE(father_occupation, ''), COALESCE(father_birth_date, ''), COALESCE(father_phone, ''),
+		       mother_name, COALESCE(mother_education, ''), COALESCE(mother_occupation, ''), COALESCE(mother_birth_date, ''), COALESCE(mother_phone, ''),
+		       COALESCE(student_card_file, ''), COALESCE(family_card_file, ''), COALESCE(birth_certificate_file, ''), COALESCE(achievement_certificate_file, ''),
+		       info_source, COALESCE(affiliator_name, ''), COALESCE(reason, ''), COALESCE(choice_priority, ''), COALESCE(achievements_note, ''),
 		       academic_year, created_at
 		FROM spmb_registrations
 		ORDER BY created_at DESC
-		LIMIT 500
+		LIMIT 1000
 	`)
 	if err != nil {
 		return nil, err
@@ -1857,17 +1983,170 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 		if err := rows.Scan(
 			&item.ID,
 			&item.RegistrationNumber,
+			&item.ClassGrade,
 			&item.FullName,
+			&item.NIK,
+			&item.NISN,
+			&item.Gender,
+			&item.Religion,
+			&item.BirthDate,
 			&item.WhatsappNumber,
+			&item.Email,
+			&item.Province,
+			&item.City,
+			&item.District,
 			&item.CurrentAddress,
 			&item.PreviousSchool,
-			&item.InfoSource,
-			&item.FatherName,
-			&item.MotherName,
+			&item.PreviousSchoolAddress,
+			&item.SchoolType,
+			&item.Ministry,
 			&item.SelectedMajorID,
 			&item.SelectedMajorName,
+			&item.RegistrationTrack,
+			&item.FatherName,
+			&item.FatherEducation,
+			&item.FatherOccupation,
+			&item.FatherBirthDate,
+			&item.FatherPhone,
+			&item.MotherName,
+			&item.MotherEducation,
+			&item.MotherOccupation,
+			&item.MotherBirthDate,
+			&item.MotherPhone,
+			&item.StudentCardFile,
+			&item.FamilyCardFile,
+			&item.BirthCertificateFile,
+			&item.AchievementCertificateFile,
+			&item.InfoSource,
+			&item.AffiliatorName,
+			&item.Reason,
+			&item.ChoicePriority,
+			&item.AchievementsNote,
 			&item.AcademicYear,
 			&item.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) CreateSpmbPaymentConfirmation(ctx context.Context, item models.SpmbPaymentConfirmation) (models.SpmbPaymentConfirmation, error) {
+	r.ensureSpmbTables(ctx)
+
+	item.RegistrationNumber = strings.TrimSpace(item.RegistrationNumber)
+	item.StudentName = strings.TrimSpace(item.StudentName)
+	item.Batch = strings.TrimSpace(item.Batch)
+	item.ProofFile = strings.TrimSpace(item.ProofFile)
+	item.Notes = strings.TrimSpace(item.Notes)
+
+	if item.RegistrationNumber == "" || item.StudentName == "" || item.Batch == "" || item.Amount <= 0 || item.ProofFile == "" {
+		return item, errors.New("data nama, nomor pendaftaran/VA, batch, nominal, dan bukti transfer wajib diisi")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO spmb_payment_confirmations (registration_number, student_name, batch, amount, proof_file, status, notes)
+		VALUES (?, ?, ?, ?, ?, 'pending', ?)
+	`, item.RegistrationNumber, item.StudentName, item.Batch, item.Amount, item.ProofFile, item.Notes)
+	if err != nil {
+		return item, err
+	}
+	item.ID, err = result.LastInsertId()
+	if err != nil {
+		return item, err
+	}
+	item.Status = "pending"
+	return item, nil
+}
+
+func (r *Repository) SpmbPaymentConfirmations(ctx context.Context) ([]models.SpmbPaymentConfirmation, error) {
+	r.ensureSpmbTables(ctx)
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, registration_number, student_name, batch, amount, proof_file, status, COALESCE(notes, ''), created_at, updated_at
+		FROM spmb_payment_confirmations
+		ORDER BY created_at DESC
+		LIMIT 500
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.SpmbPaymentConfirmation
+	for rows.Next() {
+		var item models.SpmbPaymentConfirmation
+		var notes string
+		if err := rows.Scan(
+			&item.ID, &item.RegistrationNumber, &item.StudentName, &item.Batch, &item.Amount, &item.ProofFile,
+			&item.Status, &notes, &item.CreatedAt, &item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		item.Notes = notes
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) UpdateSpmbPaymentConfirmationStatus(ctx context.Context, id int64, status string, notes string) error {
+	if status != "pending" && status != "verified" && status != "rejected" {
+		return errors.New("status tidak valid")
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE spmb_payment_confirmations
+		SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, status, notes, id)
+	return err
+}
+
+func (r *Repository) CreateSpmbSupplementaryDocument(ctx context.Context, item models.SpmbSupplementaryDocument) (models.SpmbSupplementaryDocument, error) {
+	r.ensureSpmbTables(ctx)
+
+	item.RegistrationNumber = strings.TrimSpace(item.RegistrationNumber)
+	item.StudentName = strings.TrimSpace(item.StudentName)
+	item.DocumentType = strings.TrimSpace(item.DocumentType)
+	item.FileURL = strings.TrimSpace(item.FileURL)
+
+	if item.RegistrationNumber == "" || item.StudentName == "" || item.DocumentType == "" || item.FileURL == "" {
+		return item, errors.New("nomor pendaftaran/VA, nama siswa, jenis berkas, dan file wajib diisi")
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		INSERT INTO spmb_supplementary_documents (registration_number, student_name, document_type, file_url)
+		VALUES (?, ?, ?, ?)
+	`, item.RegistrationNumber, item.StudentName, item.DocumentType, item.FileURL)
+	if err != nil {
+		return item, err
+	}
+	item.ID, err = result.LastInsertId()
+	if err != nil {
+		return item, err
+	}
+	return item, nil
+}
+
+func (r *Repository) SpmbSupplementaryDocuments(ctx context.Context) ([]models.SpmbSupplementaryDocument, error) {
+	r.ensureSpmbTables(ctx)
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, registration_number, student_name, document_type, file_url, created_at
+		FROM spmb_supplementary_documents
+		ORDER BY created_at DESC
+		LIMIT 500
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.SpmbSupplementaryDocument
+	for rows.Next() {
+		var item models.SpmbSupplementaryDocument
+		if err := rows.Scan(
+			&item.ID, &item.RegistrationNumber, &item.StudentName, &item.DocumentType, &item.FileURL, &item.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -229,18 +229,70 @@ type FAQ struct {
 }
 
 type SpmbRegistration struct {
+	ID                         int64  `json:"id"`
+	RegistrationNumber         string `json:"registrationNumber"`
+	ClassGrade                 string `json:"classGrade"`
+	FullName                   string `json:"fullName"`
+	NIK                        string `json:"nik"`
+	NISN                       string `json:"nisn"`
+	Gender                     string `json:"gender"`
+	Religion                   string `json:"religion"`
+	BirthDate                  string `json:"birthDate"`
+	WhatsappNumber             string `json:"whatsappNumber"`
+	Email                      string `json:"email"`
+	Province                   string `json:"province"`
+	City                       string `json:"city"`
+	District                   string `json:"district"`
+	CurrentAddress             string `json:"currentAddress"`
+	PreviousSchool             string `json:"previousSchool"`
+	PreviousSchoolAddress      string `json:"previousSchoolAddress"`
+	SchoolType                 string `json:"schoolType"`
+	Ministry                   string `json:"ministry"`
+	SelectedMajorID            int64  `json:"selectedMajorId"`
+	SelectedMajorName          string `json:"selectedMajorName"`
+	RegistrationTrack          string `json:"registrationTrack"`
+	FatherName                 string `json:"fatherName"`
+	FatherEducation            string `json:"fatherEducation"`
+	FatherOccupation           string `json:"fatherOccupation"`
+	FatherBirthDate            string `json:"fatherBirthDate"`
+	FatherPhone                string `json:"fatherPhone"`
+	MotherName                 string `json:"motherName"`
+	MotherEducation            string `json:"motherEducation"`
+	MotherOccupation           string `json:"motherOccupation"`
+	MotherBirthDate            string `json:"motherBirthDate"`
+	MotherPhone                string `json:"motherPhone"`
+	StudentCardFile            string `json:"studentCardFile"`
+	FamilyCardFile             string `json:"familyCardFile"`
+	BirthCertificateFile       string `json:"birthCertificateFile"`
+	AchievementCertificateFile string `json:"achievementCertificateFile"`
+	InfoSource                 string `json:"infoSource"`
+	AffiliatorName             string `json:"affiliatorName"`
+	Reason                     string `json:"reason"`
+	ChoicePriority             string `json:"choicePriority"`
+	AchievementsNote           string `json:"achievementsNote"`
+	AcademicYear               string `json:"academicYear"`
+	CreatedAt                  string `json:"createdAt"`
+}
+
+type SpmbPaymentConfirmation struct {
 	ID                 int64  `json:"id"`
 	RegistrationNumber string `json:"registrationNumber"`
-	FullName           string `json:"fullName"`
-	WhatsappNumber     string `json:"whatsappNumber"`
-	CurrentAddress     string `json:"currentAddress"`
-	PreviousSchool     string `json:"previousSchool"`
-	InfoSource         string `json:"infoSource"`
-	FatherName         string `json:"fatherName"`
-	MotherName         string `json:"motherName"`
-	SelectedMajorID    int64  `json:"selectedMajorId"`
-	SelectedMajorName  string `json:"selectedMajorName"`
-	AcademicYear       string `json:"academicYear"`
+	StudentName        string `json:"studentName"`
+	Batch              string `json:"batch"`
+	Amount             int64  `json:"amount"`
+	ProofFile          string `json:"proofFile"`
+	Status             string `json:"status"`
+	Notes              string `json:"notes"`
+	CreatedAt          string `json:"createdAt"`
+	UpdatedAt          string `json:"updatedAt"`
+}
+
+type SpmbSupplementaryDocument struct {
+	ID                 int64  `json:"id"`
+	RegistrationNumber string `json:"registrationNumber"`
+	StudentName        string `json:"studentName"`
+	DocumentType       string `json:"documentType"`
+	FileURL            string `json:"fileUrl"`
 	CreatedAt          string `json:"createdAt"`
 }
 
