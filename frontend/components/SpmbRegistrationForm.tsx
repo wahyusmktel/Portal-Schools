@@ -810,6 +810,16 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     );
   }
 
+  const handleSelectMenu = (menu: "pendaftaran" | "konfirmasi" | "rincian" | "upload-berkas") => {
+    setActiveMenu(menu);
+    setTimeout(() => {
+      const el = document.getElementById(`section-${menu}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 60);
+  };
+
   // -------------------------------------------------------------
   // MAIN FORM COMPONENT
   // -------------------------------------------------------------
@@ -849,7 +859,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
           {/* Menu 1: Pendaftaran Baru */}
           <button
             type="button"
-            onClick={() => setActiveMenu("pendaftaran")}
+            onClick={() => handleSelectMenu("pendaftaran")}
             className={`group relative flex flex-col justify-between rounded-[12px] p-4 text-left transition-all ${
               activeMenu === "pendaftaran"
                 ? "bg-rosebrand-600 text-white shadow-lg ring-2 ring-rosebrand-600 shadow-rosebrand-600/20"
@@ -883,7 +893,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
           {/* Menu 2: Konfirmasi Pembayaran */}
           <button
             type="button"
-            onClick={() => setActiveMenu("konfirmasi")}
+            onClick={() => handleSelectMenu("konfirmasi")}
             className={`group relative flex flex-col justify-between rounded-[12px] p-4 text-left transition-all ${
               activeMenu === "konfirmasi"
                 ? "bg-emerald-600 text-white shadow-lg ring-2 ring-emerald-600 shadow-emerald-600/20"
@@ -917,7 +927,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
           {/* Menu 3: Rincian Total Pembayaran */}
           <button
             type="button"
-            onClick={() => setActiveMenu("rincian")}
+            onClick={() => handleSelectMenu("rincian")}
             className={`group relative flex flex-col justify-between rounded-[12px] p-4 text-left transition-all ${
               activeMenu === "rincian"
                 ? "bg-sky-600 text-white shadow-lg ring-2 ring-sky-600 shadow-sky-600/20"
@@ -951,7 +961,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
           {/* Menu 4: Upload Berkas Susulan */}
           <button
             type="button"
-            onClick={() => setActiveMenu("upload-berkas")}
+            onClick={() => handleSelectMenu("upload-berkas")}
             className={`group relative flex flex-col justify-between rounded-[12px] p-4 text-left transition-all ${
               activeMenu === "upload-berkas"
                 ? "bg-amber-600 text-white shadow-lg ring-2 ring-amber-600 shadow-amber-600/20"
@@ -1038,7 +1048,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       {/* 1. KONTEN TAB: PENDAFTARAN SISWA BARU (6 STEPS WIZARD) */}
       {/* ============================================================== */}
       {activeMenu === "pendaftaran" && (
-        <div className="rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
+        <div id="section-pendaftaran" className="scroll-mt-24 rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
           {/* Step Progress Bar Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -2020,7 +2030,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       {/* 2. KONTEN TAB: KONFIRMASI PEMBAYARAN */}
       {/* ============================================================== */}
       {activeMenu === "konfirmasi" && (
-        <div className="rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
+        <div id="section-konfirmasi" className="scroll-mt-24 rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
           <div className="mb-6">
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 uppercase tracking-wider">
               Langkah Konfirmasi
@@ -2067,7 +2077,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
                     required
                     value={paymentForm.registrationNumber}
                     onChange={(e) => setPaymentForm({ ...paymentForm, registrationNumber: e.target.value })}
-                    placeholder="Contoh: SPMB-2026-XXXX"
+                    placeholder="Contoh: 10001 (5 digit)"
                     className="mt-2 h-12 w-full rounded-[10px] border border-zinc-300 px-4 text-sm font-semibold text-zinc-900 outline-none focus:border-emerald-600"
                   />
                 </div>
@@ -2163,7 +2173,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       {/* 3. KONTEN TAB: RINCIAN TOTAL PEMBAYARAN */}
       {/* ============================================================== */}
       {activeMenu === "rincian" && (
-        <div className="rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8 space-y-6">
+        <div id="section-rincian" className="scroll-mt-24 rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8 space-y-6">
           <div>
             <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700 uppercase tracking-wider">
               Transparansi Biaya
@@ -2211,7 +2221,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       {/* 4. KONTEN TAB: UPLOAD BERKAS SUSULAN */}
       {/* ============================================================== */}
       {activeMenu === "upload-berkas" && (
-        <div className="rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
+        <div id="section-upload-berkas" className="scroll-mt-24 rounded-[16px] bg-white p-6 shadow-sm border border-zinc-200/80 sm:p-8">
           <div className="mb-6">
             <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700 uppercase tracking-wider">
               Dokumen Susulan
@@ -2257,7 +2267,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
                     required
                     value={docForm.registrationNumber}
                     onChange={(e) => setDocForm({ ...docForm, registrationNumber: e.target.value })}
-                    placeholder="Contoh: SPMB-2026-XXXX"
+                    placeholder="Contoh: 10001 (5 digit)"
                     className="mt-2 h-12 w-full rounded-[10px] border border-zinc-300 px-4 text-sm font-semibold text-zinc-900 outline-none focus:border-amber-600"
                   />
                 </div>

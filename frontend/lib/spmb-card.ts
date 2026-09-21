@@ -158,7 +158,7 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     line(50, 150, 200, 150, "9CA3AF", 0.75),
     text(65, 138, `( ${registration.fullName.slice(0, 28)} )`, { size: 7, font: "bold", color: "111827" }),
 
-    text(375, 226, `Lampung, ${createdDate}`, { size: 7, color: "4B5563" }),
+    text(375, 226, `Pringsewu, ${createdDate}`, { size: 7, color: "4B5563" }),
     text(375, 218, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
     line(355, 150, 515, 150, "9CA3AF", 0.75),
     text(370, 138, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),

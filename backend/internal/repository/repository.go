@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -1912,7 +1913,7 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 	if item.AcademicYear == "" {
 		item.AcademicYear = "2026/2027"
 	}
-	item.RegistrationNumber = newSpmbRegistrationNumber()
+	item.RegistrationNumber = r.newSpmbRegistrationNumber(ctx)
 
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO spmb_registrations (
@@ -2173,8 +2174,25 @@ func (r *Repository) SpmbSupplementaryDocuments(ctx context.Context) ([]models.S
 	return items, rows.Err()
 }
 
-func newSpmbRegistrationNumber() string {
-	return "SPMB-" + time.Now().Format("20060102-150405000000000")
+func (r *Repository) newSpmbRegistrationNumber(ctx context.Context) string {
+	var maxID int64
+	_ = r.db.QueryRowContext(ctx, "SELECT COALESCE(MAX(id), 0) FROM spmb_registrations").Scan(&maxID)
+	nextNum := 10001 + maxID
+	if nextNum > 99999 {
+		nextNum = (nextNum % 90000) + 10000
+	}
+	for {
+		regNum := fmt.Sprintf("%05d", nextNum)
+		var exists int
+		_ = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM spmb_registrations WHERE registration_number = ?", regNum).Scan(&exists)
+		if exists == 0 {
+			return regNum
+		}
+		nextNum++
+		if nextNum > 99999 {
+			nextNum = 10001
+		}
+	}
 }
 
 func (r *Repository) GetAISetting(ctx context.Context) (models.AISetting, error) {
