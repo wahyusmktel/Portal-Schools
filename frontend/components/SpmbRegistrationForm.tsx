@@ -26,7 +26,8 @@ import {
   Phone,
   Mail,
   Award,
-  AlertCircle
+  AlertCircle,
+  X
 } from "lucide-react";
 import { API_URL } from "@/lib/api-config";
 import { downloadSpmbCardPdf, printSpmbCardPdf } from "@/lib/spmb-card";
@@ -189,14 +190,41 @@ type MenuTab = "pendaftaran" | "konfirmasi" | "rincian" | "upload-berkas";
 
 const DRAFT_STORAGE_KEY = "spmb_form_draft_v3";
 
+type ToastItem = {
+  id: string;
+  type: "error" | "success" | "info" | "warning";
+  title?: string;
+  message: string;
+};
+
 export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   const [activeMenu, setActiveMenu] = useState<MenuTab>("pendaftaran");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [registered, setRegistered] = useState<SpmbRegistration | null>(null);
   const [hasDraftNotice, setHasDraftNotice] = useState(false);
+
+  function showToast(type: "error" | "success" | "info" | "warning", message: string, title?: string) {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newToast: ToastItem = {
+      id,
+      type,
+      title: title || (type === "error" ? "Mohon Periksa Kembali:" : type === "success" ? "Berhasil!" : "Informasi"),
+      message
+    };
+
+    setToasts((prev) => [...prev.slice(-3), newToast]);
+
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  }
+
+  function removeToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
 
   // Form State
   const initialForm = useMemo(
@@ -400,7 +428,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       setForm(initialForm);
       setStep(1);
       setHasDraftNotice(false);
-      setMessage(null);
+      showToast("info", "Seluruh data formulir telah dibersihkan. Anda dapat mulai mengisi dari awal.", "Formulir Direset");
     }
   }
 
@@ -409,7 +437,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert("Ukuran berkas melebihi 10MB. Silakan gunakan berkas yang lebih kecil.");
+      showToast("warning", "Ukuran berkas melebihi batas maksimal 10MB. Silakan gunakan berkas yang lebih kecil.", "Ukuran Berkas Terlalu Besar");
       return;
     }
 
@@ -437,9 +465,10 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       } else if (targetState === "doc") {
         setDocForm((prev) => ({ ...prev, fileUrl }));
       }
+      showToast("success", "Berkas dokumen berhasil diunggah.", "Upload Berhasil");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan saat upload berkas.";
-      alert(errorMsg);
+      showToast("error", errorMsg, "Gagal Upload Berkas");
     } finally {
       setUploadingField(null);
     }
@@ -447,99 +476,97 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
 
   // Next Step with Validation
   function handleNextStep() {
-    setMessage(null);
-
     if (step === 1) {
       if (!form.classGrade) {
-        setMessage({ type: "error", text: "Silakan pilih kelas / tahun pelajaran saat ini." });
+        showToast("error", "Silakan pilih kelas / tahun pelajaran saat ini.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.fullName.trim()) {
-        setMessage({ type: "error", text: "Nama Lengkap calon siswa wajib diisi." });
+        showToast("error", "Nama Lengkap calon siswa wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.nik.trim() || form.nik.trim().length < 16) {
-        setMessage({ type: "error", text: "NIK Calon Siswa wajib diisi lengkap 16 digit sesuai KK / KTP." });
+        showToast("error", "NIK Calon Siswa wajib diisi lengkap 16 digit sesuai KK / KTP.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.nisn.trim() || form.nisn.trim().length < 10) {
-        setMessage({ type: "error", text: "NISN Calon Siswa wajib diisi lengkap 10 digit sesuai data rapor/ijazah." });
+        showToast("error", "NISN Calon Siswa wajib diisi lengkap 10 digit sesuai data rapor/ijazah.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.birthDate) {
-        setMessage({ type: "error", text: "Tanggal Lahir Siswa wajib diisi." });
+        showToast("error", "Tanggal Lahir Siswa wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.whatsappNumber.trim()) {
-        setMessage({ type: "error", text: "Nomor Telepon/HP aktif (WhatsApp) wajib diisi." });
+        showToast("error", "Nomor Telepon/HP aktif (WhatsApp) wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.email.trim()) {
-        setMessage({ type: "error", text: "Alamat Email aktif wajib diisi." });
+        showToast("error", "Alamat Email aktif wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
     }
 
     if (step === 2) {
       if (!form.province) {
-        setMessage({ type: "error", text: "Provinsi tempat tinggal wajib dipilih." });
+        showToast("error", "Provinsi tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.city) {
-        setMessage({ type: "error", text: "Kabupaten / Kota tempat tinggal wajib dipilih." });
+        showToast("error", "Kabupaten / Kota tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.district) {
-        setMessage({ type: "error", text: "Kecamatan tempat tinggal wajib dipilih." });
+        showToast("error", "Kecamatan tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.currentAddress.trim()) {
-        setMessage({ type: "error", text: "Alamat lengkap tempat tinggal (Jalan, RT/RW, Dusun) wajib diisi." });
+        showToast("error", "Alamat lengkap tempat tinggal (Jalan, RT/RW, Dusun) wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
     }
 
     if (step === 3) {
       if (!form.previousSchool.trim()) {
-        setMessage({ type: "error", text: "Nama Asal Sekolah wajib diisi." });
+        showToast("error", "Nama Asal Sekolah wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.previousSchoolAddress.trim()) {
-        setMessage({ type: "error", text: "Alamat lengkap sekolah asal wajib diisi." });
+        showToast("error", "Alamat lengkap sekolah asal wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.selectedMajorName) {
-        setMessage({ type: "error", text: "Silakan pilih jurusan yang diminati di SMK Telkom Lampung." });
+        showToast("error", "Silakan pilih jurusan yang diminati di SMK Telkom Lampung.", "Mohon Periksa Kembali:");
         return;
       }
     }
 
     if (step === 4) {
       if (!form.fatherName.trim()) {
-        setMessage({ type: "error", text: "Nama Lengkap Ayah / Wali wajib diisi." });
+        showToast("error", "Nama Lengkap Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.fatherBirthDate) {
-        setMessage({ type: "error", text: "Tanggal lahir Ayah / Wali wajib diisi." });
+        showToast("error", "Tanggal lahir Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.fatherPhone.trim()) {
-        setMessage({ type: "error", text: "Nomor telepon/HP aktif Ayah / Wali wajib diisi." });
+        showToast("error", "Nomor telepon/HP aktif Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
     }
 
     if (step === 5) {
       if (!form.motherName.trim()) {
-        setMessage({ type: "error", text: "Nama Lengkap Ibu / Wali wajib diisi." });
+        showToast("error", "Nama Lengkap Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.motherBirthDate) {
-        setMessage({ type: "error", text: "Tanggal lahir Ibu / Wali wajib diisi." });
+        showToast("error", "Tanggal lahir Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
       if (!form.motherPhone.trim()) {
-        setMessage({ type: "error", text: "Nomor telepon/HP aktif Ibu / Wali wajib diisi." });
+        showToast("error", "Nomor telepon/HP aktif Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
         return;
       }
     }
@@ -549,7 +576,6 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   }
 
   function handlePrevStep() {
-    setMessage(null);
     setStep((prev) => Math.max(prev - 1, 1));
     window.scrollTo({ top: 120, behavior: "smooth" });
   }
@@ -557,18 +583,17 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   // Submit Pendaftaran Baru
   async function handleSubmitRegistration(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
 
     if (!form.birthCertificateFile) {
-      setMessage({ type: "error", text: "Berkas Akta Kelahiran wajib diunggah (format PDF / Foto jelas)." });
+      showToast("error", "Berkas Akta Kelahiran wajib diunggah (format PDF / Foto jelas).", "Mohon Periksa Kembali:");
       return;
     }
     if (!form.familyCardFile) {
-      setMessage({ type: "error", text: "Berkas Kartu Keluarga (KK) wajib diunggah (format PDF / Foto jelas)." });
+      showToast("error", "Berkas Kartu Keluarga (KK) wajib diunggah (format PDF / Foto jelas).", "Mohon Periksa Kembali:");
       return;
     }
     if (!form.reason.trim()) {
-      setMessage({ type: "error", text: "Alasan memilih SMK Telkom Lampung wajib diisi." });
+      showToast("error", "Alasan memilih SMK Telkom Lampung wajib diisi.", "Mohon Periksa Kembali:");
       return;
     }
 
@@ -634,10 +659,11 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       const result = await response.json();
       setRegistered(result);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      showToast("success", "Selamat! Pendaftaran siswa baru berhasil terkirim.", "Pendaftaran Sukses");
       window.scrollTo({ top: 120, behavior: "smooth" });
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan saat pendaftaran.";
-      setMessage({ type: "error", text: errorMsg });
+      showToast("error", errorMsg, "Gagal Mengirim Pendaftaran");
     } finally {
       setLoading(false);
     }
@@ -646,14 +672,13 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   // Submit Konfirmasi Pembayaran
   async function handleSubmitPayment(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
 
     if (!paymentForm.registrationNumber.trim() || !paymentForm.studentName.trim()) {
-      setMessage({ type: "error", text: "Nomor Pendaftaran dan Nama Lengkap Siswa wajib diisi." });
+      showToast("error", "Nomor Pendaftaran dan Nama Lengkap Siswa wajib diisi.", "Mohon Periksa Kembali:");
       return;
     }
     if (!paymentForm.proofFile) {
-      setMessage({ type: "error", text: "Bukti transfer pembayaran wajib diunggah." });
+      showToast("error", "Bukti transfer pembayaran wajib diunggah.", "Mohon Periksa Kembali:");
       return;
     }
 
@@ -676,9 +701,10 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       }
 
       setPaymentSuccess(true);
+      showToast("success", "Bukti transfer pembayaran berhasil dikirim untuk diverifikasi panitia.", "Konfirmasi Terkirim");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan.";
-      setMessage({ type: "error", text: errorMsg });
+      showToast("error", errorMsg, "Gagal Mengirim Konfirmasi");
     } finally {
       setLoading(false);
     }
@@ -687,14 +713,13 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   // Submit Upload Berkas Susulan
   async function handleSubmitDoc(e: FormEvent) {
     e.preventDefault();
-    setMessage(null);
 
     if (!docForm.registrationNumber.trim() || !docForm.studentName.trim()) {
-      setMessage({ type: "error", text: "Nomor Pendaftaran dan Nama Lengkap Siswa wajib diisi." });
+      showToast("error", "Nomor Pendaftaran dan Nama Lengkap Siswa wajib diisi.", "Mohon Periksa Kembali:");
       return;
     }
     if (!docForm.fileUrl) {
-      setMessage({ type: "error", text: "Silakan pilih dan unggah file berkas pendukung Anda." });
+      showToast("error", "Silakan pilih dan unggah file berkas pendukung Anda.", "Mohon Periksa Kembali:");
       return;
     }
 
@@ -716,9 +741,10 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       }
 
       setDocSuccess(true);
+      showToast("success", "Berkas pendukung susulan berhasil diunggah.", "Berkas Diterima");
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan.";
-      setMessage({ type: "error", text: errorMsg });
+      showToast("error", errorMsg, "Gagal Mengunggah Berkas");
     } finally {
       setLoading(false);
     }
@@ -958,22 +984,55 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
         </div>
       </section>
 
-      {/* Alert Error / Info Message */}
-      {message && (
-        <div
-          className={`flex items-start gap-3 rounded-[12px] p-4 text-sm font-bold shadow-sm ${
-            message.type === "error"
-              ? "bg-rose-50 text-rose-800 border border-rose-200"
-              : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-          }`}
-        >
-          <AlertCircle size={20} className="shrink-0 mt-0.5" />
-          <div>
-            <p className="font-black">{message.type === "error" ? "Mohon Periksa Kembali:" : "Berhasil!"}</p>
-            <p className="mt-0.5 text-xs font-semibold leading-relaxed">{message.text}</p>
+      {/* Interactive Floating Toast Notifications */}
+      <div className="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-[calc(100vw-2.5rem)] sm:w-96 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 rounded-[12px] bg-white p-4 shadow-2xl ring-1 transition-all border-l-4 ${
+              toast.type === "error"
+                ? "border-rosebrand-600 ring-rose-200/70 shadow-rosebrand-600/15"
+                : toast.type === "success"
+                ? "border-emerald-600 ring-emerald-200/70 shadow-emerald-600/15"
+                : toast.type === "warning"
+                ? "border-amber-500 ring-amber-200/70 shadow-amber-500/15"
+                : "border-sky-500 ring-sky-200/70 shadow-sky-500/15"
+            }`}
+          >
+            <div className="shrink-0 mt-0.5">
+              {toast.type === "error" && <AlertCircle size={20} className="text-rosebrand-600" />}
+              {toast.type === "success" && <CheckCircle2 size={20} className="text-emerald-600" />}
+              {toast.type === "warning" && <AlertCircle size={20} className="text-amber-500" />}
+              {toast.type === "info" && <Info size={20} className="text-sky-600" />}
+            </div>
+            <div className="flex-1 pr-1">
+              {toast.title && (
+                <p
+                  className={`text-xs font-black uppercase tracking-wider ${
+                    toast.type === "error"
+                      ? "text-rosebrand-700"
+                      : toast.type === "success"
+                      ? "text-emerald-800"
+                      : toast.type === "warning"
+                      ? "text-amber-800"
+                      : "text-sky-800"
+                  }`}
+                >
+                  {toast.title}
+                </p>
+              )}
+              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-zinc-700">{toast.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeToast(toast.id)}
+              className="shrink-0 rounded-[6px] p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+            >
+              <X size={15} />
+            </button>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* ============================================================== */}
       {/* 1. KONTEN TAB: PENDAFTARAN SISWA BARU (6 STEPS WIZARD) */}
