@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Download,
   Printer,
@@ -15,9 +15,31 @@ import {
   ExternalLink,
   X,
   AlertCircle,
-  FileDown
+  FileDown,
+  BarChart3,
+  TrendingUp,
+  School,
+  MapPin,
+  Award,
+  Maximize2,
+  Minimize2,
+  Share2,
+  Sparkles,
+  PieChart as PieChartIcon
 } from "lucide-react";
-import { printSpmbCardPdf } from "@/lib/spmb-card";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from "recharts";
+import { printSpmbCardPdf, downloadSpmbCardPdf } from "@/lib/spmb-card";
 import { normalizeImageUrl } from "@/lib/image-url";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
@@ -29,12 +51,24 @@ type Props = {
   supplementaryDocuments?: SpmbSupplementaryDocument[];
 };
 
+const CHART_COLORS = [
+  "#e11d48", // Telkom Rose Red
+  "#0284c7", // Sky Blue
+  "#10b981", // Emerald Green
+  "#f59e0b", // Amber Yellow
+  "#8b5cf6", // Purple
+  "#ec4899", // Pink
+  "#64748b", // Slate Grey
+  "#14b8a6"  // Teal
+];
+
 export function SpmbReportManager({
   items: initialItems,
   paymentConfirmations: initialPayments = [],
   supplementaryDocuments: initialDocs = []
 }: Props) {
-  const [activeTab, setActiveTab] = useState<"registrations" | "payments" | "documents">("registrations");
+  const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<"analytics" | "registrations" | "payments" | "documents">("analytics");
   const [items] = useState<SpmbRegistration[]>(initialItems);
   const [payments, setPayments] = useState<SpmbPaymentConfirmation[]>(initialPayments);
   const [docs] = useState<SpmbSupplementaryDocument[]>(initialDocs);
@@ -45,8 +79,150 @@ export function SpmbReportManager({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
 
-  // Filter Registrations
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // -------------------------------------------------------------------
+  // ANALYTICS & STATS CALCULATION (FOR KETUA SPMB)
+  // -------------------------------------------------------------------
+  const analytics = useMemo(() => {
+    const total = items.length;
+
+    // 1. Choice Priority (Pilihan Utama vs Pilihan Kedua)
+    const primaryChoiceCount = items.filter((i) =>
+      (i.choicePriority || "").toLowerCase().includes("utama")
+    ).length;
+    const secondaryChoiceCount = total - primaryChoiceCount;
+    const primaryRate = total > 0 ? Math.round((primaryChoiceCount / total) * 100) : 0;
+
+    // 2. Verified Payments Total
+    const verifiedPayments = payments.filter((p) => p.status === "verified");
+    const totalVerifiedAmount = verifiedPayments.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const pendingPaymentsCount = payments.filter((p) => p.status === "pending").length;
+
+    // 3. Majors Distribution
+    const majorCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const m = item.selectedMajorName || "Lainnya";
+      majorCounts[m] = (majorCounts[m] || 0) + 1;
+    });
+    const majorData = Object.entries(majorCounts).map(([name, value]) => ({
+      name: name.replace("Teknik ", "T. ").replace("Rekayasa ", "R. "),
+      fullName: name,
+      count: value,
+      percent: total > 0 ? Math.round((value / total) * 100) : 0
+    }));
+
+    // 4. Ministry & School Type (Kemdikbud vs Kemenag)
+    let kemdikbudCount = 0;
+    let kemenagCount = 0;
+    let negeriCount = 0;
+    let swastaCount = 0;
+
+    items.forEach((item) => {
+      const min = (item.ministry || "").toLowerCase();
+      if (min.includes("agama") || min.includes("mts")) {
+        kemenagCount += 1;
+      } else {
+        kemdikbudCount += 1;
+      }
+
+      const st = (item.schoolType || "").toLowerCase();
+      if (st.includes("swasta")) {
+        swastaCount += 1;
+      } else {
+        negeriCount += 1;
+      }
+    });
+
+    const ministryData = [
+      { name: "SMP (Kemdikbud)", value: kemdikbudCount },
+      { name: "MTs (Kemenag)", value: kemenagCount }
+    ];
+
+    const schoolTypeData = [
+      { name: "Sekolah Negeri", value: negeriCount },
+      { name: "Sekolah Swasta", value: swastaCount }
+    ];
+
+    // 5. Top 10 Asal Sekolah (Feeder Schools)
+    const schoolCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const s = (item.previousSchool || "").trim() || "Tidak Tercatat";
+      schoolCounts[s] = (schoolCounts[s] || 0) + 1;
+    });
+    const topSchools = Object.entries(schoolCounts)
+      .map(([school, count]) => ({ school, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    // 6. Regional Distribution (Kabupaten/Kota)
+    const regionCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const r = (item.city || "Lainnya").replace("Kabupaten ", "Kab. ").replace("Kota ", "Kota ");
+      regionCounts[r] = (regionCounts[r] || 0) + 1;
+    });
+    const topRegions = Object.entries(regionCounts)
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // 7. Registration Tracks (Jalur Pendaftaran)
+    const trackCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const t = item.registrationTrack || "Reguler";
+      trackCounts[t] = (trackCounts[t] || 0) + 1;
+    });
+    const trackData = Object.entries(trackCounts).map(([name, value]) => ({ name, value }));
+
+    // 8. Info Sources (Sumber Informasi)
+    const infoCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const s = item.infoSource || "Lainnya";
+      infoCounts[s] = (infoCounts[s] || 0) + 1;
+    });
+    const infoData = Object.entries(infoCounts)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    // 9. Top Affiliators / Guru BK Leaderboard
+    const affiliatorCounts: Record<string, number> = {};
+    items.forEach((item) => {
+      const af = (item.affiliatorName || "").trim();
+      if (af && af !== "-" && af.toLowerCase() !== "tidak ada" && af.toLowerCase() !== "none") {
+        affiliatorCounts[af] = (affiliatorCounts[af] || 0) + 1;
+      }
+    });
+    const topAffiliators = Object.entries(affiliatorCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    return {
+      total,
+      primaryChoiceCount,
+      secondaryChoiceCount,
+      primaryRate,
+      totalVerifiedAmount,
+      pendingPaymentsCount,
+      majorData,
+      ministryData,
+      schoolTypeData,
+      topSchools,
+      topRegions,
+      trackData,
+      infoData,
+      topAffiliators
+    };
+  }, [items, payments]);
+
+  // -------------------------------------------------------------------
+  // FILTERING REGISTRATIONS, PAYMENTS, DOCS
+  // -------------------------------------------------------------------
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return items;
@@ -62,7 +238,8 @@ export function SpmbReportManager({
         item.academicYear,
         item.fatherName,
         item.motherName,
-        item.affiliatorName
+        item.affiliatorName,
+        item.city
       ]
         .join(" ")
         .toLowerCase()
@@ -70,7 +247,6 @@ export function SpmbReportManager({
     );
   }, [items, query]);
 
-  // Filter Payments
   const filteredPayments = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return payments.filter((pay) => {
@@ -85,7 +261,6 @@ export function SpmbReportManager({
     });
   }, [payments, query, paymentStatusFilter]);
 
-  // Filter Supplementary Docs
   const filteredDocs = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return docs;
@@ -97,16 +272,12 @@ export function SpmbReportManager({
     );
   }, [docs, query]);
 
-  const pendingPaymentsCount = useMemo(() => {
-    return payments.filter((p) => p.status === "pending").length;
-  }, [payments]);
-
   // Update payment status
   async function updatePaymentStatus(id: number, status: "verified" | "rejected") {
     let notes = "";
     if (status === "rejected") {
       const input = window.prompt("Masukkan alasan penolakan bukti pembayaran (opsional):");
-      if (input === null) return; // cancelled
+      if (input === null) return;
       notes = input;
     }
 
@@ -143,7 +314,7 @@ export function SpmbReportManager({
     }
   }
 
-  // Export CSV with all 38+ Google Form fields
+  // Export CSV
   function downloadCsv() {
     const header = [
       "No Pendaftaran",
@@ -249,27 +420,54 @@ export function SpmbReportManager({
   }
 
   return (
-    <div className="grid gap-6">
-      {/* Header Banner */}
-      <section className="grid gap-4 rounded-[8px] bg-white p-6 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className={`grid gap-6 ${isPresentationMode ? "p-4 bg-zinc-950 text-white min-h-screen" : ""}`}>
+      {/* HEADER SECTION */}
+      <section
+        className={`grid gap-4 rounded-[12px] p-6 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center ${
+          isPresentationMode ? "bg-zinc-900 border border-zinc-800" : "bg-white border border-zinc-200"
+        }`}
+      >
         <div>
-          <p className="text-xs font-black uppercase tracking-wider text-rosebrand-600">Sistem SPMB Terpadu</p>
-          <h1 className="mt-1 text-2xl font-black text-zinc-950 sm:text-3xl">Penerimaan Murid Baru</h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-zinc-500">
-            Kelola data registrasi calon siswa, verifikasi bukti konfirmasi pembayaran, dan periksa berkas susulan yang diunggah.
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-rosebrand-500/10 px-2.5 py-0.5 text-xs font-black text-rosebrand-600">
+              Manajemen PPDB & SPMB
+            </span>
+            {isPresentationMode && (
+              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-black text-emerald-400">
+                Mode Presentasi Aktif
+              </span>
+            )}
+          </div>
+          <h1 className={`mt-2 text-2xl font-black sm:text-3xl ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+            Dashboard Analitik & Manajemen Pendaftaran Murid Baru
+          </h1>
+          <p className={`mt-1 text-sm font-semibold ${isPresentationMode ? "text-zinc-400" : "text-zinc-500"}`}>
+            Alat analisis statistik komprehensif untuk Ketua SPMB, verifikasi pembayaran tiket masuk, dan pengelolaan dokumen pendaftar.
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-3">
-          {activeTab === "registrations" && (
-            <button
-              type="button"
-              onClick={downloadCsv}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-zinc-950 px-5 text-sm font-extrabold text-white shadow-sm transition-colors hover:bg-rosebrand-600"
-            >
-              <Download size={17} aria-hidden />
-              Download CSV Lengkap
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsPresentationMode(!isPresentationMode)}
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-[8px] px-4 text-xs font-black transition-colors ${
+              isPresentationMode
+                ? "bg-rosebrand-600 text-white hover:bg-rosebrand-700"
+                : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200"
+            }`}
+          >
+            {isPresentationMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {isPresentationMode ? "Tutup Presentasi" : "Mode Presentasi"}
+          </button>
+
+          <button
+            type="button"
+            onClick={downloadCsv}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-zinc-950 px-4 text-xs font-black text-white hover:bg-rosebrand-600 transition-colors"
+          >
+            <Download size={16} />
+            Download CSV Lengkap
+          </button>
         </div>
       </section>
 
@@ -289,47 +487,60 @@ export function SpmbReportManager({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200">
+      {/* 4 TABS NAVIGATION */}
+      <div className={`flex flex-wrap items-center gap-2 border-b ${isPresentationMode ? "border-zinc-800" : "border-zinc-200"}`}>
         <button
           type="button"
-          onClick={() => {
-            setActiveTab("registrations");
-            setQuery("");
-          }}
+          onClick={() => setActiveTab("analytics")}
           className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-black transition-colors ${
-            activeTab === "registrations"
+            activeTab === "analytics"
               ? "border-rosebrand-600 text-rosebrand-600"
+              : isPresentationMode
+              ? "border-transparent text-zinc-400 hover:text-white"
               : "border-transparent text-zinc-500 hover:text-zinc-900"
           }`}
         >
-          <Users size={17} />
-          Pendaftar Baru
-          <span className="ml-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-black text-zinc-700">
+          <BarChart3 size={18} />
+          Analisis & Presentasi Ketua SPMB
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("registrations")}
+          className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-black transition-colors ${
+            activeTab === "registrations"
+              ? "border-rosebrand-600 text-rosebrand-600"
+              : isPresentationMode
+              ? "border-transparent text-zinc-400 hover:text-white"
+              : "border-transparent text-zinc-500 hover:text-zinc-900"
+          }`}
+        >
+          <Users size={18} />
+          Data Pendaftar PPDB
+          <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-black text-zinc-800">
             {items.length}
           </span>
         </button>
 
         <button
           type="button"
-          onClick={() => {
-            setActiveTab("payments");
-            setQuery("");
-          }}
+          onClick={() => setActiveTab("payments")}
           className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-black transition-colors ${
             activeTab === "payments"
               ? "border-rosebrand-600 text-rosebrand-600"
+              : isPresentationMode
+              ? "border-transparent text-zinc-400 hover:text-white"
               : "border-transparent text-zinc-500 hover:text-zinc-900"
           }`}
         >
-          <CreditCard size={17} />
+          <CreditCard size={18} />
           Konfirmasi Pembayaran
-          {pendingPaymentsCount > 0 ? (
-            <span className="ml-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-black text-white">
-              {pendingPaymentsCount} pending
+          {analytics.pendingPaymentsCount > 0 ? (
+            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
+              {analytics.pendingPaymentsCount} pending
             </span>
           ) : (
-            <span className="ml-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-black text-zinc-700">
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-black text-zinc-800">
               {payments.length}
             </span>
           )}
@@ -337,62 +548,433 @@ export function SpmbReportManager({
 
         <button
           type="button"
-          onClick={() => {
-            setActiveTab("documents");
-            setQuery("");
-          }}
+          onClick={() => setActiveTab("documents")}
           className={`inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-black transition-colors ${
             activeTab === "documents"
               ? "border-rosebrand-600 text-rosebrand-600"
+              : isPresentationMode
+              ? "border-transparent text-zinc-400 hover:text-white"
               : "border-transparent text-zinc-500 hover:text-zinc-900"
           }`}
         >
-          <FileText size={17} />
-          Berkas Susulan
-          <span className="ml-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-black text-zinc-700">
+          <FileText size={18} />
+          Berkas Dokumen Susulan
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-black text-zinc-800">
             {docs.length}
           </span>
         </button>
       </div>
 
-      {/* Main Section */}
-      <section className="rounded-[8px] bg-white p-5 shadow-sm">
-        {/* Search & Filters */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="relative flex-1">
+      {/* ============================================================== */}
+      {/* TAB 1: ANALISIS & PRESENTASI KETUA SPMB */}
+      {/* ============================================================== */}
+      {activeTab === "analytics" && (
+        <div className="space-y-6">
+          {/* Top KPI Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* KPI 1 */}
+            <div
+              className={`rounded-[12px] p-5 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-rosebrand-600">Total Pendaftar</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-rosebrand-50 text-rosebrand-600">
+                  <Users size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-3xl font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                {analytics.total}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">Calon siswa mengisi formulir lengkap</p>
+            </div>
+
+            {/* KPI 2 */}
+            <div
+              className={`rounded-[12px] p-5 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-600">Komitmen Pilihan Utama</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-emerald-50 text-emerald-600">
+                  <Award size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-3xl font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                {analytics.primaryRate}%
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                {analytics.primaryChoiceCount} dari {analytics.total} memilih prioritas utama
+              </p>
+            </div>
+
+            {/* KPI 3 */}
+            <div
+              className={`rounded-[12px] p-5 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-sky-600">Pembayaran Terverifikasi</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-sky-50 text-sky-600">
+                  <CreditCard size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-2xl font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
+                  analytics.totalVerifiedAmount
+                )}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-amber-500">
+                {analytics.pendingPaymentsCount} bukti menunggu verifikasi
+              </p>
+            </div>
+
+            {/* KPI 4 */}
+            <div
+              className={`rounded-[12px] p-5 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-600">Mitra Sekolah & Afiliasi</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-purple-50 text-purple-600">
+                  <School size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-3xl font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                {analytics.topSchools.length} Sekolah
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                {analytics.topAffiliators.length} Afiliator / Guru BK aktif
+              </p>
+            </div>
+          </div>
+
+          {/* Charts Row 1: Jurusan & Naungan */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Chart: Peminatan Jurusan */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                    Distribusi Peminatan Jurusan
+                  </h3>
+                  <p className="text-xs text-zinc-500">Kompetensi keahlian yang paling banyak diminati calon siswa</p>
+                </div>
+                <BarChart3 size={20} className="text-rosebrand-600" />
+              </div>
+
+              <div className="mt-6 h-64 w-full">
+                {mounted ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.majorData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                      <XAxis type="number" stroke={isPresentationMode ? "#71717a" : "#a1a1aa"} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={110}
+                        tick={{ fontSize: 11, fill: isPresentationMode ? "#e4e4e7" : "#3f3f46" }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#18181b",
+                          border: "none",
+                          borderRadius: "8px",
+                          color: "#fff",
+                          fontSize: "12px"
+                        }}
+                      />
+                      <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                        {analytics.majorData.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-zinc-400">Memuat Grafik...</div>
+                )}
+              </div>
+            </div>
+
+            {/* Chart: Naungan Sekolah & Tipe Sekolah */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                    Karakteristik Asal Sekolah
+                  </h3>
+                  <p className="text-xs text-zinc-500">Rasio Kementerian Naungan (SMP vs MTs) dan Status Sekolah</p>
+                </div>
+                <PieChartIcon size={20} className="text-sky-600" />
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-4 h-64">
+                {/* Pie 1: Naungan */}
+                <div className="flex flex-col items-center">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 mb-2">SMP vs MTs</p>
+                  {mounted ? (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie
+                          data={analytics.ministryData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={35}
+                          outerRadius={65}
+                          paddingAngle={3}
+                        >
+                          <Cell fill="#0284c7" />
+                          <Cell fill="#10b981" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : null}
+                  <div className="mt-2 text-center text-[11px] font-bold">
+                    <span className="text-sky-600">SMP ({analytics.ministryData[0]?.value || 0})</span> •{" "}
+                    <span className="text-emerald-600">MTs ({analytics.ministryData[1]?.value || 0})</span>
+                  </div>
+                </div>
+
+                {/* Pie 2: Negeri vs Swasta */}
+                <div className="flex flex-col items-center">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-zinc-500 mb-2">Negeri vs Swasta</p>
+                  {mounted ? (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie
+                          data={analytics.schoolTypeData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={35}
+                          outerRadius={65}
+                          paddingAngle={3}
+                        >
+                          <Cell fill="#e11d48" />
+                          <Cell fill="#f59e0b" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : null}
+                  <div className="mt-2 text-center text-[11px] font-bold">
+                    <span className="text-rosebrand-600">Negeri ({analytics.schoolTypeData[0]?.value || 0})</span> •{" "}
+                    <span className="text-amber-600">Swasta ({analytics.schoolTypeData[1]?.value || 0})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Charts Row 2: Top Feeder Schools & Regional Distribution */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Top 8 Feeder Schools */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                    Top 8 Sekolah Asal (Feeder Schools)
+                  </h3>
+                  <p className="text-xs text-zinc-500">Sekolah dengan jumlah pendaftar terbanyak ke SMK Telkom Lampung</p>
+                </div>
+                <School size={20} className="text-purple-600" />
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {analytics.topSchools.map((item, index) => {
+                  const percent = analytics.total > 0 ? Math.round((item.count / analytics.total) * 100) : 0;
+                  return (
+                    <div key={item.school} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
+                              index === 0
+                                ? "bg-amber-400 text-zinc-950"
+                                : index === 1
+                                ? "bg-zinc-300 text-zinc-900"
+                                : index === 2
+                                ? "bg-amber-600 text-white"
+                                : "bg-zinc-100 text-zinc-600"
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+                          <span className={isPresentationMode ? "text-zinc-200" : "text-zinc-800"}>{item.school}</span>
+                        </span>
+                        <span className="text-rosebrand-600 font-black">
+                          {item.count} siswa ({percent}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <div
+                          className="h-full bg-gradient-to-r from-rosebrand-600 to-amber-500 rounded-full"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {analytics.topSchools.length === 0 && (
+                  <p className="text-center text-xs text-zinc-500 py-8">Belum ada data sekolah pendaftar.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Asal Daerah / Wilayah Pendaftar */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                    Sebaran Wilayah Domisili (Kabupaten / Kota)
+                  </h3>
+                  <p className="text-xs text-zinc-500">Daerah asal domisili calon siswa</p>
+                </div>
+                <MapPin size={20} className="text-emerald-600" />
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {analytics.topRegions.map((r, index) => {
+                  const percent = analytics.total > 0 ? Math.round((r.count / analytics.total) * 100) : 0;
+                  return (
+                    <div key={r.region} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className={isPresentationMode ? "text-zinc-200" : "text-zinc-800"}>{r.region}</span>
+                        <span className="text-emerald-600 font-black">
+                          {r.count} calon siswa ({percent}%)
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {analytics.topRegions.length === 0 && (
+                  <p className="text-center text-xs text-zinc-500 py-8">Belum ada data wilayah domisili.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Charts Row 3: Sumber Informasi & Top Afiliator (Guru BK) */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Sumber Informasi */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                Efektivitas Saluran Promosi (Sumber Info)
+              </h3>
+              <p className="text-xs text-zinc-500">Dari mana calon siswa mengetahui pendaftaran SMK Telkom</p>
+
+              <div className="mt-5 space-y-3">
+                {analytics.infoData.map((info) => {
+                  const pct = analytics.total > 0 ? Math.round((info.count / analytics.total) * 100) : 0;
+                  return (
+                    <div key={info.source} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className={isPresentationMode ? "text-zinc-300" : "text-zinc-700"}>{info.source}</span>
+                        <span className="text-sky-600 font-black">{info.count} ({pct}%)</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <div className="h-full bg-sky-600 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Leaderboard Afiliator / Perekomendasi */}
+            <div
+              className={`rounded-[12px] p-6 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className={`text-base font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                    Leaderboard Afiliator (Guru BK & Perekomendasi)
+                  </h3>
+                  <p className="text-xs text-zinc-500">Nama pemberi referensi terbanyak untuk reward SPMB</p>
+                </div>
+                <Award size={20} className="text-amber-500" />
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-[8px] border border-zinc-100 dark:border-zinc-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-50 dark:bg-zinc-800/60 uppercase text-[10px] text-zinc-400 font-black">
+                    <tr>
+                      <th className="px-3 py-2">Rank</th>
+                      <th className="px-3 py-2">Nama Afiliator / Guru BK</th>
+                      <th className="px-3 py-2 text-right">Referal Siswa</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 font-semibold">
+                    {analytics.topAffiliators.map((af, i) => (
+                      <tr key={af.name}>
+                        <td className="px-3 py-2.5 font-black text-zinc-400">#{i + 1}</td>
+                        <td className="px-3 py-2.5 font-bold text-zinc-800 dark:text-zinc-200">{af.name}</td>
+                        <td className="px-3 py-2.5 text-right font-black text-rosebrand-600">{af.count} Siswa</td>
+                      </tr>
+                    ))}
+                    {analytics.topAffiliators.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="px-3 py-8 text-center text-zinc-400">
+                          Belum ada nama afiliator tercatat.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 2: DATA PENDAFTAR PPDB (TABEL LENGKAP & SEARCH) */}
+      {/* ============================================================== */}
+      {activeTab === "registrations" && (
+        <section className="rounded-[12px] bg-white p-5 shadow-sm border border-zinc-200">
+          <label className="relative block">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={
-                activeTab === "registrations"
-                  ? "Cari nama, No. Reg, NISN, NIK, asal sekolah, orang tua, afiliator..."
-                  : activeTab === "payments"
-                  ? "Cari nomor pendaftaran, nama siswa, gelombang..."
-                  : "Cari nomor pendaftaran, nama siswa, jenis berkas..."
-              }
+              placeholder="Cari nama siswa, No. Reg, NISN, NIK, asal sekolah, orang tua, afiliator, kota..."
               className="h-11 w-full rounded-[8px] border border-zinc-200 pl-11 pr-4 text-sm font-semibold outline-none focus:border-rosebrand-500"
             />
           </label>
 
-          {activeTab === "payments" && (
-            <div className="flex items-center gap-2">
-              <select
-                value={paymentStatusFilter}
-                onChange={(e) => setPaymentStatusFilter(e.target.value as any)}
-                className="h-11 rounded-[8px] border border-zinc-200 px-4 text-sm font-bold text-zinc-700 outline-none focus:border-rosebrand-500"
-              >
-                <option value="all">Semua Status</option>
-                <option value="pending">Menunggu Verifikasi (Pending)</option>
-                <option value="verified">Terverifikasi</option>
-                <option value="rejected">Ditolak</option>
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* TAB 1: REGISTRATIONS */}
-        {activeTab === "registrations" && (
           <div className="mt-5 overflow-hidden rounded-[8px] border border-zinc-100">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px] text-left text-sm">
@@ -443,7 +1025,7 @@ export function SpmbReportManager({
                       <td className="px-4 py-4 text-xs">
                         <p className="font-bold text-zinc-800">{item.infoSource || "-"}</p>
                         {item.affiliatorName && (
-                          <p className="mt-0.5 text-rosebrand-600">Afiliator: {item.affiliatorName}</p>
+                          <p className="mt-0.5 text-rosebrand-600 font-bold">Afiliator: {item.affiliatorName}</p>
                         )}
                       </td>
                       <td className="px-4 py-4 text-right">
@@ -461,7 +1043,7 @@ export function SpmbReportManager({
                             type="button"
                             onClick={() => printSpmbCardPdf(item)}
                             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-zinc-200 px-3 text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-50"
-                            title="Print Kartu Pendaftaran"
+                            title="Print Kartu Pendaftaran Resmi"
                           >
                             <Printer size={15} />
                             Kartu
@@ -481,10 +1063,37 @@ export function SpmbReportManager({
               </table>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* TAB 2: PAYMENT CONFIRMATIONS */}
-        {activeTab === "payments" && (
+      {/* ============================================================== */}
+      {/* TAB 3: VERIFIKASI PEMBAYARAN */}
+      {/* ============================================================== */}
+      {activeTab === "payments" && (
+        <section className="rounded-[12px] bg-white p-5 shadow-sm border border-zinc-200">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between">
+            <label className="relative flex-1">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari nomor pendaftaran, nama siswa, gelombang..."
+                className="h-11 w-full rounded-[8px] border border-zinc-200 pl-11 pr-4 text-sm font-semibold outline-none focus:border-emerald-500"
+              />
+            </label>
+
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value as any)}
+              className="h-11 rounded-[8px] border border-zinc-200 px-4 text-sm font-bold text-zinc-700 outline-none focus:border-emerald-500"
+            >
+              <option value="all">Semua Status Pembayaran</option>
+              <option value="pending">Menunggu Verifikasi (Pending)</option>
+              <option value="verified">Terverifikasi (Diterima)</option>
+              <option value="rejected">Ditolak</option>
+            </select>
+          </div>
+
           <div className="mt-5 overflow-hidden rounded-[8px] border border-zinc-100">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[950px] text-left text-sm">
@@ -595,10 +1204,24 @@ export function SpmbReportManager({
               </table>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* TAB 3: SUPPLEMENTARY DOCUMENTS */}
-        {activeTab === "documents" && (
+      {/* ============================================================== */}
+      {/* TAB 4: BERKAS DOKUMEN SUSULAN */}
+      {/* ============================================================== */}
+      {activeTab === "documents" && (
+        <section className="rounded-[12px] bg-white p-5 shadow-sm border border-zinc-200">
+          <label className="relative block">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari nomor pendaftaran, nama siswa, jenis berkas..."
+              className="h-11 w-full rounded-[8px] border border-zinc-200 pl-11 pr-4 text-sm font-semibold outline-none focus:border-amber-500"
+            />
+          </label>
+
           <div className="mt-5 overflow-hidden rounded-[8px] border border-zinc-100">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] text-left text-sm">
@@ -657,8 +1280,8 @@ export function SpmbReportManager({
               </table>
             </div>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* STUDENT DETAIL MODAL */}
       {selectedStudent && (
@@ -680,6 +1303,14 @@ export function SpmbReportManager({
                 >
                   <Printer size={15} />
                   Print Kartu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadSpmbCardPdf(selectedStudent)}
+                  className="inline-flex items-center gap-1.5 rounded-[8px] border border-zinc-300 px-3.5 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  <Download size={15} />
+                  Unduh PDF
                 </button>
                 <button
                   type="button"
@@ -785,7 +1416,7 @@ export function SpmbReportManager({
                   </div>
                   <div>
                     <p className="text-[11px] font-bold text-zinc-400">Prioritas Jurusan</p>
-                    <p className="text-sm font-bold text-zinc-800">{selectedStudent.choicePriority || "Pilihan 1"}</p>
+                    <p className="text-sm font-bold text-zinc-800">{selectedStudent.choicePriority || "Pilihan Utama"}</p>
                   </div>
                 </div>
               </div>
@@ -922,7 +1553,7 @@ export function SpmbReportManager({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
           <div className="relative max-h-[90vh] max-w-2xl overflow-hidden rounded-[12px] bg-white p-3 shadow-2xl">
             <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <p className="text-sm font-black text-zinc-900">Bukti Pembayaran</p>
+              <p className="text-sm font-black text-zinc-900">Bukti Transfer Pembayaran</p>
               <div className="flex items-center gap-2">
                 <a
                   href={previewImage}

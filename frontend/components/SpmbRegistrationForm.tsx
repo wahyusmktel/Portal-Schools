@@ -109,9 +109,7 @@ const RELIGIONS = [
 
 const MINISTRY_OPTIONS = [
   "Kementrian Agama - Madrasah Tsanawiah (MTs)",
-  "Kementrian Pendidikan - Sekolah Menengah Pertama (SMP)",
-  "Kementrian Agama",
-  "Kementrian Pendidikan"
+  "Kementrian Pendidikan - Sekolah Menengah Pertama (SMP)"
 ];
 
 const MAJOR_OPTIONS = [
