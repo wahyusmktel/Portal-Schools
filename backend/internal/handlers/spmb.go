@@ -38,6 +38,20 @@ func (h *Handler) adminSpmbRegistrations(w http.ResponseWriter, r *http.Request)
 	httpx.JSON(w, http.StatusOK, items)
 }
 
+func (h *Handler) adminDeleteSpmbRegistration(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id tidak valid")
+		return
+	}
+
+	if err := h.repo.DeleteSpmbRegistration(r.Context(), id); err != nil {
+		httpx.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "data pendaftaran berhasil dihapus"})
+}
+
 func (h *Handler) createPaymentConfirmation(w http.ResponseWriter, r *http.Request) {
 	var payload models.SpmbPaymentConfirmation
 	if err := httpx.DecodeJSON(r, &payload); err != nil {

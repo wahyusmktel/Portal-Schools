@@ -50,33 +50,37 @@ function strokeColor(hex: string): string {
   return `${rgb(hex)} RG`;
 }
 
-function field(label: string, value: string, x: number, y: number, width = 255, height = 34): string {
+function tableRow2Col(y: number, l1: string, v1: string, l2: string, v2: string, h = 22): string {
   return [
-    rect(x, y - 6, width, height, "F9FAFB"),
-    strokeRect(x, y - 6, width, height, "E5E7EB", 0.75),
-    text(x + 8, y + 18, label.toUpperCase(), { size: 6.5, font: "bold", color: "6B7280" }),
-    text(x + 8, y + 4, String(value || "-").slice(0, 48), { size: 8.5, font: "bold", color: "111827" })
+    strokeRect(40, y, 515, h, "D1D5DB", 0.75),
+    rect(40, y, 110, h, "F9FAFB"),
+    line(150, y, 150, y + h, "D1D5DB", 0.75),
+    text(46, y + 6, l1, { size: 7.5, font: "bold", color: "4B5563" }),
+    text(156, y + 6, String(v1 || "-").slice(0, 28), { size: 8, font: "bold", color: "111827" }),
+    line(297.5, y, 297.5, y + h, "D1D5DB", 0.75),
+    rect(297.5, y, 110, h, "F9FAFB"),
+    line(407.5, y, 407.5, y + h, "D1D5DB", 0.75),
+    text(303.5, y + 6, l2, { size: 7.5, font: "bold", color: "4B5563" }),
+    text(413.5, y + 6, String(v2 || "-").slice(0, 28), { size: 8, font: "bold", color: "111827" })
   ].join("\n");
 }
 
-function wrapText(value: string, maxLength: number): string[] {
-  const words = (value || "-").split(/\s+/);
-  const rows: string[] = [];
-  let current = "";
+function tableRowFull(y: number, label: string, val: string, h = 22): string {
+  return [
+    strokeRect(40, y, 515, h, "D1D5DB", 0.75),
+    rect(40, y, 110, h, "F9FAFB"),
+    line(150, y, 150, y + h, "D1D5DB", 0.75),
+    text(46, y + 6, label, { size: 7.5, font: "bold", color: "4B5563" }),
+    text(156, y + 6, String(val || "-").slice(0, 75), { size: 8, font: "bold", color: "111827" })
+  ].join("\n");
+}
 
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxLength && current) {
-      rows.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
-  }
-  if (current) {
-    rows.push(current);
-  }
-  return rows.slice(0, 3);
+function categoryRow(y: number, title: string, h = 18): string {
+  return [
+    rect(40, y, 515, h, "E5E7EB"),
+    strokeRect(40, y, 515, h, "9CA3AF", 0.75),
+    text(48, y + 5, title, { size: 8, font: "bold", color: "111827" })
+  ].join("\n");
 }
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -90,17 +94,6 @@ function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
-  const formattedAddress = [
-    registration.currentAddress,
-    registration.district ? `Kec. ${registration.district}` : "",
-    registration.city,
-    registration.province
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  const addressRows = wrapText(formattedAddress, 65);
-
   const createdDate = registration.createdAt
     ? new Date(registration.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })
     : new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
@@ -117,90 +110,61 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     // 1. KOP SURAT (0 MARGIN ATAS, KANAN, KIRI)
     `q\n595 0 0 ${kopHeight.toFixed(2)} 0 ${kopY.toFixed(2)} cm\n/Im1 Do\nQ`,
 
-    // Outer frame boundary below the Kop Surat
-    strokeRect(30, 25, 535, 705, "E5E7EB", 1),
-
-    // 2. JUDUL KARTU & BADGE REGISTRASI (y = 668)
-    rect(45, 668, 335, 46, "F9FAFB"),
-    strokeRect(45, 668, 335, 46, "E5E7EB", 1),
-    text(55, 700, "KARTU TANDA BUKTI PENDAFTARAN", { size: 11, font: "bold", color: "111827" }),
-    text(55, 687, `SISTEM PENERIMAAN MURID BARU (SPMB) T.A. ${registration.academicYear}`, { size: 8, font: "bold", color: "BE123C" }),
-    text(55, 676, `Tanggal Registrasi: ${createdDate}`, { size: 7.5, color: "4B5563" }),
+    // 2. JUDUL KARTU & BADGE REGISTRASI (y = 692, h = 36)
+    rect(40, 692, 515, 36, "F9FAFB"),
+    strokeRect(40, 692, 515, 36, "D1D5DB", 1),
+    text(48, 714, "KARTU TANDA BUKTI PENDAFTARAN SPMB", { size: 10, font: "bold", color: "111827" }),
+    text(48, 701, `SISTEM PENERIMAAN MURID BARU T.A. ${registration.academicYear}`, { size: 7.5, font: "bold", color: "BE123C" }),
 
     // Box Nomor Pendaftaran
-    rect(390, 668, 160, 46, "111827"),
-    rect(390, 668, 5, 46, "E11D48"),
-    text(402, 700, "NOMOR REGISTRASI", { size: 6.5, font: "bold", color: "9CA3AF" }),
-    text(402, 683, registration.registrationNumber, { size: 12, font: "bold", color: "FFFFFF" }),
-    text(402, 673, `Jalur: ${registration.registrationTrack || "Reguler"}`, { size: 7.5, font: "bold", color: "FCA5A5" }),
+    rect(350, 692, 205, 36, "111827"),
+    text(360, 714, "NO. REGISTRASI:", { size: 7, font: "bold", color: "9CA3AF" }),
+    text(435, 713, registration.registrationNumber, { size: 10, font: "bold", color: "FFFFFF" }),
+    text(360, 701, `Jalur: ${registration.registrationTrack || "Reguler"} • ${createdDate}`, { size: 7, font: "bold", color: "FCA5A5" }),
 
-    // 3. A. IDENTITAS CALON SISWA (y = 642)
-    rect(45, 642, 505, 18, "F3F4F6"),
-    text(55, 647, "A. IDENTITAS CALON SISWA", { size: 8, font: "bold", color: "111827" }),
+    // 3. TABEL: A. IDENTITAS CALON SISWA
+    categoryRow(666, "A. IDENTITAS CALON SISWA"),
+    tableRow2Col(644, "Nama Lengkap", registration.fullName, "Jenjang Saat Daftar", registration.classGrade),
+    tableRow2Col(622, "NIK Calon Siswa", registration.nik, "NISN Siswa", registration.nisn),
+    tableRow2Col(600, "Jenis Kelamin", registration.gender, "Agama", registration.religion),
+    tableRow2Col(578, "Tanggal Lahir", registration.birthDate, "No. WhatsApp / HP", registration.whatsappNumber),
+    tableRowFull(556, "Alamat Email", registration.email),
 
-    field("Nama Lengkap Siswa", registration.fullName, 45, 602, 248),
-    field("Jenjang Kelas Saat Mendaftar", registration.classGrade, 302, 602, 248),
+    // 4. TABEL: B. PILIHAN JURUSAN & ASAL SEKOLAH
+    categoryRow(530, "B. KOMPETENSI KEAHLIAN & ASAL SEKOLAH"),
+    tableRow2Col(508, "Pilihan Jurusan", registration.selectedMajorName, "Prioritas Pilihan", registration.choicePriority || "Pilihan Utama"),
+    tableRow2Col(486, "Nama Asal Sekolah", registration.previousSchool, "Naungan & Tipe", `${registration.schoolType || "SMP"} (${registration.ministry || "Kemdikbud"})`),
+    tableRowFull(464, "Alamat Sekolah Asal", registration.previousSchoolAddress),
 
-    field("NIK Calon Siswa", registration.nik, 45, 562, 120),
-    field("NISN Siswa", registration.nisn, 173, 562, 120),
-    field("Jenis Kelamin", registration.gender, 302, 562, 120),
-    field("Agama", registration.religion, 430, 562, 120),
+    // 5. TABEL: C. DATA ORANG TUA / WALI & ALAMAT DOMISILI
+    categoryRow(438, "C. DATA ORANG TUA / WALI & ALAMAT DOMISILI"),
+    tableRow2Col(416, "Nama Ayah / Wali", `${registration.fatherName || "-"} (${registration.fatherOccupation || "-"})`, "No. Telepon Ayah", registration.fatherPhone || "-"),
+    tableRow2Col(394, "Nama Ibu / Wali", `${registration.motherName || "-"} (${registration.motherOccupation || "-"})`, "No. Telepon Ibu", registration.motherPhone || "-"),
+    tableRowFull(372, "Alamat Rumah", registration.currentAddress),
+    tableRow2Col(350, "Kecamatan", registration.district ? `Kec. ${registration.district}` : "-", "Kabupaten / Kota", `${registration.city || "-"} (${registration.province || "-"})`),
 
-    field("Tanggal Lahir", registration.birthDate, 45, 522, 120),
-    field("Nomor WhatsApp / HP", registration.whatsappNumber, 173, 522, 120),
-    field("Alamat Email Aktif", registration.email, 302, 522, 248),
+    // 6. TABEL: D. PETUNJUK VERIFIKASI & DAFTAR ULANG
+    categoryRow(324, "D. PETUNJUK VERIFIKASI & DAFTAR ULANG"),
+    rect(40, 246, 515, 78, "FEF2F2"),
+    strokeRect(40, 246, 515, 78, "FECDD3", 0.75),
+    text(48, 308, "Ketentuan & Berkas yang Wajib Dibawa Saat Verifikasi:", { size: 7.5, font: "bold", color: "991B1B" }),
+    text(48, 294, "1. Membawa cetakan Kartu Tanda Bukti Pendaftaran resmi ini saat hadir ke kampus SMK Telkom Lampung.", { size: 7, color: "1F2937" }),
+    text(48, 282, "2. Menyerahkan fotokopi legalisir: Akta Kelahiran, Kartu Keluarga, dan Rapor/Ijazah sekolah asal.", { size: 7, color: "1F2937" }),
+    text(48, 270, "3. Mengenakan pakaian seragam sekolah asal rapi dan bersepatu saat pelaksanaan verifikasi atau tes.", { size: 7, color: "1F2937" }),
+    text(48, 258, "4. Informasi kelulusan & jadwal tes dapat dipantau di web.smktelkom-lpg.sch.id atau Helpdesk SPMB: 0811-799-8800.", { size: 7, color: "1F2937" }),
 
-    // 4. B. PILIHAN JURUSAN & ASAL SEKOLAH (y = 496)
-    rect(45, 496, 505, 18, "F3F4F6"),
-    text(55, 501, "B. PILIHAN JURUSAN & ASAL SEKOLAH", { size: 8, font: "bold", color: "111827" }),
+    // 7. TANDA TANGAN (KOTAK CAP RESMI DIHAPUS, AREA CAP DIBIARKAN KOSONG UNTUK CAP FISIK)
+    text(65, 218, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
+    line(50, 150, 200, 150, "9CA3AF", 0.75),
+    text(65, 138, `( ${registration.fullName.slice(0, 28)} )`, { size: 7, font: "bold", color: "111827" }),
 
-    field("Kompetensi Keahlian (Pilihan Jurusan)", registration.selectedMajorName, 45, 456, 320),
-    field("Prioritas Pilihan", registration.choicePriority || "Pilihan Utama", 373, 456, 177),
-
-    field("Asal Sekolah", registration.previousSchool, 45, 416, 248),
-    field("Naungan & Tipe Sekolah", `${registration.schoolType || "SMP"} (${registration.ministry || "Kemdikbud"})`, 302, 416, 248),
-
-    field("Alamat Lengkap Asal Sekolah", registration.previousSchoolAddress, 45, 376, 505),
-
-    // 5. C. DATA ORANG TUA / WALI & ALAMAT (y = 350)
-    rect(45, 350, 505, 18, "F3F4F6"),
-    text(55, 355, "C. DATA ORANG TUA / WALI & ALAMAT RUMAH", { size: 8, font: "bold", color: "111827" }),
-
-    field("Nama Ayah / Wali", `${registration.fatherName || "-"} (${registration.fatherOccupation || "-"})`, 45, 310, 248),
-    field("Nomor Telepon Ayah", registration.fatherPhone || "-", 302, 310, 248),
-
-    field("Nama Ibu / Wali", `${registration.motherName || "-"} (${registration.motherOccupation || "-"})`, 45, 270, 248),
-    field("Nomor Telepon Ibu", registration.motherPhone || "-", 302, 270, 248),
-
-    // Alamat Rumah
-    rect(45, 222, 505, 40, "F9FAFB"),
-    strokeRect(45, 222, 505, 40, "E5E7EB", 0.75),
-    text(53, 250, "ALAMAT TEMPAT TINGGAL LENGKAP SISWA", { size: 6.5, font: "bold", color: "6B7280" }),
-    ...addressRows.map((r, i) => text(53, 238 - i * 11, r, { size: 8, font: i === 0 ? "bold" : "regular", color: "111827" })),
-
-    // 6. D. PETUNJUK VERIFIKASI & DAFTAR ULANG (y = 144)
-    rect(45, 144, 505, 70, "FEF2F2"),
-    strokeRect(45, 144, 505, 70, "FECDD3", 1),
-    text(55, 200, "PETUNJUK BAGI CALON SISWA & ORANG TUA / WALI:", { size: 7.5, font: "bold", color: "991B1B" }),
-    text(55, 188, "1. Simpan dan bawa cetakan Kartu Bukti Pendaftaran ini saat verifikasi berkas fisik atau tes seleksi di sekolah.", { size: 7, color: "1F2937" }),
-    text(55, 177, "2. Siapkan dokumen asli dan fotokopi: Akta Kelahiran, Kartu Keluarga, Rapor/Ijazah, dan Sertifikat Prestasi (jika ada).", { size: 7, color: "1F2937" }),
-    text(55, 166, "3. Mengenakan seragam sekolah asal lengkap, rapi, dan bersepatu saat hadir ke kampus SMK Telkom Lampung.", { size: 7, color: "1F2937" }),
-    text(55, 155, "4. Informasi kelulusan & jadwal tes dapat dipantau di web.smktelkom-lpg.sch.id atau Helpdesk SPMB: 0811-799-8800.", { size: 7, color: "1F2937" }),
-
-    // 7. TANDA TANGAN RESMI (y = 120)
-    text(70, 122, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
-    line(55, 68, 195, 68, "9CA3AF", 0.75),
-    text(70, 58, `( ${registration.fullName.slice(0, 22)} )`, { size: 7, font: "bold", color: "111827" }),
-
-    text(375, 130, `Lampung, ${createdDate}`, { size: 7, color: "4B5563" }),
-    text(375, 120, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
-    strokeRect(390, 78, 70, 26, "FCA5A5", 0.5),
-    text(398, 88, "CAP RESMI SPMB", { size: 6, font: "bold", color: "EF4444" }),
-    line(355, 68, 515, 68, "9CA3AF", 0.75),
-    text(370, 58, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),
+    text(375, 226, `Lampung, ${createdDate}`, { size: 7, color: "4B5563" }),
+    text(375, 218, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
+    line(355, 150, 515, 150, "9CA3AF", 0.75),
+    text(370, 138, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),
 
     // Footer Watermark
-    text(45, 34, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung. Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
+    text(40, 110, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung. Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
   ];
 
   const streamContent = commands.join("\n");

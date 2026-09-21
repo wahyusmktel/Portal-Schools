@@ -6,6 +6,7 @@ import {
   Printer,
   Search,
   Eye,
+  Trash2,
   CheckCircle2,
   XCircle,
   Clock,
@@ -69,7 +70,7 @@ export function SpmbReportManager({
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"analytics" | "registrations" | "payments" | "documents">("analytics");
-  const [items] = useState<SpmbRegistration[]>(initialItems);
+  const [items, setItems] = useState<SpmbRegistration[]>(initialItems);
   const [payments, setPayments] = useState<SpmbPaymentConfirmation[]>(initialPayments);
   const [docs] = useState<SpmbSupplementaryDocument[]>(initialDocs);
 
@@ -78,6 +79,7 @@ export function SpmbReportManager({
   const [selectedStudent, setSelectedStudent] = useState<SpmbRegistration | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
 
@@ -311,6 +313,47 @@ export function SpmbReportManager({
       setNotice({ type: "error", message: errorMsg });
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  // Soft delete registration
+  async function handleDeleteRegistration(item: SpmbRegistration) {
+    const confirmed = window.confirm(
+      `Apakah Anda yakin ingin menghapus data calon siswa "${item.fullName}" (${item.registrationNumber})?\n\nData akan dihapus dari daftar aktif (soft delete) namun riwayat data tetap tersimpan aman di database.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(item.id);
+    setNotice(null);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/spmb/registrations/${item.id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCookie("csrf_token")
+        }
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Gagal menghapus data calon siswa.");
+      }
+
+      setItems((prev) => prev.filter((s) => s.id !== item.id));
+      if (selectedStudent?.id === item.id) {
+        setSelectedStudent(null);
+      }
+      setNotice({
+        type: "success",
+        message: `Data pendaftar "${item.fullName}" (${item.registrationNumber}) berhasil dihapus (soft delete).`
+      });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus data.";
+      setNotice({ type: "error", message: errorMsg });
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -1048,6 +1091,16 @@ export function SpmbReportManager({
                             <Printer size={15} />
                             Kartu
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRegistration(item)}
+                            disabled={deletingId === item.id}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50"
+                            title="Hapus Data Calon Siswa (Soft Delete)"
+                          >
+                            <Trash2 size={15} />
+                            {deletingId === item.id ? "..." : "Hapus"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1311,6 +1364,16 @@ export function SpmbReportManager({
                 >
                   <Download size={15} />
                   Unduh PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRegistration(selectedStudent)}
+                  disabled={deletingId === selectedStudent.id}
+                  className="inline-flex items-center gap-1.5 rounded-[8px] border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition-colors disabled:opacity-50"
+                  title="Hapus Data Calon Siswa (Soft Delete)"
+                >
+                  <Trash2 size={15} />
+                  {deletingId === selectedStudent.id ? "Menghapus..." : "Hapus Data"}
                 </button>
                 <button
                   type="button"

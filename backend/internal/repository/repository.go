@@ -1847,6 +1847,7 @@ func (r *Repository) ensureSpmbTables(ctx context.Context) {
 		"reason TEXT NULL",
 		"choice_priority VARCHAR(160) NOT NULL DEFAULT 'Pilihan Utama'",
 		"achievements_note TEXT NULL",
+		"deleted_at DATETIME NULL",
 	}
 
 	for _, colDef := range newCols {
@@ -1969,6 +1970,7 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 		       info_source, COALESCE(affiliator_name, ''), COALESCE(reason, ''), COALESCE(choice_priority, ''), COALESCE(achievements_note, ''),
 		       academic_year, created_at
 		FROM spmb_registrations
+		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT 1000
 	`)
@@ -2030,6 +2032,22 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repository) DeleteSpmbRegistration(ctx context.Context, id int64) error {
+	r.ensureSpmbTables(ctx)
+	res, err := r.db.ExecContext(ctx, `UPDATE spmb_registrations SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errors.New("data pendaftar tidak ditemukan atau sudah dihapus")
+	}
+	return nil
 }
 
 func (r *Repository) CreateSpmbPaymentConfirmation(ctx context.Context, item models.SpmbPaymentConfirmation) (models.SpmbPaymentConfirmation, error) {
