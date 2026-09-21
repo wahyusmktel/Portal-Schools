@@ -327,7 +327,7 @@ export function SpmbReportManager({
     setNotice(null);
 
     try {
-      const res = await fetch(`${API_URL}/admin/spmb/registrations/${item.id}`, {
+      let res = await fetch(`${API_URL}/admin/spmb/registrations/${item.id}`, {
         method: "DELETE",
         credentials: "include",
         headers: {
@@ -336,8 +336,23 @@ export function SpmbReportManager({
         }
       });
 
+      if (res.status === 404 || res.status === 405) {
+        // Fallback jika web server / proxy memblokir method HTTP DELETE
+        res = await fetch(`${API_URL}/admin/spmb/registrations/${item.id}/delete`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCookie("csrf_token")
+          }
+        });
+      }
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 404) {
+          throw new Error("Layanan backend belum diperbarui ke versi terbaru. Silakan git pull & restart service backend di server VPS.");
+        }
         throw new Error(data.error || "Gagal menghapus data calon siswa.");
       }
 
