@@ -26,7 +26,8 @@ import {
   Minimize2,
   Share2,
   Sparkles,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  FileSpreadsheet
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -42,6 +43,7 @@ import {
 } from "recharts";
 import { printSpmbCardPdf, downloadSpmbCardPdf } from "@/lib/spmb-card";
 import { normalizeImageUrl } from "@/lib/image-url";
+import { exportSpmbExcel } from "@/lib/spmb-export";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
 import type { SpmbPaymentConfirmation, SpmbRegistration, SpmbSupplementaryDocument } from "@/types/content";
@@ -374,109 +376,32 @@ export function SpmbReportManager({
     }
   }
 
-  // Export CSV
-  function downloadCsv() {
-    const header = [
-      "No Pendaftaran",
-      "Tahun Ajaran",
-      "Kelas / Jenjang",
-      "Jalur Pendaftaran",
-      "Nama Lengkap",
-      "NIK",
-      "NISN",
-      "Jenis Kelamin",
-      "Agama",
-      "Tanggal Lahir",
-      "No WhatsApp",
-      "Email",
-      "Provinsi",
-      "Kabupaten / Kota",
-      "Kecamatan",
-      "Alamat Lengkap",
-      "Asal Sekolah",
-      "Naungan Sekolah",
-      "Tipe Sekolah",
-      "Alamat Sekolah",
-      "Pilihan Jurusan",
-      "Nama Ayah",
-      "Pendidikan Ayah",
-      "Pekerjaan Ayah",
-      "Tgl Lahir Ayah",
-      "No HP Ayah",
-      "Nama Ibu",
-      "Pendidikan Ibu",
-      "Pekerjaan Ibu",
-      "Tgl Lahir Ibu",
-      "No HP Ibu",
-      "Sumber Informasi",
-      "Nama Afiliator",
-      "Alasan Memilih",
-      "Prioritas Pilihan",
-      "Catatan Prestasi",
-      "File Kartu Pelajar",
-      "File Kartu Keluarga",
-      "File Akta Kelahiran",
-      "File Sertifikat Prestasi",
-      "Waktu Mendaftar"
-    ];
+  // Export Excel Rekap Lengkap & Analitik Modern
+  function handleDownloadRekap() {
+    try {
+      if (filteredItems.length === 0) {
+        setNotice({
+          type: "error",
+          message: "Tidak ada data pendaftaran yang sesuai untuk diunduh."
+        });
+        return;
+      }
 
-    const rows = filteredItems.map((item) => [
-      item.registrationNumber,
-      item.academicYear,
-      item.classGrade,
-      item.registrationTrack,
-      item.fullName,
-      item.nik,
-      item.nisn,
-      item.gender,
-      item.religion,
-      item.birthDate,
-      item.whatsappNumber,
-      item.email,
-      item.province,
-      item.city,
-      item.district,
-      item.currentAddress,
-      item.previousSchool,
-      item.ministry,
-      item.schoolType,
-      item.previousSchoolAddress,
-      item.selectedMajorName,
-      item.fatherName,
-      item.fatherEducation,
-      item.fatherOccupation,
-      item.fatherBirthDate,
-      item.fatherPhone,
-      item.motherName,
-      item.motherEducation,
-      item.motherOccupation,
-      item.motherBirthDate,
-      item.motherPhone,
-      item.infoSource,
-      item.affiliatorName,
-      item.reason,
-      item.choicePriority,
-      item.achievementsNote,
-      item.studentCardFile ? normalizeImageUrl(item.studentCardFile) : "",
-      item.familyCardFile ? normalizeImageUrl(item.familyCardFile) : "",
-      item.birthCertificateFile ? normalizeImageUrl(item.birthCertificateFile) : "",
-      item.achievementCertificateFile ? normalizeImageUrl(item.achievementCertificateFile) : "",
-      item.createdAt
-    ]);
+      exportSpmbExcel({
+        items: filteredItems,
+        payments: payments,
+        supplementaryDocs: docs,
+        academicYear: academicYear
+      });
 
-    const csvContent =
-      "\uFEFF" +
-      [header, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
-        .join("\r\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `report-spmb-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setNotice({
+        type: "success",
+        message: `Berhasil mengunduh rekapitulasi data (${filteredItems.length} calon siswa) dalam format Excel (.xlsx) rapi & modern.`
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Gagal mengunduh rekap data Excel.";
+      setNotice({ type: "error", message: msg });
+    }
   }
 
   return (
@@ -522,11 +447,15 @@ export function SpmbReportManager({
 
           <button
             type="button"
-            onClick={downloadCsv}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-zinc-950 px-4 text-xs font-black text-white hover:bg-rosebrand-600 transition-colors"
+            onClick={handleDownloadRekap}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-sm"
+            title="Download Rekap Pendaftar & Analitik Excel (.xlsx)"
           >
-            <Download size={16} />
-            Download CSV Lengkap
+            <FileSpreadsheet size={16} />
+            <span>Download Rekap</span>
+            <span className="rounded bg-emerald-800/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100">
+              .XLSX
+            </span>
           </button>
         </div>
       </section>
