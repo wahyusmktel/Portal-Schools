@@ -9,9 +9,15 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"portal-smktelkom/backend/internal/config"
-	"portal-smktelkom/backend/internal/repository"
 	"portal-smktelkom/backend/internal/models"
+	"portal-smktelkom/backend/internal/repository"
 )
+
+type employeeSeed struct {
+	Name   string
+	Role   string
+	Avatar string
+}
 
 func main() {
 	cfg := config.Load()
@@ -28,56 +34,81 @@ func main() {
 	}
 
 	repo := repository.New(db)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	fmt.Println("Seeding 20 employees (10 active, 10 inactive)...")
+	fmt.Println("Clearing old employee records...")
+	if _, err := db.ExecContext(ctx, "DELETE FROM employees"); err != nil {
+		log.Fatalf("failed to clear employees: %v", err)
+	}
+	_, _ = db.ExecContext(ctx, "ALTER TABLE employees AUTO_INCREMENT = 1")
 
-	// Dummy data setup
-	roles := []string{"Guru Matematika", "Guru Bahasa Inggris", "Staf Tata Usaha", "Wakil Kepala Sekolah", "Guru Produktif RPL", "Guru Produktif TKJ", "Petugas Perpustakaan", "Pembina OSIS"}
+	// 42 Official Employees of SMK Telkom Lampung
+	employees := []employeeSeed{
+		{"Ahmad Ikhsan", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Aji Sakti Kurniawan", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Anang Esa Sulistiawan", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Arohman", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Asep Perdiansyah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Astri Damayanti", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Azhar Mustofa", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Budi Saffa Nugraha", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Dany Rahmatullah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Dedi Eko Cahyono", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Desy Nur Anggita", "Tenaga Kependidikan (TPA)", "/images/avatars/avatar-female.svg"},
+		{"Dita Safitri", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Erwin Romel", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Evie Tyaswati", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Faalih Qowiy", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Fatriade Saputra", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Hafizh Pubiando", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Hanifah Sahhan", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Hari Hartoyo", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Hermawan Rijal Arasy", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Ihwan Hamid Huzain", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Imam Mahmudi", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Imam Suhendri", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Irfan Novra Desando", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Khafidh Febriansyah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Meliya Trisna Wahyuni", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Mevita Yollanda", "Tenaga Kependidikan (TPA)", "/images/avatars/avatar-female.svg"},
+		{"Mirza Abdi Wiguna", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Muhammad Galih Febrian", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Nifia Anda Ningrum", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Nur Cahyana Aminuallah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Rendi Syaputra", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Retno Ayu Ningsih", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Rizki Nurmansyah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Shinta Amelia Wardhani", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Siti Khairunnisa", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Sri Lastari", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Suntoro", "Tenaga Kependidikan (TPA)", "/images/avatars/avatar-male.svg"},
+		{"Surya Aditia Pratama", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Tamara Azhar Azizah", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+		{"Wahyu Rahmat Hidayat", "Guru / Tenaga Pendidik", "/images/avatars/avatar-male.svg"},
+		{"Yuni Marlina", "Guru / Tenaga Pendidik", "/images/avatars/avatar-female.svg"},
+	}
 
-	for i := 1; i <= 20; i++ {
-		isActive := i <= 10
-		statusLabel := "active"
-		if !isActive {
-			statusLabel = "inactive"
-		}
+	fmt.Printf("Seeding %d official employees...\n", len(employees))
 
-		name := fmt.Sprintf("Pegawai %s %d", statusLabel, i)
-		role := roles[i%len(roles)]
-		bio := fmt.Sprintf("Ini adalah biografi singkat untuk %s. Memiliki dedikasi tinggi dalam memajukan pendidikan.", name)
-		
-		// Use UI Avatars for placeholder images with different colors
-		imageURL := fmt.Sprintf("https://ui-avatars.com/api/?name=Pegawai+%d&background=random&color=fff&size=256", i)
-
-		socialLinks := []models.SocialLink{
-			{Label: "Instagram", Value: fmt.Sprintf("https://instagram.com/pegawai%d", i)},
-			{Label: "Email", Value: fmt.Sprintf("mailto:pegawai%d@smktelkom.sch.id", i)},
-		}
-
-		var period string
-		if !isActive {
-			startYear := 2000 + i
-			endYear := startYear + 5
-			period = fmt.Sprintf("%d - %d", startYear, endYear)
-		}
-
+	for i, emp := range employees {
+		sortOrder := i + 1
 		payload := models.Employee{
-			Name:             name,
-			Role:             role,
-			Biography:        bio,
-			ImageURL:         imageURL,
-			SocialLinks:      socialLinks,
-			EmploymentPeriod: period,
-			IsActive:         isActive,
-			SortOrder:        i,
+			Name:             emp.Name,
+			Role:             emp.Role,
+			Biography:        "",
+			ImageURL:         emp.Avatar,
+			SocialLinks:      []models.SocialLink{},
+			EmploymentPeriod: "",
+			IsActive:         true,
+			SortOrder:        sortOrder,
 		}
 
 		_, err := repo.CreateEmployee(ctx, payload)
 		if err != nil {
-			log.Printf("Failed to insert employee %d: %v", i, err)
+			log.Printf("Failed to insert employee %d: %v", sortOrder, err)
 		} else {
-			fmt.Printf("Inserted employee: %s\n", name)
+			fmt.Printf("[%d/%d] Inserted: %s (%s)\n", sortOrder, len(employees), emp.Name, emp.Role)
 		}
 	}
 
