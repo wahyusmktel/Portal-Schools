@@ -86,6 +86,7 @@ export function SpmbReportManager({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -376,8 +377,9 @@ export function SpmbReportManager({
     }
   }
 
-  // Export Excel Rekap Lengkap & Analitik Modern
-  function handleDownloadRekap() {
+  // Export Excel Rekap Lengkap & Analitik Modern (dengan Format & Style Rapi)
+  async function handleDownloadRekap() {
+    if (isExporting) return;
     try {
       if (filteredItems.length === 0) {
         setNotice({
@@ -387,7 +389,8 @@ export function SpmbReportManager({
         return;
       }
 
-      exportSpmbExcel({
+      setIsExporting(true);
+      await exportSpmbExcel({
         items: filteredItems,
         payments: payments,
         supplementaryDocs: docs,
@@ -396,11 +399,13 @@ export function SpmbReportManager({
 
       setNotice({
         type: "success",
-        message: `Berhasil mengunduh rekapitulasi data (${filteredItems.length} calon siswa) dalam format Excel (.xlsx) rapi & modern.`
+        message: `Berhasil mengunduh rekapitulasi data (${filteredItems.length} calon siswa) dalam format Excel (.xlsx) dengan tata letak & gaya rapi modern.`
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Gagal mengunduh rekap data Excel.";
       setNotice({ type: "error", message: msg });
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -448,11 +453,16 @@ export function SpmbReportManager({
           <button
             type="button"
             onClick={handleDownloadRekap}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-4 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-sm"
+            disabled={isExporting}
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-[8px] px-4 text-xs font-black text-white transition-colors shadow-sm ${
+              isExporting
+                ? "bg-emerald-800 opacity-75 cursor-not-allowed"
+                : "bg-emerald-600 hover:bg-emerald-700"
+            }`}
             title="Download Rekap Pendaftar & Analitik Excel (.xlsx)"
           >
-            <FileSpreadsheet size={16} />
-            <span>Download Rekap</span>
+            <FileSpreadsheet size={16} className={isExporting ? "animate-pulse" : ""} />
+            <span>{isExporting ? "Menyiapkan Excel..." : "Download Rekap"}</span>
             <span className="rounded bg-emerald-800/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100">
               .XLSX
             </span>
