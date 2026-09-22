@@ -74,7 +74,7 @@ export function EmployeeShowcase({ employees }: { employees: Employee[] }) {
                 whileHover={{ y: -8, transition: { duration: 0.2 } }}
                 className="group flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-zinc-100"
               >
-                <div className="aspect-[4/5] relative overflow-hidden bg-zinc-100">
+                <div className="aspect-[4/5] relative overflow-hidden bg-zinc-900 group">
                   {emp.imageUrl ? (
                     <Image
                       src={normalizeImageUrl(emp.imageUrl)}
@@ -86,6 +86,18 @@ export function EmployeeShowcase({ employees }: { employees: Employee[] }) {
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-zinc-300">No Photo</div>
                   )}
+
+                  {/* Official Telkom Schools Watermark Badge */}
+                  <div className="absolute top-3 right-3 z-10 w-9 h-9 p-1.5 rounded-xl bg-white/90 backdrop-blur-md shadow-md border border-white/60 pointer-events-none transition-transform duration-300 group-hover:scale-110">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src="/images/telkom-schools-logo.png"
+                        alt="Telkom Schools"
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                  </div>
                   {emp.socialLinks && emp.socialLinks.length > 0 && (
                     <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
                       {emp.socialLinks.map((link, i) => {

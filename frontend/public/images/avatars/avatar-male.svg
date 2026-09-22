@@ -1,32 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%">
   <defs>
-    <linearGradient id="bg-male" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E2E8F0"/>
-      <stop offset="100%" stop-color="#CBD5E1"/>
+    <radialGradient id="studio-bg" cx="50%" cy="36%" r="65%">
+      <stop offset="0%" stop-color="#3f3f46"/>
+      <stop offset="50%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </radialGradient>
+    <linearGradient id="suit-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#18181b"/>
     </linearGradient>
-    <linearGradient id="shirt-male" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E11D48"/>
-      <stop offset="100%" stop-color="#BE123C"/>
+    <linearGradient id="lapel-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#52525b"/>
+      <stop offset="100%" stop-color="#27272a"/>
+    </linearGradient>
+    <linearGradient id="skin-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4f4f5"/>
+      <stop offset="100%" stop-color="#d4d4d8"/>
+    </linearGradient>
+    <linearGradient id="shadow-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a1a1aa"/>
+      <stop offset="100%" stop-color="#71717a"/>
     </linearGradient>
   </defs>
-  <!-- Background Circle -->
-  <circle cx="64" cy="64" r="64" fill="url(#bg-male)"/>
-  <!-- Body/Suit -->
-  <path d="M24 116 C24 92 40 82 64 82 C88 82 104 92 104 116 Z" fill="url(#shirt-male)"/>
-  <!-- Inner Collar / Shirt -->
-  <polygon points="64,96 54,82 74,82" fill="#FFFFFF"/>
-  <polygon points="64,104 60,82 68,82" fill="#9F1239"/>
+
+  <!-- Rectangular Studio Portrait Background (4:5 Ratio) -->
+  <rect width="400" height="500" fill="url(#studio-bg)"/>
+
+  <!-- Soft Studio Spotlight Halo -->
+  <circle cx="200" cy="190" r="150" fill="#ffffff" opacity="0.04"/>
+
+  <!-- Male Professional Figure Silhouette -->
+  <!-- Shoulders / Suit Body -->
+  <path d="M 30 500 C 30 380, 100 320, 200 320 C 300 320, 370 380, 370 500 Z" fill="url(#suit-grad)"/>
+
+  <!-- Inner Formal Shirt -->
+  <polygon points="200,410 150,305 250,305" fill="#f8fafc"/>
+
+  <!-- Tie -->
+  <polygon points="193,325 207,325 212,440 200,465 188,440" fill="#18181b"/>
+  <polygon points="192,315 208,315 205,330 195,330" fill="#27272a"/>
+
+  <!-- Suit Lapels -->
+  <polygon points="110,340 172,460 172,335 140,320" fill="url(#lapel-grad)"/>
+  <polygon points="290,340 228,460 228,335 260,320" fill="url(#lapel-grad)"/>
+
   <!-- Neck -->
-  <rect x="56" y="66" width="16" height="20" rx="3" fill="#FDBA74"/>
-  <!-- Head -->
-  <ellipse cx="64" cy="52" rx="20" ry="24" fill="#FDBA74"/>
-  <!-- Male Hair (Short Professional Cut) -->
-  <path d="M42 48 C42 28 54 26 64 26 C74 26 86 28 86 48 C86 44 82 34 76 34 C70 34 66 38 64 38 C62 38 58 34 52 34 C46 34 42 44 42 48 Z" fill="#1E293B"/>
+  <rect x="176" y="235" width="48" height="75" rx="10" fill="url(#skin-grad)"/>
+  <path d="M 176 280 C 190 295, 210 295, 224 280 L 224 310 L 176 310 Z" fill="url(#shadow-grad)" opacity="0.4"/>
+
   <!-- Ears -->
-  <circle cx="43" cy="53" r="4" fill="#FDBA74"/>
-  <circle cx="85" cy="53" r="4" fill="#FDBA74"/>
-  <!-- Eyeglasses (Optional smart teacher look) -->
-  <rect x="47" y="47" width="13" height="10" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
-  <rect x="68" y="47" width="13" height="10" rx="3" fill="none" stroke="#334155" stroke-width="2"/>
-  <line x1="60" y1="52" x2="68" y2="52" stroke="#334155" stroke-width="2"/>
+  <ellipse cx="138" cy="195" rx="10" ry="18" fill="url(#skin-grad)"/>
+  <ellipse cx="262" cy="195" rx="10" ry="18" fill="url(#skin-grad)"/>
+
+  <!-- Head / Face Oval -->
+  <ellipse cx="200" cy="190" rx="56" ry="70" fill="url(#skin-grad)"/>
+
+  <!-- Modern Professional Haircut -->
+  <path d="M 136 185 C 132 110, 160 90, 200 90 C 242 90, 268 110, 264 185 C 255 140, 238 120, 200 120 C 160 120, 145 140, 136 185 Z" fill="#18181b"/>
+  <path d="M 138 180 C 135 130, 160 100, 200 100 C 240 100, 265 130, 262 180 C 255 145, 235 130, 200 130 C 165 130, 145 145, 138 180 Z" fill="#27272a"/>
 </svg>
