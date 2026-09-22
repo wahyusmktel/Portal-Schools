@@ -1873,8 +1873,22 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 		return item, errors.New("data nama lengkap, no whatsapp, alamat, sekolah asal, dan jurusan wajib diisi")
 	}
 
+	if item.AcademicYear == "" {
+		profile, err := r.SchoolProfile(ctx)
+		if err == nil && profile.SpmbAcademicYear != "" {
+			item.AcademicYear = profile.SpmbAcademicYear
+		} else {
+			item.AcademicYear = "2026/2027"
+		}
+	}
+
 	if item.ClassGrade == "" {
-		item.ClassGrade = "Kelas 9 SMP/Sederajat (Tahun Pelajaran 2027/2028)"
+		var baseYear int = 2026
+		var y1, y2 int
+		if _, scanErr := fmt.Sscanf(item.AcademicYear, "%d/%d", &y1, &y2); scanErr == nil && y1 > 2000 {
+			baseYear = y1
+		}
+		item.ClassGrade = fmt.Sprintf("Kelas 9 SMP/Sederajat (Tahun Pelajaran %d/%d)", baseYear+1, baseYear+2)
 	}
 	if item.Gender == "" {
 		item.Gender = "Laki-laki"
@@ -1910,9 +1924,6 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 		return item, err
 	}
 
-	if item.AcademicYear == "" {
-		item.AcademicYear = "2026/2027"
-	}
 	item.RegistrationNumber = r.newSpmbRegistrationNumber(ctx)
 
 	result, err := r.db.ExecContext(ctx, `

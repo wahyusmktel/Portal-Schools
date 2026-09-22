@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { API_URL } from "@/lib/api";
+import { API_URL, getSchoolProfile } from "@/lib/api";
 import { SpmbReportManager } from "@/components/SpmbReportManager";
 import type { SpmbPaymentConfirmation, SpmbRegistration, SpmbSupplementaryDocument } from "@/types/content";
 
@@ -13,7 +13,7 @@ export default async function DashboardSpmbPage() {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
 
-  const [regRes, payRes, docRes] = await Promise.all([
+  const [regRes, payRes, docRes, profile] = await Promise.all([
     fetch(`${API_URL}/admin/spmb/registrations`, {
       cache: "no-store",
       headers: {
@@ -34,7 +34,8 @@ export default async function DashboardSpmbPage() {
         Accept: "application/json",
         Cookie: cookieHeader
       }
-    }).catch(() => null)
+    }).catch(() => null),
+    getSchoolProfile().catch(() => null)
   ]);
 
   if (!regRes?.ok) {
@@ -54,6 +55,7 @@ export default async function DashboardSpmbPage() {
       items={registrations}
       paymentConfirmations={paymentConfirmations}
       supplementaryDocuments={supplementaryDocuments}
+      academicYear={profile?.spmbAcademicYear || "2026/2027"}
     />
   );
 }

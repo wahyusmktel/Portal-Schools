@@ -226,11 +226,40 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
+  // Derive class grade years dynamically from academicYear (from database school_profiles)
+  const classOptions = useMemo(() => {
+    // Parse starting year from academicYear, e.g. "2026/2027" -> 2026
+    const match = (academicYear || "").match(/\d{4}/);
+    const baseYear = match ? parseInt(match[0], 10) : 2026;
+
+    const y9 = `${baseYear + 1}/${baseYear + 2}`;
+    const y8 = `${baseYear + 2}/${baseYear + 3}`;
+    const y7 = `${baseYear + 3}/${baseYear + 4}`;
+
+    return [
+      {
+        title: "Kelas 7 SMP/Sederajat",
+        year: `Tahun Pelajaran ${y7}`,
+        val: `Kelas 7 SMP/Sederajat (Tahun Pelajaran ${y7})`
+      },
+      {
+        title: "Kelas 8 SMP/Sederajat",
+        year: `Tahun Pelajaran ${y8}`,
+        val: `Kelas 8 SMP/Sederajat (Tahun Pelajaran ${y8})`
+      },
+      {
+        title: "Kelas 9 SMP/Sederajat",
+        year: `Tahun Pelajaran ${y9}`,
+        val: `Kelas 9 SMP/Sederajat (Tahun Pelajaran ${y9})`
+      }
+    ];
+  }, [academicYear]);
+
   // Form State
   const initialForm = useMemo(
     () => ({
       // Step 1: Kelas & Biodata Siswa
-      classGrade: "Kelas 9 SMP/Sederajat (Tahun Pelajaran 2027/2028)",
+      classGrade: classOptions[2]?.val || "Kelas 9 SMP/Sederajat",
       fullName: "",
       nik: "",
       nisn: "",
@@ -329,6 +358,17 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       // ignore
     }
   }, []);
+
+  // Sync classGrade if academicYear changes or if old draft had outdated year format
+  useEffect(() => {
+    setForm((prev) => {
+      const validVals = classOptions.map((c) => c.val);
+      if (!validVals.includes(prev.classGrade)) {
+        return { ...prev, classGrade: classOptions[2]?.val || "" };
+      }
+      return prev;
+    });
+  }, [classOptions]);
 
   // Auto-save form & step to LocalStorage
   useEffect(() => {
@@ -1095,23 +1135,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
                   </p>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {[
-                      {
-                        title: "Kelas 7 SMP/Sederajat",
-                        year: "Tahun Pelajaran 2029/2030",
-                        val: "Kelas 7 SMP/Sederajat (Tahun Pelajaran 2029/2030)"
-                      },
-                      {
-                        title: "Kelas 8 SMP/Sederajat",
-                        year: "Tahun Pelajaran 2028/2029",
-                        val: "Kelas 8 SMP/Sederajat (Tahun Pelajaran 2028/2029)"
-                      },
-                      {
-                        title: "Kelas 9 SMP/Sederajat",
-                        year: "Tahun Pelajaran 2027/2028",
-                        val: "Kelas 9 SMP/Sederajat (Tahun Pelajaran 2027/2028)"
-                      }
-                    ].map((k) => (
+                    {classOptions.map((k) => (
                       <button
                         key={k.val}
                         type="button"

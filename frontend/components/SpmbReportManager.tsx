@@ -50,6 +50,7 @@ type Props = {
   items: SpmbRegistration[];
   paymentConfirmations?: SpmbPaymentConfirmation[];
   supplementaryDocuments?: SpmbSupplementaryDocument[];
+  academicYear?: string;
 };
 
 const CHART_COLORS = [
@@ -66,7 +67,8 @@ const CHART_COLORS = [
 export function SpmbReportManager({
   items: initialItems,
   paymentConfirmations: initialPayments = [],
-  supplementaryDocuments: initialDocs = []
+  supplementaryDocuments: initialDocs = [],
+  academicYear
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"analytics" | "registrations" | "payments" | "documents">("analytics");
@@ -488,7 +490,7 @@ export function SpmbReportManager({
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-rosebrand-500/10 px-2.5 py-0.5 text-xs font-black text-rosebrand-600">
-              Manajemen PPDB & SPMB
+              Manajemen PPDB & SPMB {academicYear ? `T.A. ${academicYear}` : ""}
             </span>
             {isPresentationMode && (
               <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-black text-emerald-400">
