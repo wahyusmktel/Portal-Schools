@@ -121,6 +121,10 @@ export function Header({ logoUrl }: HeaderProps) {
                     <Link href="/fasilitas" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Fasilitas Sekolah</Link>
                     <Link href="/prestasi" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Prestasi Siswa</Link>
                     <Link href="/alumni" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Portal Alumni</Link>
+                    <Link href="/e-sport" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors flex items-center justify-between">
+                      <span>E-Sport MLBB</span>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rosebrand-100 text-rosebrand-700">Season 2</span>
+                    </Link>
                     <Link href="/bantuan" onClick={() => setOpenDropdown(null)} className="px-4 py-3 rounded-2xl hover:bg-rosebrand-50 hover:text-rosebrand-700 transition-colors">Pusat Bantuan</Link>
                   </div>
                 </motion.div>
@@ -250,6 +254,10 @@ export function Header({ logoUrl }: HeaderProps) {
                 <Link href="/fasilitas" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Fasilitas</Link>
                 <Link href="/prestasi" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Prestasi</Link>
                 <Link href="/alumni" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Alumni</Link>
+                <Link href="/e-sport" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-rosebrand-600 hover:text-rosebrand-700 py-2 border-b border-zinc-100 flex items-center justify-between">
+                  <span>E-Sport Tournament</span>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rosebrand-100 text-rosebrand-700">MLBB 2027</span>
+                </Link>
                 <Link href="/bantuan" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Pusat Bantuan</Link>
                 <Link href="/modul-ajar" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-black text-zinc-900 hover:text-rosebrand-600 py-2 border-b border-zinc-100">Modul Ajar</Link>
               </div>

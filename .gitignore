@@ -15,4 +15,5 @@ tmp/
 *.tsbuildinfo
 vendor/
 backend/uploads/
+*.xlsx
 .DS_Store
