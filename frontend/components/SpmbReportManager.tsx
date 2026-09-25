@@ -29,7 +29,9 @@ import {
   PieChart as PieChartIcon,
   FileSpreadsheet,
   Pencil,
-  Save
+  Save,
+  Building2,
+  Home
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -91,6 +93,7 @@ export function SpmbReportManager({
   const [isExporting, setIsExporting] = useState(false);
   const [editingStudent, setEditingStudent] = useState<SpmbRegistration | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [dormitoryFilter, setDormitoryFilter] = useState<"all" | "yes" | "no">("all");
 
   useEffect(() => {
     setMounted(true);
@@ -213,6 +216,50 @@ export function SpmbReportManager({
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
+    // 10. Peminatan Fasilitas Asrama (Stella Boarding School)
+    const dormitoryYesCount = items.filter((i) => (i.dormitoryOption || "").toLowerCase() === "ya").length;
+    const dormitoryNoCount = total - dormitoryYesCount;
+    const dormitoryRate = total > 0 ? Math.round((dormitoryYesCount / total) * 100) : 0;
+
+    const dormMaleCount = items.filter(
+      (i) => (i.dormitoryOption || "").toLowerCase() === "ya" && (i.gender === "Laki-laki" || i.gender === "L")
+    ).length;
+    const dormFemaleCount = items.filter(
+      (i) => (i.dormitoryOption || "").toLowerCase() === "ya" && (i.gender === "Perempuan" || i.gender === "P")
+    ).length;
+
+    const dormitoryData = [
+      { name: "Berminat Asrama (Boarding)", value: dormitoryYesCount },
+      { name: "Non-Asrama (Pulang Pergi)", value: dormitoryNoCount }
+    ];
+
+    // Asrama per Jurusan
+    const dormMajorCounts: Record<string, number> = {};
+    items
+      .filter((i) => (i.dormitoryOption || "").toLowerCase() === "ya")
+      .forEach((i) => {
+        const m = i.selectedMajorName || "Lainnya";
+        dormMajorCounts[m] = (dormMajorCounts[m] || 0) + 1;
+      });
+    const dormMajorData = Object.entries(dormMajorCounts).map(([name, count]) => ({
+      name: name.replace("Teknik ", "T. ").replace("Rekayasa ", "R. "),
+      fullName: name,
+      count
+    }));
+
+    // Top Daerah Asal Siswa Asrama
+    const dormRegionCounts: Record<string, number> = {};
+    items
+      .filter((i) => (i.dormitoryOption || "").toLowerCase() === "ya")
+      .forEach((i) => {
+        const r = (i.city || "Lainnya").replace("Kabupaten ", "Kab. ").replace("Kota ", "Kota ");
+        dormRegionCounts[r] = (dormRegionCounts[r] || 0) + 1;
+      });
+    const dormTopRegions = Object.entries(dormRegionCounts)
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
     return {
       total,
       primaryChoiceCount,
@@ -227,7 +274,15 @@ export function SpmbReportManager({
       topRegions,
       trackData,
       infoData,
-      topAffiliators
+      topAffiliators,
+      dormitoryYesCount,
+      dormitoryNoCount,
+      dormitoryRate,
+      dormMaleCount,
+      dormFemaleCount,
+      dormitoryData,
+      dormMajorData,
+      dormTopRegions
     };
   }, [items, payments]);
 
@@ -236,27 +291,36 @@ export function SpmbReportManager({
   // -------------------------------------------------------------------
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return items;
-    return items.filter((item) =>
-      [
-        item.registrationNumber,
-        item.fullName,
-        item.nik,
-        item.nisn,
-        item.whatsappNumber,
-        item.previousSchool,
-        item.selectedMajorName,
-        item.academicYear,
-        item.fatherName,
-        item.motherName,
-        item.affiliatorName,
-        item.city
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized)
-    );
-  }, [items, query]);
+    return items.filter((item) => {
+      const matchQuery =
+        !normalized ||
+        [
+          item.registrationNumber,
+          item.fullName,
+          item.nik,
+          item.nisn,
+          item.whatsappNumber,
+          item.previousSchool,
+          item.selectedMajorName,
+          item.registrationTrack,
+          item.academicYear,
+          item.fatherName,
+          item.motherName,
+          item.affiliatorName,
+          item.city
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized);
+
+      const matchDormitory =
+        dormitoryFilter === "all" ||
+        (dormitoryFilter === "yes" && (item.dormitoryOption || "").toLowerCase() === "ya") ||
+        (dormitoryFilter === "no" && (item.dormitoryOption || "").toLowerCase() !== "ya");
+
+      return matchQuery && matchDormitory;
+    });
+  }, [items, query, dormitoryFilter]);
 
   const filteredPayments = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -614,8 +678,8 @@ export function SpmbReportManager({
       {/* ============================================================== */}
       {activeTab === "analytics" && (
         <div className="space-y-6">
-          {/* Top KPI Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Top KPI Cards (5 Cards) */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {/* KPI 1 */}
             <div
               className={`rounded-[12px] p-5 shadow-sm border ${
@@ -641,7 +705,7 @@ export function SpmbReportManager({
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-600">Komitmen Pilihan Utama</span>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-600">Pilihan Utama</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-emerald-50 text-emerald-600">
                   <Award size={18} />
                 </div>
@@ -661,7 +725,7 @@ export function SpmbReportManager({
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-sky-600">Pembayaran Terverifikasi</span>
+                <span className="text-xs font-black uppercase tracking-wider text-sky-600">Pembayaran Valid</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-sky-50 text-sky-600">
                   <CreditCard size={18} />
                 </div>
@@ -676,14 +740,36 @@ export function SpmbReportManager({
               </p>
             </div>
 
-            {/* KPI 4 */}
+            {/* KPI 4: Peminatan Asrama (Boarding) */}
             <div
               className={`rounded-[12px] p-5 shadow-sm border ${
                 isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-purple-600">Mitra Sekolah & Afiliasi</span>
+                <span className="text-xs font-black uppercase tracking-wider text-rosebrand-600">Peminat Asrama</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-rosebrand-50 text-rosebrand-600">
+                  <Building2 size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-3xl font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                {analytics.dormitoryYesCount}{" "}
+                <span className="text-sm font-bold text-zinc-400">({analytics.dormitoryRate}%)</span>
+              </p>
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                Putra: <strong className="text-sky-600">{analytics.dormMaleCount}</strong> • Putri:{" "}
+                <strong className="text-rosebrand-600">{analytics.dormFemaleCount}</strong>
+              </p>
+            </div>
+
+            {/* KPI 5 */}
+            <div
+              className={`rounded-[12px] p-5 shadow-sm border ${
+                isPresentationMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-600">Mitra & Feeder</span>
                 <div className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-purple-50 text-purple-600">
                   <School size={18} />
                 </div>
@@ -820,6 +906,211 @@ export function SpmbReportManager({
                   <div className="mt-2 text-center text-[11px] font-bold">
                     <span className="text-rosebrand-600">Negeri ({analytics.schoolTypeData[0]?.value || 0})</span> •{" "}
                     <span className="text-amber-600">Swasta ({analytics.schoolTypeData[1]?.value || 0})</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================================== */}
+          {/* WIDGET KHUSUS: ANALISIS PEMINATAN FASILITAS ASRAMA (BOARDING)  */}
+          {/* ============================================================== */}
+          <div
+            className={`rounded-[16px] p-6 shadow-sm border ${
+              isPresentationMode
+                ? "bg-zinc-900 border-zinc-800 text-white"
+                : "bg-white border-zinc-200"
+            }`}
+          >
+            {/* Header Widget */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4 border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] bg-rosebrand-50 text-rosebrand-600 dark:bg-rosebrand-950/50">
+                  <Building2 size={24} />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className={`text-base sm:text-lg font-black ${isPresentationMode ? "text-white" : "text-zinc-950"}`}>
+                      Analisis Peminatan Fasilitas Asrama (Stella Boarding School)
+                    </h3>
+                    <span className="rounded-full bg-rosebrand-100 dark:bg-rosebrand-900/60 px-2.5 py-0.5 text-[10px] font-black text-rosebrand-700 dark:text-rosebrand-300">
+                      T.A. {academicYear || "2027/2028"}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs font-semibold text-zinc-500">
+                    Statistik kebutuhan hunian asrama, alokasi gedung putra & putri, peminatan per jurusan, dan asal daerah pendaftar.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("registrations");
+                  setDormitoryFilter("yes");
+                }}
+                className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-[8px] bg-rosebrand-600 px-4 py-2 text-xs font-black text-white hover:bg-rosebrand-700 transition-colors shadow-sm"
+              >
+                <Users size={14} />
+                Lihat Siswa Asrama ({analytics.dormitoryYesCount})
+              </button>
+            </div>
+
+            {/* Content 3 Kolom */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {/* Kolom 1: Donut Chart Rasio Peminatan */}
+              <div className="flex flex-col items-center justify-between rounded-[12px] border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/20 p-5">
+                <div className="w-full text-center">
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500">
+                    Rasio Peminat Asrama
+                  </p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Persentase dari total pendaftar yang masuk</p>
+                </div>
+
+                <div className="my-2 h-44 w-full flex items-center justify-center relative">
+                  {mounted ? (
+                    <ResponsiveContainer width="100%" height={170}>
+                      <PieChart>
+                        <Pie
+                          data={analytics.dormitoryData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={4}
+                        >
+                          <Cell fill="#e11d48" />
+                          <Cell fill="#94a3b8" />
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : null}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-black text-rosebrand-600">{analytics.dormitoryRate}%</span>
+                    <span className="text-[10px] font-bold text-zinc-400">Boarding</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-bold pt-2 border-t border-zinc-200/60 dark:border-zinc-800 w-full">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-rosebrand-600 inline-block" />
+                    <span>Asrama ({analytics.dormitoryYesCount})</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-slate-400 inline-block" />
+                    <span>Non-Asrama ({analytics.dormitoryNoCount})</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kolom 2: Gender Alokasi (Putra vs Putri) */}
+              <div className="flex flex-col justify-between rounded-[12px] border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/20 p-5">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500">
+                    Alokasi Gedung & Gender
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Distribusi calon siswa penghuni asrama putra vs putri
+                  </p>
+
+                  <div className="mt-4 space-y-3">
+                    {/* Asrama Putra */}
+                    <div className="rounded-[10px] border border-sky-200 dark:border-sky-900 bg-sky-50/80 dark:bg-sky-950/40 p-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-600 text-white font-black text-xs">
+                            PA
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-sky-950 dark:text-sky-100">Gedung Asrama Putra</p>
+                            <p className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">Calon siswa laki-laki</p>
+                          </div>
+                        </div>
+                        <p className="text-xl font-black text-sky-600">{analytics.dormMaleCount} <span className="text-xs font-bold text-sky-800 dark:text-sky-300">siswa</span></p>
+                      </div>
+                      <div className="mt-2 text-[11px] font-semibold text-sky-800 dark:text-sky-300 flex justify-between">
+                        <span>Porsi Kebutuhan:</span>
+                        <span>{analytics.dormitoryYesCount > 0 ? Math.round((analytics.dormMaleCount / analytics.dormitoryYesCount) * 100) : 0}%</span>
+                      </div>
+                    </div>
+
+                    {/* Asrama Putri */}
+                    <div className="rounded-[10px] border border-rose-200 dark:border-rose-900 bg-rose-50/80 dark:bg-rose-950/40 p-3.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rosebrand-600 text-white font-black text-xs">
+                            PI
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-rose-950 dark:text-rose-100">Gedung Asrama Putri</p>
+                            <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">Calon siswa perempuan</p>
+                          </div>
+                        </div>
+                        <p className="text-xl font-black text-rosebrand-600">{analytics.dormFemaleCount} <span className="text-xs font-bold text-rose-800 dark:text-rose-300">siswi</span></p>
+                      </div>
+                      <div className="mt-2 text-[11px] font-semibold text-rose-800 dark:text-rose-300 flex justify-between">
+                        <span>Porsi Kebutuhan:</span>
+                        <span>{analytics.dormitoryYesCount > 0 ? Math.round((analytics.dormFemaleCount / analytics.dormitoryYesCount) * 100) : 0}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-500 font-semibold flex items-center justify-between">
+                  <span>Total Kebutuhan Kapasitas Ranjang:</span>
+                  <strong className="text-zinc-900 dark:text-zinc-100 font-black">{analytics.dormitoryYesCount} Bed</strong>
+                </div>
+              </div>
+
+              {/* Kolom 3: Peminatan per Jurusan & Asal Daerah */}
+              <div className="flex flex-col justify-between rounded-[12px] border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/20 p-5">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-zinc-500">
+                    Jurusan & Daerah Siswa Asrama
+                  </p>
+
+                  {/* Asrama per Jurusan */}
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300">Jurusan Pilihan Siswa Asrama:</p>
+                    {analytics.dormMajorData.map((item) => {
+                      const pct = analytics.dormitoryYesCount > 0 ? Math.round((item.count / analytics.dormitoryYesCount) * 100) : 0;
+                      return (
+                        <div key={item.fullName} className="space-y-0.5">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span className="text-zinc-700 dark:text-zinc-300 truncate max-w-[170px]">{item.name}</span>
+                            <span className="text-rosebrand-600 font-black">{item.count} siswa ({pct}%)</span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                            <div className="h-full bg-rosebrand-600 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {analytics.dormMajorData.length === 0 && (
+                      <p className="text-xs text-zinc-400 italic py-2">Belum ada data jurusan peminat asrama.</p>
+                    )}
+                  </div>
+
+                  {/* Top Asal Daerah Siswa Asrama */}
+                  <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                    <p className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300">Top Asal Wilayah / Domisili:</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {analytics.dormTopRegions.map((r) => (
+                        <span
+                          key={r.region}
+                          className="inline-flex items-center gap-1 rounded-md bg-white dark:bg-zinc-800 px-2 py-1 text-[11px] font-bold text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700"
+                        >
+                          <MapPin size={11} className="text-rosebrand-600" />
+                          {r.region} ({r.count})
+                        </span>
+                      ))}
+                      {analytics.dormTopRegions.length === 0 && (
+                        <span className="text-xs text-zinc-400 italic">Belum ada data wilayah peminat asrama.</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1009,15 +1300,27 @@ export function SpmbReportManager({
       {/* ============================================================== */}
       {activeTab === "registrations" && (
         <section className="rounded-[12px] bg-white p-5 shadow-sm border border-zinc-200">
-          <label className="relative block">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cari nama siswa, No. Reg, NISN, NIK, asal sekolah, orang tua, afiliator, kota..."
-              className="h-11 w-full rounded-[8px] border border-zinc-200 pl-11 pr-4 text-sm font-semibold outline-none focus:border-rosebrand-500"
-            />
-          </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between">
+            <label className="relative flex-1">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari nama siswa, No. Reg, NISN, NIK, asal sekolah, orang tua, afiliator, kota..."
+                className="h-11 w-full rounded-[8px] border border-zinc-200 pl-11 pr-4 text-sm font-semibold outline-none focus:border-rosebrand-500"
+              />
+            </label>
+
+            <select
+              value={dormitoryFilter}
+              onChange={(e) => setDormitoryFilter(e.target.value as any)}
+              className="h-11 rounded-[8px] border border-zinc-200 px-4 text-xs font-bold text-zinc-700 outline-none focus:border-rosebrand-500 bg-white shadow-sm"
+            >
+              <option value="all">Semua Status Asrama ({items.length})</option>
+              <option value="yes">🏠 Peminat Asrama ({items.filter((i) => (i.dormitoryOption || "").toLowerCase() === "ya").length})</option>
+              <option value="no">🚗 Non-Asrama ({items.filter((i) => (i.dormitoryOption || "").toLowerCase() !== "ya").length})</option>
+            </select>
+          </div>
 
           <div className="mt-5 overflow-hidden rounded-[8px] border border-zinc-100">
             <div className="overflow-x-auto">
