@@ -113,8 +113,8 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     // 2. JUDUL KARTU & BADGE REGISTRASI (y = 692, h = 36)
     rect(40, 692, 515, 36, "F9FAFB"),
     strokeRect(40, 692, 515, 36, "D1D5DB", 1),
-    text(48, 714, "KARTU TANDA BUKTI PENDAFTARAN SPMB", { size: 10, font: "bold", color: "111827" }),
-    text(48, 701, `SISTEM PENERIMAAN MURID BARU T.A. ${registration.academicYear}`, { size: 7.5, font: "bold", color: "BE123C" }),
+    text(48, 714, "KARTU TANDA BUKTI PENDAFTARAN RESMI (TERAKREDITASI A)", { size: 9.5, font: "bold", color: "111827" }),
+    text(48, 701, "SISTEM PENERIMAAN MURID BARU TAHUN PELAJARAN 2027/2028", { size: 7.5, font: "bold", color: "BE123C" }),
 
     // Box Nomor Pendaftaran
     rect(350, 692, 205, 36, "111827"),
@@ -124,16 +124,16 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
 
     // 3. TABEL: A. IDENTITAS CALON SISWA
     categoryRow(666, "A. IDENTITAS CALON SISWA"),
-    tableRow2Col(644, "Nama Lengkap", registration.fullName, "Jenjang Saat Daftar", registration.classGrade),
+    tableRow2Col(644, "Nama Lengkap", registration.fullName, "Jenjang Saat Daftar", registration.classGrade || "Kelas 9 SMP/Sederajat"),
     tableRow2Col(622, "NIK Calon Siswa", registration.nik, "NISN Siswa", registration.nisn),
     tableRow2Col(600, "Jenis Kelamin", registration.gender, "Agama", registration.religion),
     tableRow2Col(578, "Tanggal Lahir", registration.birthDate, "No. WhatsApp / HP", registration.whatsappNumber),
     tableRowFull(556, "Alamat Email", registration.email),
 
-    // 4. TABEL: B. PILIHAN JURUSAN & ASAL SEKOLAH
-    categoryRow(530, "B. KOMPETENSI KEAHLIAN & ASAL SEKOLAH"),
+    // 4. TABEL: B. PILIHAN JURUSAN, ASRAMA & ASAL SEKOLAH
+    categoryRow(530, "B. KOMPETENSI KEAHLIAN, ASRAMA & ASAL SEKOLAH"),
     tableRow2Col(508, "Pilihan Jurusan", registration.selectedMajorName, "Prioritas Pilihan", registration.choicePriority || "Pilihan Utama"),
-    tableRow2Col(486, "Nama Asal Sekolah", registration.previousSchool, "Naungan & Tipe", `${registration.schoolType || "SMP"} (${registration.ministry || "Kemdikbud"})`),
+    tableRow2Col(486, "Nama Asal Sekolah", registration.previousSchool, "Fasilitas Asrama", registration.dormitoryOption === "Ya" ? "Ya (Boarding)" : "Tidak (Non-Asrama)"),
     tableRowFull(464, "Alamat Sekolah Asal", registration.previousSchoolAddress),
 
     // 5. TABEL: C. DATA ORANG TUA / WALI & ALAMAT DOMISILI
@@ -143,28 +143,42 @@ export function createSpmbCardPdfBlob(registration: SpmbRegistration): Blob {
     tableRowFull(372, "Alamat Rumah", registration.currentAddress),
     tableRow2Col(350, "Kecamatan", registration.district ? `Kec. ${registration.district}` : "-", "Kabupaten / Kota", `${registration.city || "-"} (${registration.province || "-"})`),
 
-    // 6. TABEL: D. PETUNJUK VERIFIKASI & DAFTAR ULANG
-    categoryRow(324, "D. PETUNJUK VERIFIKASI & DAFTAR ULANG"),
-    rect(40, 246, 515, 78, "FEF2F2"),
-    strokeRect(40, 246, 515, 78, "FECDD3", 0.75),
-    text(48, 308, "Ketentuan & Berkas yang Wajib Dibawa Saat Verifikasi:", { size: 7.5, font: "bold", color: "991B1B" }),
-    text(48, 294, "1. Membawa cetakan Kartu Tanda Bukti Pendaftaran resmi ini saat hadir ke kampus SMK Telkom Lampung.", { size: 7, color: "1F2937" }),
-    text(48, 282, "2. Menyerahkan fotokopi legalisir: Akta Kelahiran, Kartu Keluarga, dan Rapor/Ijazah sekolah asal.", { size: 7, color: "1F2937" }),
-    text(48, 270, "3. Mengenakan pakaian seragam sekolah asal rapi dan bersepatu saat pelaksanaan verifikasi atau tes.", { size: 7, color: "1F2937" }),
-    text(48, 258, "4. Informasi kelulusan & jadwal tes dapat dipantau di web.smktelkom-lpg.sch.id atau Helpdesk SPMB: 0811-799-8800.", { size: 7, color: "1F2937" }),
+    // 6. TABEL: D. AKUN TES SELEKSI TPA & AGENDA SELEKSI RESMI
+    categoryRow(324, "D. AKUN TES SELEKSI TPA & AGENDA SELEKSI RESMI"),
+    rect(40, 236, 515, 84, "F8FAFC"),
+    strokeRect(40, 236, 515, 84, "CBD5E1", 0.75),
 
-    // 7. TANDA TANGAN (KOTAK CAP RESMI DIHAPUS, AREA CAP DIBIARKAN KOSONG UNTUK CAP FISIK)
-    text(65, 218, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
+    // Sub-Box Kiri: Akun TPA Online
+    rect(48, 242, 230, 72, "EFF6FF"),
+    strokeRect(48, 242, 230, 72, "BFDBFE", 0.75),
+    text(56, 302, "AKUN TES POTENSI AKADEMIK (TPA ONLINE):", { size: 7.5, font: "bold", color: "1E40AF" }),
+    text(56, 289, `Username : ${registration.registrationNumber}`, { size: 8, font: "bold", color: "1E293B" }),
+    text(56, 276, `Password : TPA-${registration.registrationNumber.slice(-4) || "2027"}`, { size: 8, font: "bold", color: "1E293B" }),
+    text(56, 263, "Portal Ujian : cbt.smktelkom-lpg.sch.id", { size: 7, font: "bold", color: "2563EB" }),
+    text(56, 250, "*Simpan akun di atas untuk login tes seleksi TPA.", { size: 6, color: "64748B" }),
+
+    // Sub-Box Kanan: 4 Agenda Tes Seleksi
+    rect(286, 242, 261, 72, "FEF2F2"),
+    strokeRect(286, 242, 261, 72, "FECDD3", 0.75),
+    text(294, 302, "AGENDA & TAHAPAN TES SELEKSI MASUK:", { size: 7.5, font: "bold", color: "991B1B" }),
+    text(294, 290, "1. Wawancara (Orang Tua & Calon Siswa)", { size: 7, font: "bold", color: "1F2937" }),
+    text(294, 279, "2. Tes Mengaji / Baca Tulis Al-Qur'an", { size: 7, font: "bold", color: "1F2937" }),
+    text(294, 268, "3. Tes Buta Warna & Pemeriksaan Fisik", { size: 7, font: "bold", color: "1F2937" }),
+    text(294, 257, "4. Tes Potensi Akademik (TPA Online)", { size: 7, font: "bold", color: "1F2937" }),
+    text(294, 247, "*Wajib hadir rapi berseragam & membawa fotokopi berkas legalisir.", { size: 5.5, color: "64748B" }),
+
+    // 7. TANDA TANGAN
+    text(65, 216, "Calon Siswa / Orang Tua / Wali,", { size: 7.5, font: "bold", color: "374151" }),
     line(50, 150, 200, 150, "9CA3AF", 0.75),
     text(65, 138, `( ${registration.fullName.slice(0, 28)} )`, { size: 7, font: "bold", color: "111827" }),
 
-    text(375, 226, `Pringsewu, ${createdDate}`, { size: 7, color: "4B5563" }),
-    text(375, 218, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
+    text(375, 224, `Pringsewu, ${createdDate}`, { size: 7, color: "4B5563" }),
+    text(375, 216, "Panitia Pelaksana SPMB,", { size: 7.5, font: "bold", color: "374151" }),
     line(355, 150, 515, 150, "9CA3AF", 0.75),
     text(370, 138, "( Panitia Penerimaan Murid Baru )", { size: 7, font: "bold", color: "111827" }),
 
     // Footer Watermark
-    text(40, 110, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung. Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
+    text(40, 110, "Dokumen resmi dicetak secara elektronik melalui Portal SPMB SMK Telkom Lampung (Terakreditasi A). Sah tanpa legalisir basah awal.", { size: 6, color: "9CA3AF" })
   ];
 
   const streamContent = commands.join("\n");

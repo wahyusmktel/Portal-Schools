@@ -79,8 +79,11 @@ export async function exportSpmbExcel({
     { header: "Nominal Tiket (Rp)", key: "payAmount", width: 22 },
     { header: "Gelombang", key: "payBatch", width: 16 },
     { header: "Tahun Ajaran", key: "academicYear", width: 16 },
-    { header: "Jalur Pendaftaran", key: "track", width: 20 },
+    { header: "Jalur Pendaftaran", key: "track", width: 24 },
     { header: "Pilihan Jurusan", key: "major", width: 36 },
+    { header: "Fasilitas Asrama", key: "dormitory", width: 18 },
+    { header: "Capaian Tahfidz", key: "tahfidz", width: 18 },
+    { header: "Medsos / Influencer", key: "influencerLink", width: 28 },
     { header: "Prioritas", key: "priority", width: 18 },
     { header: "Nama Lengkap", key: "name", width: 32 },
     { header: "Jenis Kelamin", key: "gender", width: 16 },
@@ -184,6 +187,9 @@ export async function exportSpmbExcel({
       academicYear: item.academicYear || academicYear || "-",
       track: item.registrationTrack || "Reguler",
       major: item.selectedMajorName || "-",
+      dormitory: item.dormitoryOption === "Ya" ? "Ya (Boarding)" : "Tidak",
+      tahfidz: item.tahfidzJuz ? `${item.tahfidzJuz} Juz` : "-",
+      influencerLink: item.influencerLink || "-",
       priority: item.choicePriority || "-",
       name: item.fullName,
       gender: item.gender === "L" || item.gender === "Laki-laki" ? "Laki-laki" : "Perempuan",
@@ -229,6 +235,15 @@ export async function exportSpmbExcel({
     const isEven = index % 2 === 1;
     const bgArgb = isEven ? "FFF8FAFC" : "FFFFFFFF"; // Light slate / Pure white
 
+    const centerKeys = new Set([
+      "no", "regNo", "payStatus", "payBatch", "academicYear", "track",
+      "dormitory", "tahfidz", "priority", "gender", "nik", "nisn",
+      "religion", "birthDate", "wa", "ministry", "schoolType",
+      "fatherPhone", "fatherBirthDate", "motherPhone", "motherBirthDate",
+      "docStatus", "fileStudentCard", "fileFamilyCard", "fileBirthCert",
+      "fileAchievement", "createdAt"
+    ]);
+
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       cell.font = {
         name: "Segoe UI",
@@ -242,22 +257,18 @@ export async function exportSpmbExcel({
         fgColor: { argb: bgArgb }
       };
 
-      // Alignment rules
-      // Center aligned columns: No (1), RegNo (2), Status (3), Batch (5), TA (6), Track (7), Priority (9), Gender (11), NIK (12), NISN (13), Agama (14), Tgl Lahir (15), WA (16), Tgl Ayah (30), Tgl Ibu (35), DocStatus (40), Links (41-44), CreatedAt (45)
-      const centerCols = [1, 2, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16, 23, 24, 29, 30, 34, 35, 40, 41, 42, 43, 44, 45];
-      const rightCols = [4]; // Nominal Tiket
-
-      if (centerCols.includes(colNumber)) {
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-      } else if (rightCols.includes(colNumber)) {
+      const colKey = wsMaster.getColumn(colNumber).key;
+      if (colKey === "payAmount") {
         cell.alignment = { vertical: "middle", horizontal: "right" };
         cell.numFmt = '"Rp"#,##0';
+      } else if (centerKeys.has(colKey || "")) {
+        cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
         cell.alignment = { vertical: "middle", horizontal: "left" };
       }
 
       // Highlight Status Pembayaran
-      if (colNumber === 3) {
+      if (colKey === "payStatus") {
         if (payStatus.includes("LUNAS")) {
           cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF15803D" } };
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCFCE7" } };
@@ -273,7 +284,7 @@ export async function exportSpmbExcel({
       }
 
       // Format hyperlinks
-      if ([41, 42, 43, 44].includes(colNumber) && typeof cell.value === "object" && cell.value !== null && "hyperlink" in cell.value) {
+      if (typeof cell.value === "object" && cell.value !== null && "hyperlink" in cell.value) {
         cell.font = { name: "Segoe UI", size: 10, underline: true, color: { argb: "FF2563EB" } };
       }
     });
@@ -519,6 +530,47 @@ export async function exportSpmbExcel({
 
     const cellD = wsSummary.getCell(`D${curRow}`);
     cellD.value = `${totalStudents > 0 ? ((count / totalStudents) * 100).toFixed(1) : 0}%`;
+    cellD.font = { name: "Segoe UI", size: 10, color: { argb: "FF475569" } };
+    cellD.alignment = { vertical: "middle", horizontal: "center" };
+    cellD.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+    cellD.border = thinBorder;
+
+    curRow++;
+  });
+  curRow++;
+
+  // 5. PEMINATAN FASILITAS ASRAMA (BOARDING)
+  addSectionTitle("5. PEMINATAN FASILITAS ASRAMA (BOARDING)");
+  addTableHeaders(["Opsi Fasilitas Asrama", "Jumlah Siswa", "Persentase (%)"]);
+
+  const dormitoryYes = items.filter((i) => i.dormitoryOption === "Ya").length;
+  const dormitoryNo = totalStudents - dormitoryYes;
+  const dormRows = [
+    ["Ya (Berminat Tinggal di Asrama / Boarding)", dormitoryYes],
+    ["Tidak (Non-Asrama / Pulang Pergi)", dormitoryNo]
+  ];
+
+  dormRows.forEach(([opt, count], i) => {
+    const row = wsSummary.getRow(curRow);
+    row.height = 22;
+    const bgArgb = i % 2 === 1 ? "FFF8FAFC" : "FFFFFFFF";
+
+    const cellB = wsSummary.getCell(`B${curRow}`);
+    cellB.value = opt as string;
+    cellB.font = { name: "Segoe UI", size: 10, color: { argb: "FF1E293B" } };
+    cellB.alignment = { vertical: "middle", horizontal: "left" };
+    cellB.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+    cellB.border = thinBorder;
+
+    const cellC = wsSummary.getCell(`C${curRow}`);
+    cellC.value = count as number;
+    cellC.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FF1E293B" } };
+    cellC.alignment = { vertical: "middle", horizontal: "center" };
+    cellC.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+    cellC.border = thinBorder;
+
+    const cellD = wsSummary.getCell(`D${curRow}`);
+    cellD.value = `${totalStudents > 0 ? (((count as number) / totalStudents) * 100).toFixed(1) : 0}%`;
     cellD.font = { name: "Segoe UI", size: 10, color: { argb: "FF475569" } };
     cellD.alignment = { vertical: "middle", horizontal: "center" };
     cellD.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };

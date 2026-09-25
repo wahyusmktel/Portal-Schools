@@ -107,6 +107,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Get("/admin/spmb/registrations", h.requireAnyRole(h.adminSpmbRegistrations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Delete("/admin/spmb/registrations/{id}", h.requireCSRF(h.requireAnyRole(h.adminDeleteSpmbRegistration, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB)))
 			protected.Post("/admin/spmb/registrations/{id}/delete", h.requireCSRF(h.requireAnyRole(h.adminDeleteSpmbRegistration, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB)))
+			protected.Put("/admin/spmb/registrations/{id}", h.requireCSRF(h.requireAnyRole(h.adminUpdateSpmbRegistration, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB)))
 			protected.Get("/admin/spmb/payment-confirmations", h.requireAnyRole(h.adminPaymentConfirmations, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))
 			protected.Put("/admin/spmb/payment-confirmations/{id}/status", h.requireCSRF(h.requireAnyRole(h.adminUpdatePaymentConfirmationStatus, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB)))
 			protected.Get("/admin/spmb/supplementary-documents", h.requireAnyRole(h.adminSupplementaryDocuments, models.RoleSuperadmin, models.RoleAdmin, models.RoleAdminSPMB))

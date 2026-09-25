@@ -216,6 +216,10 @@ export type SpmbRegistration = {
   reason: string;
   choicePriority: string;
   achievementsNote: string;
+  dormitoryOption?: string;
+  influencerLink?: string;
+  influencerProofFile?: string;
+  tahfidzJuz?: string;
   academicYear: string;
   createdAt: string;
 };

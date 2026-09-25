@@ -9,7 +9,7 @@ import { SpmbBrochureFlipbook } from "@/components/SpmbBrochureFlipbook";
 
 export const metadata: Metadata = {
   title: "SPMB SMK Telkom Lampung",
-  description: "Sistem Penerimaan Murid Baru SMK Telkom Lampung tahun ajaran 2026/2027.",
+  description: "Sistem Penerimaan Murid Baru SMK Telkom Lampung tahun ajaran 2027/2028.",
 };
 
 export default async function SPMBPage() {
@@ -17,7 +17,7 @@ export default async function SPMBPage() {
     getSchoolProfile().catch(() => null),
     getMajors().catch(() => [])
   ]);
-  const academicYear = profile?.spmbAcademicYear || "2026/2027";
+  const academicYear = profile?.spmbAcademicYear || "2027/2028";
   const brochureImages = (profile?.spmbBrochureUrl || "")
     .split(",")
     .map((url) => url.trim())

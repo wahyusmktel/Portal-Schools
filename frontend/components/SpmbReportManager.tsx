@@ -27,7 +27,9 @@ import {
   Share2,
   Sparkles,
   PieChart as PieChartIcon,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Pencil,
+  Save
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -87,6 +89,8 @@ export function SpmbReportManager({
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<SpmbRegistration | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -374,6 +378,47 @@ export function SpmbReportManager({
       setNotice({ type: "error", message: errorMsg });
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  // Edit / Update Registration (Notulen D.1)
+  async function handleSaveEditedRegistration(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingStudent) return;
+    setIsSaving(true);
+    setNotice(null);
+
+    try {
+      const res = await fetch(`${API_URL}/admin/spmb/registrations/${editingStudent.id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCookie("csrf_token") || ""
+        },
+        body: JSON.stringify(editingStudent)
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Gagal memperbarui data calon siswa.");
+      }
+
+      const updated: SpmbRegistration = await res.json();
+      setItems((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      if (selectedStudent?.id === updated.id) {
+        setSelectedStudent(updated);
+      }
+      setEditingStudent(null);
+      setNotice({
+        type: "success",
+        message: `Data calon siswa "${updated.fullName}" (${updated.registrationNumber}) berhasil diperbarui.`
+      });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan saat menyimpan perubahan.";
+      setNotice({ type: "error", message: errorMsg });
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -1004,8 +1049,23 @@ export function SpmbReportManager({
                         <span className="inline-block rounded-full bg-rosebrand-50 px-2.5 py-0.5 text-xs font-black text-rosebrand-700">
                           {item.selectedMajorName}
                         </span>
-                        <p className="mt-1.5 text-xs font-semibold text-zinc-600">Jalur: {item.registrationTrack || "Umum"}</p>
-                        <p className="text-[11px] text-zinc-400">Kelas: {item.classGrade || "X"}</p>
+                        <p className="mt-1.5 text-xs font-semibold text-zinc-600">Jalur: {item.registrationTrack || "Reguler"}</p>
+                        <p className="text-[11px] font-bold text-zinc-500">
+                          Asrama:{" "}
+                          <span className={item.dormitoryOption === "Ya" ? "text-rosebrand-600 font-black" : "text-zinc-600"}>
+                            {item.dormitoryOption === "Ya" ? "Ya (Boarding)" : "Tidak"}
+                          </span>
+                        </p>
+                        {item.tahfidzJuz && (
+                          <span className="mt-1 inline-block rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                            Tahfidz: {item.tahfidzJuz} Juz
+                          </span>
+                        )}
+                        {item.influencerLink && (
+                          <span className="mt-1 inline-block rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 truncate max-w-[150px]" title={item.influencerLink}>
+                            Medsos: {item.influencerLink}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-4 font-semibold text-zinc-800">
                         <p className="font-bold">{item.previousSchool}</p>
@@ -1029,6 +1089,15 @@ export function SpmbReportManager({
                       </td>
                       <td className="px-4 py-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingStudent({ ...item })}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-[8px] border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 hover:border-amber-400"
+                            title="Edit Data Calon Siswa (Koreksi PPDB)"
+                          >
+                            <Pencil size={14} />
+                            Edit
+                          </button>
                           <button
                             type="button"
                             onClick={() => setSelectedStudent(item)}
@@ -1307,6 +1376,15 @@ export function SpmbReportManager({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setEditingStudent({ ...selectedStudent })}
+                  className="inline-flex items-center gap-1.5 rounded-[8px] border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-colors"
+                  title="Edit Data Calon Siswa (Koreksi PPDB)"
+                >
+                  <Pencil size={15} />
+                  Edit Data
+                </button>
+                <button
+                  type="button"
                   onClick={() => printSpmbCardPdf(selectedStudent)}
                   className="inline-flex items-center gap-1.5 rounded-[8px] bg-zinc-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-rosebrand-600 transition-colors"
                 >
@@ -1434,9 +1512,27 @@ export function SpmbReportManager({
                     <p className="text-sm font-bold text-zinc-800">{selectedStudent.registrationTrack || "Jalur Reguler"}</p>
                   </div>
                   <div>
+                    <p className="text-[11px] font-bold text-zinc-400">Fasilitas Asrama</p>
+                    <p className={`text-sm font-black ${selectedStudent.dormitoryOption === "Ya" ? "text-rosebrand-600" : "text-zinc-800"}`}>
+                      {selectedStudent.dormitoryOption === "Ya" ? "Ya (Boarding / Fasilitas Asrama)" : "Tidak (Non-Asrama)"}
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-[11px] font-bold text-zinc-400">Prioritas Jurusan</p>
                     <p className="text-sm font-bold text-zinc-800">{selectedStudent.choicePriority || "Pilihan Utama"}</p>
                   </div>
+                  {selectedStudent.tahfidzJuz && (
+                    <div>
+                      <p className="text-[11px] font-bold text-zinc-400">Capaian Tahfidz</p>
+                      <p className="text-sm font-black text-emerald-600">{selectedStudent.tahfidzJuz} Juz Al-Qur'an</p>
+                    </div>
+                  )}
+                  {selectedStudent.influencerLink && (
+                    <div className="sm:col-span-2">
+                      <p className="text-[11px] font-bold text-zinc-400">Akun / Link Profil Influencer</p>
+                      <p className="text-sm font-bold text-purple-600 break-all">{selectedStudent.influencerLink}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1563,6 +1659,470 @@ export function SpmbReportManager({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* EDIT STUDENT REGISTRATION MODAL (NOTULEN D.1)                  */}
+      {/* ============================================================== */}
+      {editingStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[16px] bg-white p-6 shadow-2xl">
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 -mx-6 -mt-6 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-black text-amber-700">
+                    Koreksi Data PPDB
+                  </span>
+                  <span className="text-xs font-bold text-zinc-400">
+                    No. Reg: <strong className="text-zinc-800">{editingStudent.registrationNumber}</strong>
+                  </span>
+                </div>
+                <h2 className="mt-1 text-lg font-black text-zinc-950 sm:text-xl">
+                  Edit Data Calon Siswa: {editingStudent.fullName}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingStudent(null)}
+                className="rounded-[8px] p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveEditedRegistration} className="mt-6 space-y-6 text-xs">
+              {/* SECTION 1: IDENTITAS SISWA */}
+              <div className="rounded-[10px] border border-zinc-200 bg-zinc-50/60 p-4">
+                <h3 className="font-black uppercase tracking-wider text-rosebrand-600 text-xs flex items-center gap-1.5">
+                  <Users size={16} />
+                  1. Identitas Calon Siswa
+                </h3>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-zinc-700">Nama Lengkap Siswa *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingStudent.fullName}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, fullName: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Jenis Kelamin *</label>
+                    <select
+                      value={editingStudent.gender}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, gender: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Laki-laki">Laki-laki</option>
+                      <option value="Perempuan">Perempuan</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">NIK (16 Digit)</label>
+                    <input
+                      type="text"
+                      maxLength={16}
+                      value={editingStudent.nik || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, nik: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">NISN (10 Digit)</label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={editingStudent.nisn || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, nisn: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Agama</label>
+                    <select
+                      value={editingStudent.religion || "Islam"}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, religion: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Islam">Islam</option>
+                      <option value="Kristen Protestan">Kristen Protestan</option>
+                      <option value="Katolik">Katolik</option>
+                      <option value="Hindu">Hindu</option>
+                      <option value="Buddha">Buddha</option>
+                      <option value="Konghucu">Konghucu</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Tanggal Lahir</label>
+                    <input
+                      type="date"
+                      value={editingStudent.birthDate || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, birthDate: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">No. WhatsApp Siswa *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={editingStudent.whatsappNumber || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, whatsappNumber: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Alamat Email</label>
+                    <input
+                      type="email"
+                      value={editingStudent.email || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, email: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: ASAL SEKOLAH & JURUSAN */}
+              <div className="rounded-[10px] border border-zinc-200 bg-zinc-50/60 p-4">
+                <h3 className="font-black uppercase tracking-wider text-rosebrand-600 text-xs flex items-center gap-1.5">
+                  <School size={16} />
+                  2. Asal Sekolah, Peminatan Jurusan & Fasilitas Asrama
+                </h3>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="block font-bold text-zinc-700">Nama Asal Sekolah *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingStudent.previousSchool || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, previousSchool: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Naungan Lembaga</label>
+                    <select
+                      value={editingStudent.ministry || "Kemdikbud"}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, ministry: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Kemdikbud">Kemdikbud (SMP)</option>
+                      <option value="Kemenag">Kemenag (MTs)</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Status Sekolah Asal</label>
+                    <select
+                      value={editingStudent.schoolType || "Negeri"}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, schoolType: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Negeri">Negeri</option>
+                      <option value="Swasta">Swasta</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <label className="block font-bold text-zinc-700">Alamat Lengkap Sekolah Asal</label>
+                    <input
+                      type="text"
+                      value={editingStudent.previousSchoolAddress || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, previousSchoolAddress: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Jurusan Pilihan *</label>
+                    <select
+                      value={editingStudent.selectedMajorName}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, selectedMajorName: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Teknik Jaringan Akses Telekomunikasi">Teknik Jaringan Akses Telekomunikasi (TJAT)</option>
+                      <option value="Teknik Komputer dan Jaringan">Teknik Komputer dan Jaringan (TKJ)</option>
+                      <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak (RPL)</option>
+                      <option value="Desain Komunikasi Visual">Desain Komunikasi Visual (DKV)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Jalur Pendaftaran *</label>
+                    <select
+                      value={editingStudent.registrationTrack}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, registrationTrack: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Jalur Indent / Reguler (Gelombang 1)">Jalur Indent / Reguler (Gelombang 1)</option>
+                      <option value="Jalur Indent / Reguler (Gelombang 2)">Jalur Indent / Reguler (Gelombang 2)</option>
+                      <option value="Jalur Indent / Reguler (Gelombang 3)">Jalur Indent / Reguler (Gelombang 3)</option>
+                      <option value="Jalur Prestasi Akademik (AKD)">Jalur Prestasi Akademik (AKD)</option>
+                      <option value="Jalur Prestasi Non-Akademik (Non-AKD)">Jalur Prestasi Non-Akademik (Non-AKD)</option>
+                      <option value="Jalur Tahfidz">Jalur Tahfidz (Al-Qur'an)</option>
+                      <option value="Jalur Influencer">Jalur Influencer (Medsos)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Fasilitas Asrama (Boarding) *</label>
+                    <select
+                      value={editingStudent.dormitoryOption || "Tidak"}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, dormitoryOption: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Ya">Ya (Boarding / Asrama)</option>
+                      <option value="Tidak">Tidak (Non-Asrama)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-zinc-700">Capaian Tahfidz (Jika Jalur Tahfidz)</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: 3"
+                      value={editingStudent.tahfidzJuz || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, tahfidzJuz: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-zinc-700">Link Akun Medsos (Jika Jalur Influencer)</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: @username_instagram / youtube link"
+                      value={editingStudent.influencerLink || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, influencerLink: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <label className="block font-bold text-zinc-700">Prioritas Pilihan Sekolah</label>
+                    <select
+                      value={editingStudent.choicePriority || "Pilihan Utama"}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, choicePriority: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900 outline-none focus:border-rosebrand-500"
+                    >
+                      <option value="Pilihan Utama">Pilihan Utama (Prioritas Bersekolah di SMK Telkom Lampung)</option>
+                      <option value="Pilihan Kedua - Pilihan kedua  (Hanya Sebagai Batu Lompatan Menunggu Pengumuan Sekolah lain)">
+                        Pilihan Kedua (Cadangan Menunggu Sekolah Lain)
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: DATA ORANG TUA / WALI */}
+              <div className="rounded-[10px] border border-zinc-200 bg-zinc-50/60 p-4">
+                <h3 className="font-black uppercase tracking-wider text-rosebrand-600 text-xs flex items-center gap-1.5">
+                  <Users size={16} />
+                  3. Data Orang Tua / Wali
+                </h3>
+                <div className="mt-3 grid gap-6 sm:grid-cols-2">
+                  {/* Data Ayah */}
+                  <div className="space-y-3 rounded-[8px] border border-zinc-200/80 bg-white p-3.5">
+                    <p className="font-black text-zinc-900 border-b pb-1">Data Ayah Kandung</p>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Nama Ayah</label>
+                      <input
+                        type="text"
+                        value={editingStudent.fatherName || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, fatherName: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">No. HP / WA Ayah</label>
+                      <input
+                        type="tel"
+                        value={editingStudent.fatherPhone || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, fatherPhone: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Pekerjaan Ayah</label>
+                      <input
+                        type="text"
+                        value={editingStudent.fatherOccupation || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, fatherOccupation: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Pendidikan Terakhir Ayah</label>
+                      <input
+                        type="text"
+                        value={editingStudent.fatherEducation || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, fatherEducation: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Data Ibu */}
+                  <div className="space-y-3 rounded-[8px] border border-zinc-200/80 bg-white p-3.5">
+                    <p className="font-black text-zinc-900 border-b pb-1">Data Ibu Kandung</p>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Nama Ibu</label>
+                      <input
+                        type="text"
+                        value={editingStudent.motherName || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, motherName: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">No. HP / WA Ibu</label>
+                      <input
+                        type="tel"
+                        value={editingStudent.motherPhone || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, motherPhone: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Pekerjaan Ibu</label>
+                      <input
+                        type="text"
+                        value={editingStudent.motherOccupation || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, motherOccupation: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-zinc-600">Pendidikan Terakhir Ibu</label>
+                      <input
+                        type="text"
+                        value={editingStudent.motherEducation || ""}
+                        onChange={(e) => setEditingStudent({ ...editingStudent, motherEducation: e.target.value })}
+                        className="mt-1 h-9 w-full rounded-[6px] border border-zinc-300 px-2.5 font-semibold text-zinc-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: DOMISILI & LAINNYA */}
+              <div className="rounded-[10px] border border-zinc-200 bg-zinc-50/60 p-4">
+                <h3 className="font-black uppercase tracking-wider text-rosebrand-600 text-xs flex items-center gap-1.5">
+                  <MapPin size={16} />
+                  4. Domisili, Afiliasi & Rekomendasi
+                </h3>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="block font-bold text-zinc-700">Provinsi</label>
+                    <input
+                      type="text"
+                      value={editingStudent.province || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, province: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-zinc-700">Kabupaten / Kota</label>
+                    <input
+                      type="text"
+                      value={editingStudent.city || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, city: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-zinc-700">Kecamatan</label>
+                    <input
+                      type="text"
+                      value={editingStudent.district || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, district: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block font-bold text-zinc-700">Alamat Tempat Tinggal Lengkap (RT/RW)</label>
+                    <input
+                      type="text"
+                      value={editingStudent.currentAddress || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, currentAddress: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-zinc-700">Nama Afiliator / Rekomendasi</label>
+                    <input
+                      type="text"
+                      value={editingStudent.affiliatorName || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, affiliatorName: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-zinc-700">Sumber Informasi</label>
+                    <input
+                      type="text"
+                      value={editingStudent.infoSource || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, infoSource: e.target.value })}
+                      className="mt-1.5 h-10 w-full rounded-[8px] border border-zinc-300 px-3 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block font-bold text-zinc-700">Alasan Memilih SMK Telkom Lampung</label>
+                    <textarea
+                      rows={2}
+                      value={editingStudent.reason || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, reason: e.target.value })}
+                      className="mt-1.5 w-full rounded-[8px] border border-zinc-300 p-2.5 font-semibold text-zinc-900"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block font-bold text-zinc-700">Catatan Prestasi Siswa</label>
+                    <textarea
+                      rows={2}
+                      value={editingStudent.achievementsNote || ""}
+                      onChange={(e) => setEditingStudent({ ...editingStudent, achievementsNote: e.target.value })}
+                      className="mt-1.5 w-full rounded-[8px] border border-zinc-300 p-2.5 font-semibold text-zinc-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-end gap-3 border-t border-zinc-200 pt-4">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => setEditingStudent(null)}
+                  className="rounded-[8px] border border-zinc-300 bg-white px-5 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 rounded-[8px] bg-rosebrand-600 px-6 py-2.5 text-xs font-black text-white hover:bg-rosebrand-700 transition-colors disabled:opacity-50 shadow-md"
+                >
+                  <Save size={16} />
+                  {isSaving ? "Menyimpan Perubahan..." : "Simpan Perubahan Data PPDB"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

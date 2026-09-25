@@ -169,7 +169,7 @@ func (r *Repository) SchoolProfile(ctx context.Context) (models.SchoolProfile, e
 	profile.SpmbBrochureURL = spmbBrochureURL.String
 	profile.SpmbAcademicYear = spmbAcademicYear.String
 	if profile.SpmbAcademicYear == "" {
-		profile.SpmbAcademicYear = "2026/2027"
+		profile.SpmbAcademicYear = "2027/2028"
 	}
 	return profile, nil
 }
@@ -1848,6 +1848,10 @@ func (r *Repository) ensureSpmbTables(ctx context.Context) {
 		"reason TEXT NULL",
 		"choice_priority VARCHAR(160) NOT NULL DEFAULT 'Pilihan Utama'",
 		"achievements_note TEXT NULL",
+		"dormitory_option VARCHAR(20) NOT NULL DEFAULT 'Tidak'",
+		"influencer_link TEXT NULL",
+		"influencer_proof_file VARCHAR(255) NOT NULL DEFAULT ''",
+		"tahfidz_juz VARCHAR(50) NOT NULL DEFAULT ''",
 		"deleted_at DATETIME NULL",
 	}
 
@@ -1926,6 +1930,10 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 
 	item.RegistrationNumber = r.newSpmbRegistrationNumber(ctx)
 
+	if item.DormitoryOption == "" {
+		item.DormitoryOption = "Tidak"
+	}
+
 	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO spmb_registrations (
 			registration_number, class_grade, full_name, nik, nisn, gender, religion, birth_date,
@@ -1935,7 +1943,8 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 			father_phone, mother_name, mother_education, mother_occupation, mother_birth_date,
 			mother_phone, student_card_file, family_card_file, birth_certificate_file,
 			achievement_certificate_file, info_source, affiliator_name, reason, choice_priority,
-			achievements_note, academic_year
+			achievements_note, dormitory_option, influencer_link, influencer_proof_file, tahfidz_juz,
+			academic_year
 		)
 		VALUES (
 			?, ?, ?, ?, ?, ?, ?, ?,
@@ -1945,7 +1954,8 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 			?, ?, ?, ?, ?,
 			?, ?, ?, ?,
 			?, ?, ?, ?, ?,
-			?, ?
+			?, ?, ?, ?, ?,
+			?
 		)
 	`,
 		item.RegistrationNumber, item.ClassGrade, item.FullName, item.NIK, item.NISN, item.Gender, item.Religion, item.BirthDate,
@@ -1955,7 +1965,8 @@ func (r *Repository) CreateSpmbRegistration(ctx context.Context, item models.Spm
 		item.FatherPhone, item.MotherName, item.MotherEducation, item.MotherOccupation, item.MotherBirthDate,
 		item.MotherPhone, item.StudentCardFile, item.FamilyCardFile, item.BirthCertificateFile,
 		item.AchievementCertificateFile, item.InfoSource, item.AffiliatorName, item.Reason, item.ChoicePriority,
-		item.AchievementsNote, item.AcademicYear,
+		item.AchievementsNote, item.DormitoryOption, item.InfluencerLink, item.InfluencerProofFile, item.TahfidzJuz,
+		item.AcademicYear,
 	)
 	if err != nil {
 		return item, err
@@ -1980,6 +1991,7 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 		       mother_name, COALESCE(mother_education, ''), COALESCE(mother_occupation, ''), COALESCE(mother_birth_date, ''), COALESCE(mother_phone, ''),
 		       COALESCE(student_card_file, ''), COALESCE(family_card_file, ''), COALESCE(birth_certificate_file, ''), COALESCE(achievement_certificate_file, ''),
 		       info_source, COALESCE(affiliator_name, ''), COALESCE(reason, ''), COALESCE(choice_priority, ''), COALESCE(achievements_note, ''),
+		       COALESCE(dormitory_option, 'Tidak'), COALESCE(influencer_link, ''), COALESCE(influencer_proof_file, ''), COALESCE(tahfidz_juz, ''),
 		       academic_year, created_at
 		FROM spmb_registrations
 		WHERE deleted_at IS NULL
@@ -2036,6 +2048,10 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 			&item.Reason,
 			&item.ChoicePriority,
 			&item.AchievementsNote,
+			&item.DormitoryOption,
+			&item.InfluencerLink,
+			&item.InfluencerProofFile,
+			&item.TahfidzJuz,
 			&item.AcademicYear,
 			&item.CreatedAt,
 		); err != nil {
@@ -2044,6 +2060,100 @@ func (r *Repository) SpmbRegistrations(ctx context.Context) ([]models.SpmbRegist
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repository) UpdateSpmbRegistration(ctx context.Context, item models.SpmbRegistration) (models.SpmbRegistration, error) {
+	r.ensureSpmbTables(ctx)
+
+	item.FullName = strings.TrimSpace(item.FullName)
+	item.WhatsappNumber = strings.TrimSpace(item.WhatsappNumber)
+	item.CurrentAddress = strings.TrimSpace(item.CurrentAddress)
+	item.PreviousSchool = strings.TrimSpace(item.PreviousSchool)
+	item.InfoSource = strings.TrimSpace(item.InfoSource)
+	item.FatherName = strings.TrimSpace(item.FatherName)
+	item.MotherName = strings.TrimSpace(item.MotherName)
+
+	if item.ID <= 0 {
+		return item, errors.New("id pendaftar tidak valid")
+	}
+	if item.FullName == "" || item.WhatsappNumber == "" {
+		return item, errors.New("nama lengkap dan nomor whatsapp wajib diisi")
+	}
+
+	if item.SelectedMajorID > 0 {
+		_ = r.db.QueryRowContext(ctx, `SELECT name FROM majors WHERE id = ?`, item.SelectedMajorID).Scan(&item.SelectedMajorName)
+	}
+
+	if item.DormitoryOption == "" {
+		item.DormitoryOption = "Tidak"
+	}
+
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE spmb_registrations SET
+			class_grade = ?,
+			full_name = ?,
+			nik = ?,
+			nisn = ?,
+			gender = ?,
+			religion = ?,
+			birth_date = ?,
+			whatsapp_number = ?,
+			email = ?,
+			province = ?,
+			city = ?,
+			district = ?,
+			current_address = ?,
+			previous_school = ?,
+			previous_school_address = ?,
+			school_type = ?,
+			ministry = ?,
+			selected_major_id = ?,
+			selected_major_name = ?,
+			registration_track = ?,
+			father_name = ?,
+			father_education = ?,
+			father_occupation = ?,
+			father_birth_date = ?,
+			father_phone = ?,
+			mother_name = ?,
+			mother_education = ?,
+			mother_occupation = ?,
+			mother_birth_date = ?,
+			mother_phone = ?,
+			info_source = ?,
+			affiliator_name = ?,
+			reason = ?,
+			choice_priority = ?,
+			achievements_note = ?,
+			dormitory_option = ?,
+			influencer_link = ?,
+			influencer_proof_file = ?,
+			tahfidz_juz = ?,
+			academic_year = ?
+		WHERE id = ? AND deleted_at IS NULL
+	`,
+		item.ClassGrade, item.FullName, item.NIK, item.NISN, item.Gender, item.Religion, item.BirthDate,
+		item.WhatsappNumber, item.Email, item.Province, item.City, item.District, item.CurrentAddress,
+		item.PreviousSchool, item.PreviousSchoolAddress, item.SchoolType, item.Ministry,
+		item.SelectedMajorID, item.SelectedMajorName, item.RegistrationTrack,
+		item.FatherName, item.FatherEducation, item.FatherOccupation, item.FatherBirthDate, item.FatherPhone,
+		item.MotherName, item.MotherEducation, item.MotherOccupation, item.MotherBirthDate, item.MotherPhone,
+		item.InfoSource, item.AffiliatorName, item.Reason, item.ChoicePriority, item.AchievementsNote,
+		item.DormitoryOption, item.InfluencerLink, item.InfluencerProofFile, item.TahfidzJuz,
+		item.AcademicYear,
+		item.ID,
+	)
+	if err != nil {
+		return item, err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return item, err
+	}
+	if rows == 0 {
+		return item, errors.New("data pendaftar tidak ditemukan atau sudah dihapus")
+	}
+	return item, nil
 }
 
 func (r *Repository) DeleteSpmbRegistration(ctx context.Context, id int64) error {

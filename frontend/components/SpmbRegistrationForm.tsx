@@ -27,6 +27,7 @@ import {
   Mail,
   Award,
   AlertCircle,
+  Eye,
   X
 } from "lucide-react";
 import { API_URL } from "@/lib/api-config";
@@ -121,11 +122,13 @@ const MAJOR_OPTIONS = [
 ];
 
 const REGISTRATION_TRACKS = [
-  "Reguler",
-  "Tahfidz",
-  "Organisasi",
-  "Prestasi",
-  "Influencer"
+  "Jalur Indent / Reguler - Gelombang 1",
+  "Jalur Indent / Reguler - Gelombang 2",
+  "Jalur Indent / Reguler - Gelombang 3",
+  "Jalur Prestasi Akademik (AKD)",
+  "Jalur Prestasi Non-Akademik (Non-AKD)",
+  "Jalur Tahfidz",
+  "Jalur Influencer"
 ];
 
 const PARENT_EDUCATIONS = [
@@ -176,9 +179,10 @@ const INFO_SOURCES = [
   "Lainnya"
 ];
 
-const BATCH_OPTIONS = ["INDEN", "BATCH 1", "BATCH 2", "BATCH 3"];
+const BATCH_OPTIONS = ["GELOMBANG 1", "GELOMBANG 2", "GELOMBANG 3", "INDEN"];
 
 const SUPPLEMENTARY_DOC_TYPES = [
+  "Biodata & Nilai Rapor",
   "Surat Keterangan Sehat",
   "Surat Pernyataan Pembayaran",
   "Kartu Pelajar / Surat Keterangan Siswa Aktif",
@@ -232,9 +236,9 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     const match = (academicYear || "").match(/\d{4}/);
     const baseYear = match ? parseInt(match[0], 10) : 2026;
 
-    const y9 = `${baseYear + 1}/${baseYear + 2}`;
-    const y8 = `${baseYear + 2}/${baseYear + 3}`;
-    const y7 = `${baseYear + 3}/${baseYear + 4}`;
+    const y9 = `${baseYear}/${baseYear + 1}`;
+    const y8 = `${baseYear + 1}/${baseYear + 2}`;
+    const y7 = `${baseYear + 2}/${baseYear + 3}`;
 
     return [
       {
@@ -283,7 +287,11 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       schoolType: "Negeri",
       ministry: "Kementrian Pendidikan - Sekolah Menengah Pertama (SMP)",
       selectedMajorName: "Teknik Komputer dan Jaringan (TKJ)",
-      registrationTrack: "Reguler",
+      registrationTrack: "Jalur Indent / Reguler - Gelombang 1",
+      dormitoryOption: "Tidak",
+      influencerSocialMedia: "",
+      influencerProofFile: "",
+      tahfidzJuz: "",
 
       // Step 4: Data Orang Tua (Ayah)
       fatherName: "",
@@ -334,6 +342,8 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     fileUrl: ""
   });
   const [docSuccess, setDocSuccess] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showPreSubmitConfirm, setShowPreSubmitConfirm] = useState(false);
 
   // Dynamic Wilayah Cascading State
   const [regenciesList, setRegenciesList] = useState<Array<{ id: string; name: string }>>([]);
@@ -620,8 +630,8 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     window.scrollTo({ top: 120, behavior: "smooth" });
   }
 
-  // Submit Pendaftaran Baru
-  async function handleSubmitRegistration(e: FormEvent) {
+  // Pre-Submit Validation Check (Notulen A.1)
+  function handlePreSubmitCheck(e: FormEvent) {
     e.preventDefault();
 
     if (!form.birthCertificateFile) {
@@ -637,6 +647,12 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       return;
     }
 
+    // Tampilkan modal konfirmasi kelengkapan data
+    setShowPreSubmitConfirm(true);
+  }
+
+  // Submit Pendaftaran Baru ke Server
+  async function doSubmitRegistration() {
     setLoading(true);
 
     const matchedMajor = majors.find((m) => m.name.toLowerCase().includes(form.selectedMajorName.toLowerCase())) || majors[0];
@@ -681,7 +697,11 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       reason: form.reason.trim(),
       choicePriority: form.choicePriority,
       achievementsNote: form.achievementsNote.trim(),
-      academicYear: academicYear
+      dormitoryOption: form.dormitoryOption || "Tidak",
+      influencerLink: form.influencerSocialMedia.trim(),
+      influencerProofFile: form.influencerProofFile,
+      tahfidzJuz: form.tahfidzJuz.trim(),
+      academicYear: academicYear || "2027/2028"
     };
 
     try {
@@ -697,6 +717,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
       }
 
       const result = await response.json();
+      setShowPreSubmitConfirm(false);
       setRegistered(result);
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       showToast("success", "Selamat! Pendaftaran siswa baru berhasil terkirim.", "Pendaftaran Sukses");
@@ -795,21 +816,70 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
   // -------------------------------------------------------------
   if (registered) {
     return (
-      <div className="rounded-[16px] border-2 border-emerald-500/20 bg-white p-6 shadow-xl sm:p-10">
-        <div className="text-center">
+      <div className="rounded-[16px] border-2 border-emerald-500/20 bg-white p-6 shadow-xl sm:p-10 space-y-6">
+        {/* BANNER NOTIFIKASI PEMERIKSAAN KELENGKAPAN DATA (SESUAI NOTULEN A.1) */}
+        <div className="rounded-[14px] border-2 border-amber-300 bg-amber-50/90 p-5 text-left shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-amber-100 p-2 text-amber-700 shrink-0 mt-0.5">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <span className="inline-block rounded-full bg-amber-200/80 px-2 py-0.5 text-[10px] font-black uppercase text-amber-900 tracking-wider">
+                  Konfirmasi Penting Panitia SPMB
+                </span>
+                <h4 className="mt-1 text-sm font-black text-amber-950 sm:text-base">
+                  Apakah data Anda sudah benar? Pastikan kelengkapan berkas pendaftaran Anda!
+                </h4>
+                <p className="mt-1 text-xs font-semibold text-amber-800 leading-relaxed max-w-2xl">
+                  Silakan periksa kembali data biodata diri, pilihan program keahlian, nomor kontak orang tua, dan dokumen penting. Jika terdapat berkas yang tertinggal (seperti Rapor, Kartu Pelajar, atau Sertifikat), Anda dapat melengkapinya kapan saja melalui menu <strong>Upload Berkas Susulan</strong>.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(true)}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[8px] bg-amber-700 px-4 text-xs font-black text-white hover:bg-amber-800 transition-colors shadow-sm"
+              >
+                <Eye size={15} />
+                Periksa Rangkuman Data
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocForm((prev) => ({
+                    ...prev,
+                    registrationNumber: registered.registrationNumber,
+                    studentName: registered.fullName
+                  }));
+                  setActiveMenu("upload-berkas");
+                  setRegistered(null);
+                }}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[8px] border border-amber-400 bg-white px-4 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+              >
+                <Upload size={15} />
+                Upload Berkas Susulan
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center pt-2">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <CheckCircle2 size={46} />
           </div>
-          <p className="mt-4 text-xs font-black uppercase tracking-widest text-emerald-600">Pendaftaran Berhasil</p>
+          <p className="mt-4 text-xs font-black uppercase tracking-widest text-emerald-600">Pendaftaran Berhasil Terkirim</p>
           <h2 className="mt-1 text-2xl font-black text-zinc-950 sm:text-3xl">Selamat Bergabung di SMK Telkom Lampung!</h2>
           <p className="mt-2 text-sm font-semibold text-zinc-500 max-w-lg mx-auto">
-            Data Anda telah tersimpan resmi di sistem SPMB kami. Simpan atau cetak kartu pendaftaran di bawah ini sebagai bukti pendaftaran resmi.
+            Data Anda telah tersimpan resmi di sistem SPMB Tahun Pelajaran 2027/2028. Simpan atau cetak kartu pendaftaran di bawah ini sebagai bukti pendaftaran resmi.
           </p>
 
           <div className="mt-6 inline-block rounded-[12px] border border-rosebrand-100 bg-rosebrand-50/70 px-6 py-4">
             <p className="text-xs font-bold text-zinc-500 uppercase">Nomor Registrasi Anda:</p>
             <p className="mt-1 text-2xl font-black text-rosebrand-600 sm:text-3xl tracking-wide">{registered.registrationNumber}</p>
             <p className="mt-1 text-xs font-medium text-zinc-600">Nama: <strong className="text-zinc-900">{registered.fullName}</strong> • Jurusan: <strong>{registered.selectedMajorName}</strong></p>
+            <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">Jalur: {registered.registrationTrack || "Reguler"} • Fasilitas Asrama: {registered.dormitoryOption || "Tidak"}</p>
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -819,7 +889,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
               className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-rosebrand-600 px-6 text-sm font-black text-white shadow-md transition-all hover:bg-rosebrand-700 active:scale-95"
             >
               <Printer size={18} />
-              Cetak / Print Kartu
+              Cetak / Print Kartu Resmi
             </button>
             <button
               type="button"
@@ -846,6 +916,76 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
             </button>
           </div>
         </div>
+
+        {/* MODAL PERIKSA RANGKUMAN DATA (SESUAI NOTULEN A.1) */}
+        {showReviewModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[16px] bg-white p-6 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={22} className="text-emerald-600" />
+                  <h3 className="text-base font-black text-zinc-900">Rangkuman Kelengkapan Data Pendaftaran</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-4 text-xs">
+                <div className="rounded-[10px] bg-zinc-50 p-4 border border-zinc-200 space-y-2">
+                  <p className="font-black text-zinc-700 uppercase tracking-wider text-[11px]">A. Identitas Pendaftar & Pilihan</p>
+                  <div className="grid grid-cols-2 gap-2 text-zinc-800">
+                    <div><span className="text-zinc-500">No. Registrasi:</span> <strong className="text-rosebrand-600 font-black">{registered.registrationNumber}</strong></div>
+                    <div><span className="text-zinc-500">Tahun Ajaran:</span> <strong>{registered.academicYear || "2027/2028"}</strong></div>
+                    <div><span className="text-zinc-500">Nama Lengkap:</span> <strong>{registered.fullName}</strong></div>
+                    <div><span className="text-zinc-500">Jenis Kelamin:</span> <strong>{registered.gender}</strong></div>
+                    <div><span className="text-zinc-500">NIK:</span> <strong>{registered.nik || "-"}</strong></div>
+                    <div><span className="text-zinc-500">NISN:</span> <strong>{registered.nisn || "-"}</strong></div>
+                    <div><span className="text-zinc-500">Pilihan Jurusan:</span> <strong className="text-emerald-700">{registered.selectedMajorName}</strong></div>
+                    <div><span className="text-zinc-500">Jalur Seleksi:</span> <strong>{registered.registrationTrack}</strong></div>
+                    <div><span className="text-zinc-500">Fasilitas Asrama:</span> <strong className={registered.dormitoryOption === "Ya" ? "text-rosebrand-600" : "text-zinc-700"}>{registered.dormitoryOption === "Ya" ? "Ya (Boarding)" : "Tidak (Non-Asrama)"}</strong></div>
+                    <div><span className="text-zinc-500">Asal Sekolah:</span> <strong>{registered.previousSchool}</strong></div>
+                  </div>
+                </div>
+
+                <div className="rounded-[10px] bg-zinc-50 p-4 border border-zinc-200 space-y-2">
+                  <p className="font-black text-zinc-700 uppercase tracking-wider text-[11px]">B. Kontak & Domisili</p>
+                  <div className="grid grid-cols-2 gap-2 text-zinc-800">
+                    <div><span className="text-zinc-500">No. WhatsApp Siswa:</span> <strong>{registered.whatsappNumber}</strong></div>
+                    <div><span className="text-zinc-500">Email:</span> <strong>{registered.email || "-"}</strong></div>
+                    <div><span className="text-zinc-500">Nama Ayah / No HP:</span> <strong>{registered.fatherName} ({registered.fatherPhone || "-"})</strong></div>
+                    <div><span className="text-zinc-500">Nama Ibu / No HP:</span> <strong>{registered.motherName} ({registered.motherPhone || "-"})</strong></div>
+                    <div className="col-span-2"><span className="text-zinc-500">Alamat Rumah:</span> <strong>{registered.currentAddress}</strong></div>
+                  </div>
+                </div>
+
+                <div className="rounded-[10px] bg-zinc-50 p-4 border border-zinc-200 space-y-2">
+                  <p className="font-black text-zinc-700 uppercase tracking-wider text-[11px]">C. Status Berkas Dokumen</p>
+                  <div className="grid grid-cols-2 gap-2 text-zinc-800">
+                    <div>Akta Kelahiran: <strong className={registered.birthCertificateFile ? "text-emerald-600" : "text-rose-600"}>{registered.birthCertificateFile ? "✓ Terunggah" : "✗ Belum"}</strong></div>
+                    <div>Kartu Keluarga (KK): <strong className={registered.familyCardFile ? "text-emerald-600" : "text-rose-600"}>{registered.familyCardFile ? "✓ Terunggah" : "✗ Belum"}</strong></div>
+                    <div>Kartu Pelajar: <strong className={registered.studentCardFile ? "text-emerald-600" : "text-zinc-500"}>{registered.studentCardFile ? "✓ Terunggah" : "- Belum Ada"}</strong></div>
+                    <div>Sertifikat Prestasi: <strong className={registered.achievementCertificateFile ? "text-emerald-600" : "text-zinc-500"}>{registered.achievementCertificateFile ? "✓ Terunggah" : "- Belum Ada"}</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="rounded-[8px] bg-zinc-900 px-5 py-2 text-xs font-black text-white hover:bg-zinc-800"
+                >
+                  Tutup Rangkuman
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1540,6 +1680,156 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
                         </option>
                       ))}
                     </select>
+
+                    {/* Deskripsi Jalur */}
+                    <div className="mt-2 rounded-[8px] bg-zinc-50 border border-zinc-200 p-2.5 text-[11px] text-zinc-600 leading-relaxed">
+                      {form.registrationTrack.includes("Gelombang 1") && (
+                        <span><strong>Jalur Indent / Reguler (Gelombang 1):</strong> Jalur seleksi awal dengan kuota prioritas dan penawaran terbaik.</span>
+                      )}
+                      {form.registrationTrack.includes("Gelombang 2") && (
+                        <span><strong>Jalur Indent / Reguler (Gelombang 2):</strong> Seleksi tahap kedua untuk pengisian kuota rombel reguler.</span>
+                      )}
+                      {form.registrationTrack.includes("Gelombang 3") && (
+                        <span><strong>Jalur Indent / Reguler (Gelombang 3):</strong> Tahap seleksi akhir penutupan penerimaan siswa baru.</span>
+                      )}
+                      {form.registrationTrack === "Jalur Prestasi Akademik (AKD)" && (
+                        <span><strong>Jalur Prestasi Akademik (AKD):</strong> Dinilai berdasarkan rata-rata nilai rapor semester serta piagam kompetisi sains / akademik.</span>
+                      )}
+                      {form.registrationTrack === "Jalur Prestasi Non-Akademik (Non-AKD)" && (
+                        <span><strong>Jalur Prestasi Non-Akademik (Non-AKD):</strong> Apresiasi kejuaraan olahraga, seni budaya, organisasi kepemimpinan, dan ekstrakurikuler.</span>
+                      )}
+                      {form.registrationTrack === "Jalur Tahfidz" && (
+                        <span><strong>Jalur Tahfidz:</strong> Khusus penghafal Al-Qur&apos;an (minimal capaian juz yang ditetapkan sekolah).</span>
+                      )}
+                      {form.registrationTrack === "Jalur Influencer" && (
+                        <span><strong>Jalur Influencer:</strong> Apresiasi bagi calon siswa aktif berkarya di media sosial (Instagram, TikTok, YouTube).</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* KONDISIONAL JALUR TAHFIDZ */}
+                  {form.registrationTrack === "Jalur Tahfidz" && (
+                    <div className="sm:col-span-2 rounded-[12px] border-2 border-emerald-500/30 bg-emerald-50/40 p-4">
+                      <label className="block text-xs font-black uppercase tracking-wider text-emerald-900">
+                        Capaian Hafalan Al-Qur&apos;an (Jalur Tahfidz) <span className="text-rosebrand-600">*</span>
+                      </label>
+                      <p className="mt-1 text-[11px] text-emerald-700">
+                        Sebutkan jumlah juz dan nama-nama juz yang telah dihafal (contoh: 3 Juz - Juz 30, 29, 28)
+                      </p>
+                      <input
+                        type="text"
+                        required
+                        value={form.tahfidzJuz}
+                        onChange={(e) => setForm({ ...form, tahfidzJuz: e.target.value })}
+                        placeholder="Contoh: 3 Juz (Juz 30, Juz 1, Juz 2)"
+                        className="mt-2 h-11 w-full rounded-[8px] border border-emerald-300 bg-white px-3 text-xs font-bold text-zinc-900 outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  )}
+
+                  {/* KONDISIONAL JALUR INFLUENCER */}
+                  {form.registrationTrack === "Jalur Influencer" && (
+                    <div className="sm:col-span-2 rounded-[12px] border-2 border-rosebrand-500/30 bg-rosebrand-50/40 p-4 space-y-4">
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-rosebrand-950">
+                          Akun & Profil Media Sosial Utama (Jalur Influencer) <span className="text-rosebrand-600">*</span>
+                        </label>
+                        <p className="mt-1 text-[11px] text-rosebrand-800">
+                          Tuliskan platform, nama akun / username, serta perkiraan jumlah followers/subscribers.
+                        </p>
+                        <input
+                          type="text"
+                          required
+                          value={form.influencerSocialMedia}
+                          onChange={(e) => setForm({ ...form, influencerSocialMedia: e.target.value })}
+                          placeholder="Contoh: Instagram @nama_akun (15K followers), TikTok @akun (30K)"
+                          className="mt-2 h-11 w-full rounded-[8px] border border-rosebrand-300 bg-white px-3 text-xs font-bold text-zinc-900 outline-none focus:border-rosebrand-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-rosebrand-950">
+                          Upload Tangkapan Layar (Screenshot) Profil Media Sosial <span className="text-rosebrand-600">*</span>
+                        </label>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          Format file JPG, PNG, atau PDF (Maksimal 10MB)
+                        </p>
+                        <div className="mt-2">
+                          <label className="inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] border border-rosebrand-300 bg-white px-4 text-xs font-bold text-rosebrand-900 hover:bg-rosebrand-50/50 transition-colors shadow-sm">
+                            {uploadingField === "influencerProofFile" ? (
+                              <Loader2 size={16} className="animate-spin text-rosebrand-600" />
+                            ) : form.influencerProofFile ? (
+                              <CheckCircle2 size={16} className="text-emerald-600" />
+                            ) : (
+                              <Upload size={16} className="text-rosebrand-600" />
+                            )}
+                            <span>{form.influencerProofFile ? "Screenshot Profil Terunggah (Ganti)" : "Pilih File Bukti Profil Medsos (JPG / PDF)"}</span>
+                            <input
+                              type="file"
+                              accept=".pdf,image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleFileUpload(f, "influencerProofFile", "registration");
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 7. PILIHAN FASILITAS ASRAMA (NOTULEN A.2) */}
+                  <div className="sm:col-span-2 rounded-[12px] border-2 border-zinc-200 bg-zinc-50/70 p-4">
+                    <label className="block text-xs font-black uppercase tracking-wider text-zinc-900">
+                      7. Pilihan Fasilitas Asrama (Boarding School) <span className="text-rosebrand-600">*</span>
+                    </label>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Apakah calon siswa ingin menggunakan fasilitas tempat tinggal asrama di lingkungan kampus SMK Telkom Lampung?
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label
+                        className={`flex items-center gap-3 rounded-[10px] border-2 p-3.5 cursor-pointer transition-all ${
+                          form.dormitoryOption === "Ya"
+                            ? "border-rosebrand-600 bg-rosebrand-50/60 shadow-sm"
+                            : "border-zinc-200 bg-white hover:border-zinc-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="dormitoryOption"
+                          value="Ya"
+                          checked={form.dormitoryOption === "Ya"}
+                          onChange={(e) => setForm({ ...form, dormitoryOption: e.target.value })}
+                          className="h-4 w-4 text-rosebrand-600 focus:ring-rosebrand-500"
+                        />
+                        <div>
+                          <p className="text-xs font-black text-zinc-950">Ya, Menggunakan Fasilitas Asrama</p>
+                          <p className="text-[11px] font-medium text-zinc-500">Tinggal di asrama sekolah dengan pembinaan karakter intensif</p>
+                        </div>
+                      </label>
+
+                      <label
+                        className={`flex items-center gap-3 rounded-[10px] border-2 p-3.5 cursor-pointer transition-all ${
+                          form.dormitoryOption === "Tidak"
+                            ? "border-rosebrand-600 bg-rosebrand-50/60 shadow-sm"
+                            : "border-zinc-200 bg-white hover:border-zinc-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="dormitoryOption"
+                          value="Tidak"
+                          checked={form.dormitoryOption === "Tidak"}
+                          onChange={(e) => setForm({ ...form, dormitoryOption: e.target.value })}
+                          className="h-4 w-4 text-rosebrand-600 focus:ring-rosebrand-500"
+                        />
+                        <div>
+                          <p className="text-xs font-black text-zinc-950">Tidak (Non-Asrama / Pulang-Pergi)</p>
+                          <p className="text-[11px] font-medium text-zinc-500">Tinggal bersama orang tua / wali di luar lingkungan sekolah</p>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2029,7 +2319,7 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={handleSubmitRegistration}
+                  onClick={handlePreSubmitCheck}
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-emerald-600 px-8 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-700 disabled:opacity-50 active:scale-95"
                 >
                   {loading ? (
@@ -2366,6 +2656,87 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL KONFIRMASI KELENGKAPAN SEBELUM SUBMIT (NOTULEN A.1)      */}
+      {/* ============================================================== */}
+      {showPreSubmitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[16px] bg-white p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rosebrand-50 text-rosebrand-600">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="mt-4 text-lg font-black text-zinc-950">Konfirmasi Kelengkapan Data Formulir</h3>
+              <p className="mt-1 text-xs font-semibold text-zinc-600 leading-relaxed">
+                Apakah Anda ingin memastikan seluruh data pendaftaran calon siswa sudah benar dan lengkap sebelum dikirim?
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-[12px] border border-zinc-200 bg-zinc-50/80 p-4 space-y-2 text-xs">
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">Nama Calon Siswa:</span>
+                <span className="font-black text-zinc-900">{form.fullName}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">NIK / NISN:</span>
+                <span className="font-bold text-zinc-800">{form.nik} / {form.nisn}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">Pilihan Jurusan:</span>
+                <span className="font-black text-rosebrand-600">{form.selectedMajorName}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">Jalur Pendaftaran:</span>
+                <span className="font-bold text-zinc-800">{form.registrationTrack}</span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">Fasilitas Asrama:</span>
+                <span className={`font-black ${form.dormitoryOption === "Ya" ? "text-rosebrand-600" : "text-zinc-700"}`}>
+                  {form.dormitoryOption === "Ya" ? "Ya (Boarding / Fasilitas Asrama)" : "Tidak (Non-Asrama)"}
+                </span>
+              </div>
+              <div className="flex justify-between border-b border-zinc-200/60 pb-1.5">
+                <span className="text-zinc-500">Asal Sekolah:</span>
+                <span className="font-bold text-zinc-800">{form.previousSchool}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">No. WhatsApp Siswa:</span>
+                <span className="font-bold text-zinc-800">{form.whatsappNumber}</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setShowPreSubmitConfirm(false)}
+                className="w-full sm:w-auto h-11 rounded-[8px] border border-zinc-300 bg-white px-5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                Periksa Kembali Form
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={doSubmitRegistration}
+                className="w-full sm:w-auto inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-emerald-600 px-6 text-xs font-black text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Mengirimkan...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    Ya, Kirim Formulir Sekarang
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

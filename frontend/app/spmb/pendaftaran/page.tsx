@@ -16,7 +16,7 @@ export default async function SpmbRegistrationPage() {
     getSchoolProfile().catch(() => null),
     getMajors().catch(() => [])
   ]);
-  const academicYear = profile?.spmbAcademicYear || "2026/2027";
+  const academicYear = profile?.spmbAcademicYear || "2027/2028";
 
   return (
     <>

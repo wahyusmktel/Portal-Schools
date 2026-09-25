@@ -270,6 +270,10 @@ type SpmbRegistration struct {
 	Reason                     string `json:"reason"`
 	ChoicePriority             string `json:"choicePriority"`
 	AchievementsNote           string `json:"achievementsNote"`
+	DormitoryOption            string `json:"dormitoryOption"`
+	InfluencerLink             string `json:"influencerLink"`
+	InfluencerProofFile        string `json:"influencerProofFile"`
+	TahfidzJuz                 string `json:"tahfidzJuz"`
 	AcademicYear               string `json:"academicYear"`
 	CreatedAt                  string `json:"createdAt"`
 }
