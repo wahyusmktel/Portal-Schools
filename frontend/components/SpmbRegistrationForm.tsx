@@ -524,110 +524,143 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
     }
   }
 
+  // Scroll and focus directly to the step area / field input
+  function scrollToFormStep(focusFirstInput = true) {
+    setTimeout(() => {
+      const el = document.getElementById("section-pendaftaran");
+      if (el) {
+        const headerOffset = 90; // offset untuk sticky header navbar
+        const elementPosition = el.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+          top: Math.max(0, offsetPosition),
+          behavior: "smooth"
+        });
+
+        if (focusFirstInput) {
+          setTimeout(() => {
+            const firstInput = el.querySelector<HTMLElement>(
+              "form input:not([type=hidden]):not([disabled]), form select:not([disabled]), form textarea:not([disabled])"
+            );
+            if (firstInput && typeof firstInput.focus === "function") {
+              firstInput.focus({ preventScroll: true });
+            }
+          }, 320);
+        }
+      }
+    }, 40);
+  }
+
+  function reportValidationError(message: string) {
+    showToast("error", message, "Mohon Periksa Kembali:");
+    scrollToFormStep(true);
+  }
+
   // Next Step with Validation
   function handleNextStep() {
     if (step === 1) {
       if (!form.classGrade) {
-        showToast("error", "Silakan pilih kelas / tahun pelajaran saat ini.", "Mohon Periksa Kembali:");
+        reportValidationError("Silakan pilih kelas / tahun pelajaran saat ini.");
         return;
       }
       if (!form.fullName.trim()) {
-        showToast("error", "Nama Lengkap calon siswa wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nama Lengkap calon siswa wajib diisi.");
         return;
       }
       if (!form.nik.trim() || form.nik.trim().length < 16) {
-        showToast("error", "NIK Calon Siswa wajib diisi lengkap 16 digit sesuai KK / KTP.", "Mohon Periksa Kembali:");
+        reportValidationError("NIK Calon Siswa wajib diisi lengkap 16 digit sesuai KK / KTP.");
         return;
       }
       if (!form.nisn.trim() || form.nisn.trim().length < 10) {
-        showToast("error", "NISN Calon Siswa wajib diisi lengkap 10 digit sesuai data rapor/ijazah.", "Mohon Periksa Kembali:");
+        reportValidationError("NISN Calon Siswa wajib diisi lengkap 10 digit sesuai data rapor/ijazah.");
         return;
       }
       if (!form.birthDate) {
-        showToast("error", "Tanggal Lahir Siswa wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Tanggal Lahir Siswa wajib diisi.");
         return;
       }
       if (!form.whatsappNumber.trim()) {
-        showToast("error", "Nomor Telepon/HP aktif (WhatsApp) wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nomor Telepon/HP aktif (WhatsApp) wajib diisi.");
         return;
       }
       if (!form.email.trim()) {
-        showToast("error", "Alamat Email aktif wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Alamat Email aktif wajib diisi.");
         return;
       }
     }
 
     if (step === 2) {
       if (!form.province) {
-        showToast("error", "Provinsi tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
+        reportValidationError("Provinsi tempat tinggal wajib dipilih.");
         return;
       }
       if (!form.city) {
-        showToast("error", "Kabupaten / Kota tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
+        reportValidationError("Kabupaten / Kota tempat tinggal wajib dipilih.");
         return;
       }
       if (!form.district) {
-        showToast("error", "Kecamatan tempat tinggal wajib dipilih.", "Mohon Periksa Kembali:");
+        reportValidationError("Kecamatan tempat tinggal wajib dipilih.");
         return;
       }
       if (!form.currentAddress.trim()) {
-        showToast("error", "Alamat lengkap tempat tinggal (Jalan, RT/RW, Dusun) wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Alamat lengkap tempat tinggal (Jalan, RT/RW, Dusun) wajib diisi.");
         return;
       }
     }
 
     if (step === 3) {
       if (!form.previousSchool.trim()) {
-        showToast("error", "Nama Asal Sekolah wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nama Asal Sekolah wajib diisi.");
         return;
       }
       if (!form.previousSchoolAddress.trim()) {
-        showToast("error", "Alamat lengkap sekolah asal wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Alamat lengkap sekolah asal wajib diisi.");
         return;
       }
       if (!form.selectedMajorName) {
-        showToast("error", "Silakan pilih jurusan yang diminati di SMK Telkom Lampung.", "Mohon Periksa Kembali:");
+        reportValidationError("Silakan pilih jurusan yang diminati di SMK Telkom Lampung.");
         return;
       }
     }
 
     if (step === 4) {
       if (!form.fatherName.trim()) {
-        showToast("error", "Nama Lengkap Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nama Lengkap Ayah / Wali wajib diisi.");
         return;
       }
       if (!form.fatherBirthDate) {
-        showToast("error", "Tanggal lahir Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Tanggal lahir Ayah / Wali wajib diisi.");
         return;
       }
       if (!form.fatherPhone.trim()) {
-        showToast("error", "Nomor telepon/HP aktif Ayah / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nomor telepon/HP aktif Ayah / Wali wajib diisi.");
         return;
       }
     }
 
     if (step === 5) {
       if (!form.motherName.trim()) {
-        showToast("error", "Nama Lengkap Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nama Lengkap Ibu / Wali wajib diisi.");
         return;
       }
       if (!form.motherBirthDate) {
-        showToast("error", "Tanggal lahir Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Tanggal lahir Ibu / Wali wajib diisi.");
         return;
       }
       if (!form.motherPhone.trim()) {
-        showToast("error", "Nomor telepon/HP aktif Ibu / Wali wajib diisi.", "Mohon Periksa Kembali:");
+        reportValidationError("Nomor telepon/HP aktif Ibu / Wali wajib diisi.");
         return;
       }
     }
 
     setStep((prev) => Math.min(prev + 1, 6));
-    window.scrollTo({ top: 120, behavior: "smooth" });
+    scrollToFormStep(true);
   }
 
   function handlePrevStep() {
     setStep((prev) => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 120, behavior: "smooth" });
+    scrollToFormStep(true);
   }
 
   // Pre-Submit Validation Check (Notulen A.1)
@@ -2712,7 +2745,10 @@ export function SpmbRegistrationForm({ majors, academicYear }: Props) {
               <button
                 type="button"
                 disabled={loading}
-                onClick={() => setShowPreSubmitConfirm(false)}
+                onClick={() => {
+                  setShowPreSubmitConfirm(false);
+                  scrollToFormStep(true);
+                }}
                 className="w-full sm:w-auto h-11 rounded-[8px] border border-zinc-300 bg-white px-5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
               >
                 Periksa Kembali Form
