@@ -152,3 +152,38 @@ export interface CbtLiveToken {
   token: string;
   seconds_remaining: number;
 }
+
+export interface CbtStudentAnswer {
+  id?: number;
+  exam_id: number;
+  student_id: number;
+  question_id: number;
+  answer: string[] | any;
+  is_flagged: boolean;
+  score?: number;
+  is_graded?: boolean;
+  updated_at?: string;
+}
+
+export interface CbtStudentQuestionView {
+  id: number;
+  question_type: CbtQuestionType;
+  question_text: string;
+  image_url?: string;
+  audio_url?: string;
+  points: number;
+  options: CbtQuestionOption[];
+  sort_order: number;
+}
+
+export interface CbtStudentExamWorksheet {
+  exam: CbtExam;
+  Exam?: CbtExam;
+  student: CbtStudent;
+  started_at?: string;
+  remaining_seconds: number;
+  status: string;
+  questions: CbtStudentQuestionView[];
+  existing_answers: Record<number, CbtStudentAnswer>;
+}
+

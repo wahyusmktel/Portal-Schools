@@ -93,6 +93,16 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 		r.Post("/spmb/uploads", h.uploadSpmbFile)
 		r.With(httprate.LimitByIP(20, time.Minute)).Post("/ai/chat", h.aiChat)
 
+		// CBT Student Exam Player Routes (Module 3)
+		r.Post("/cbt/student/login", h.cbtStudentLogin)
+		r.Post("/cbt/student/logout", h.cbtStudentLogout)
+		r.Get("/cbt/student/me", h.requireStudentAuth(h.cbtStudentMe))
+		r.Get("/cbt/student/exams", h.requireStudentAuth(h.cbtStudentAvailableExams))
+		r.Post("/cbt/student/exams/{id}/start", h.requireStudentAuth(h.cbtStudentStartExam))
+		r.Get("/cbt/student/exams/{id}/worksheet", h.requireStudentAuth(h.cbtStudentGetWorksheet))
+		r.Post("/cbt/student/exams/{id}/answers", h.requireStudentAuth(h.cbtStudentSaveAnswer))
+		r.Post("/cbt/student/exams/{id}/submit", h.requireStudentAuth(h.cbtStudentSubmitExam))
+
 		r.Group(func(protected chi.Router) {
 			protected.Use(h.requireAuth)
 			protected.Get("/auth/me", h.me)

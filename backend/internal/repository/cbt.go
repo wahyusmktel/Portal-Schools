@@ -3,7 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
 	"portal-smktelkom/backend/internal/models"
 )
 
@@ -470,6 +476,29 @@ func (r *Repository) ListCbtStudents(ctx context.Context, className, sessionRoom
 	return items, rows.Err()
 }
 
+func (r *Repository) GetCbtStudent(ctx context.Context, id int64) (*models.CbtStudent, error) {
+	query := `
+		SELECT id, exam_number, nisn, name, class_name, major,
+		       username, password_plain, session_room, is_active, is_logged_in,
+		       created_at, updated_at
+		FROM cbt_students
+		WHERE id = ?
+	`
+	var item models.CbtStudent
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&item.ID, &item.ExamNumber, &item.NISN, &item.Name, &item.ClassName, &item.Major,
+		&item.Username, &item.PasswordPlain, &item.SessionRoom, &item.IsActive, &item.IsLoggedIn,
+		&item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
 func (r *Repository) CreateCbtStudent(ctx context.Context, p models.CreateCbtStudentPayload, passHash string) (int64, error) {
 	username := p.ExamNumber
 	res, err := r.db.ExecContext(ctx, `
@@ -750,4 +779,344 @@ func (r *Repository) SaveExamOfficialReport(ctx context.Context, report models.C
 	}
 	return res.LastInsertId()
 }
+
+// ==========================================
+// --- MODULE 3: STUDENT EXAM & AUTOSAVE ---
+// ==========================================
+
+func (r *Repository) AuthenticateCbtStudent(ctx context.Context, identifier, password string) (*models.CbtStudent, error) {
+	query := `
+		SELECT id, exam_number, nisn, name, class_name, major,
+		       username, password_plain, password_hash, session_room,
+		       is_active, is_logged_in, created_at, updated_at
+		FROM cbt_students
+		WHERE (username = ? OR exam_number = ? OR nisn = ?) AND is_active = 1
+	`
+	var s models.CbtStudent
+	var pHash string
+	err := r.db.QueryRowContext(ctx, query, identifier, identifier, identifier).Scan(
+		&s.ID, &s.ExamNumber, &s.NISN, &s.Name, &s.ClassName, &s.Major,
+		&s.Username, &s.PasswordPlain, &pHash, &s.SessionRoom,
+		&s.IsActive, &s.IsLoggedIn, &s.CreatedAt, &s.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Compare bcrypt password
+	errBcrypt := bcrypt.CompareHashAndPassword([]byte(pHash), []byte(password))
+	if errBcrypt != nil {
+		// Fallback for plain comparison
+		if s.PasswordPlain != password {
+			return nil, nil
+		}
+	}
+
+	return &s, nil
+}
+
+func (r *Repository) GetStudentAvailableExams(ctx context.Context, studentID int64) ([]models.CbtExam, error) {
+	query := `
+		SELECT e.id, e.question_bank_id, b.title, s.name, e.title, COALESCE(e.description, ''),
+		       e.start_time, e.end_time, e.duration_minutes, e.randomize_mode, e.scoring_mode,
+		       e.token_secret, e.token_enabled, e.is_active,
+		       (SELECT COUNT(*) FROM cbt_questions WHERE question_bank_id = e.question_bank_id) AS total_questions,
+		       COALESCE(a.status, 'belum_mulai') AS student_status,
+		       e.created_at, e.updated_at
+		FROM cbt_exams e
+		JOIN cbt_question_banks b ON b.id = e.question_bank_id
+		JOIN cbt_subjects s ON s.id = b.subject_id
+		LEFT JOIN cbt_exam_attendances a ON a.exam_id = e.id AND a.student_id = ?
+		WHERE e.is_active = 1
+		ORDER BY e.start_time ASC
+	`
+	rows, err := r.db.QueryContext(ctx, query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.CbtExam
+	for rows.Next() {
+		var item models.CbtExam
+		var status string
+		if err := rows.Scan(
+			&item.ID, &item.QuestionBankID, &item.BankTitle, &item.SubjectName,
+			&item.Title, &item.Description, &item.StartTime, &item.EndTime,
+			&item.DurationMinutes, &item.RandomizeMode, &item.ScoringMode,
+			&item.TokenSecret, &item.TokenEnabled, &item.IsActive,
+			&item.TotalQuestions, &status,
+			&item.CreatedAt, &item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) GetStudentExamWorksheet(ctx context.Context, examID, studentID int64) (*models.CbtStudentExamWorksheet, error) {
+	exam, err := r.GetCbtExam(ctx, examID)
+	if err != nil || exam == nil {
+		return nil, fmt.Errorf("ujian tidak ditemukan")
+	}
+
+	// Fetch student info & attendance
+	studentQuery := `
+		SELECT s.id, s.exam_number, s.nisn, s.name, s.class_name, s.major,
+		       s.username, s.password_plain, s.session_room, s.is_active, s.is_logged_in,
+		       COALESCE(a.status, 'belum_mulai'), a.started_at
+		FROM cbt_students s
+		LEFT JOIN cbt_exam_attendances a ON a.student_id = s.id AND a.exam_id = ?
+		WHERE s.id = ?
+	`
+	var st models.CbtStudent
+	var attStatus string
+	var startedAt *time.Time
+	err = r.db.QueryRowContext(ctx, studentQuery, examID, studentID).Scan(
+		&st.ID, &st.ExamNumber, &st.NISN, &st.Name, &st.ClassName, &st.Major,
+		&st.Username, &st.PasswordPlain, &st.SessionRoom, &st.IsActive, &st.IsLoggedIn,
+		&attStatus, &startedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("data peserta tidak ditemukan: %w", err)
+	}
+
+	// Calculate remaining seconds
+	remainingSeconds := exam.DurationMinutes * 60
+	if startedAt != nil {
+		elapsed := int(time.Since(*startedAt).Seconds())
+		remainingSeconds = exam.DurationMinutes*60 - elapsed
+		if remainingSeconds < 0 {
+			remainingSeconds = 0
+		}
+	}
+
+	// Fetch questions for this exam's question bank
+	qList, err := r.ListCbtQuestionsByBank(ctx, exam.QuestionBankID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deterministic pseudo-random seed per student per exam
+	rnd := rand.New(rand.NewSource(examID*1000 + studentID))
+
+	// Convert questions to sanitized student view (STRIP correct answer & explanation)
+	var studentQuestions []models.CbtStudentQuestionView
+	for _, q := range qList {
+		var opts []models.CbtQuestionOption
+		_ = json.Unmarshal(q.Options, &opts)
+
+		// Shuffle options if mode is both or options_only
+		if (exam.RandomizeMode == "both" || exam.RandomizeMode == "options_only") && len(opts) > 1 {
+			rnd.Shuffle(len(opts), func(i, j int) {
+				opts[i], opts[j] = opts[j], opts[i]
+			})
+		}
+
+		studentQuestions = append(studentQuestions, models.CbtStudentQuestionView{
+			ID:           q.ID,
+			QuestionType: q.QuestionType,
+			QuestionText: q.QuestionText,
+			ImageURL:     q.ImageURL,
+			AudioURL:     q.AudioURL,
+			Points:       q.Points,
+			Options:      opts,
+			SortOrder:    q.SortOrder,
+		})
+	}
+
+	// Shuffle questions order if mode is both or questions_only
+	if (exam.RandomizeMode == "both" || exam.RandomizeMode == "questions_only") && len(studentQuestions) > 1 {
+		rnd.Shuffle(len(studentQuestions), func(i, j int) {
+			studentQuestions[i], studentQuestions[j] = studentQuestions[j], studentQuestions[i]
+		})
+	}
+
+	// Fetch existing student answers
+	ansQuery := `
+		SELECT id, exam_id, student_id, question_id, answer_json, is_flagged, score, is_graded, updated_at
+		FROM cbt_student_answers
+		WHERE exam_id = ? AND student_id = ?
+	`
+	rows, err := r.db.QueryContext(ctx, ansQuery, examID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	existingAnswers := make(map[int64]models.CbtStudentAnswer)
+	for rows.Next() {
+		var a models.CbtStudentAnswer
+		var ansBytes []byte
+		if err := rows.Scan(
+			&a.ID, &a.ExamID, &a.StudentID, &a.QuestionID, &ansBytes,
+			&a.IsFlagged, &a.Score, &a.IsGraded, &a.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		a.Answer = ansBytes
+		existingAnswers[a.QuestionID] = a
+	}
+
+	return &models.CbtStudentExamWorksheet{
+		Exam:             *exam,
+		Student:          st,
+		StartedAt:        startedAt,
+		RemainingSeconds: remainingSeconds,
+		Status:           attStatus,
+		Questions:        studentQuestions,
+		ExistingAnswers:  existingAnswers,
+	}, nil
+}
+
+func (r *Repository) SaveStudentAnswer(ctx context.Context, examID, studentID int64, p models.CbtSaveAnswerPayload) error {
+	ansStr := string(p.Answer)
+	if strings.TrimSpace(ansStr) == "" {
+		ansStr = "[]"
+	}
+
+	// 1. Upsert into cbt_student_answers
+	query := `
+		INSERT INTO cbt_student_answers (exam_id, student_id, question_id, answer_json, is_flagged)
+		VALUES (?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			answer_json = VALUES(answer_json),
+			is_flagged = VALUES(is_flagged),
+			updated_at = NOW()
+	`
+	_, err := r.db.ExecContext(ctx, query, examID, studentID, p.QuestionID, ansStr, p.IsFlagged)
+	if err != nil {
+		return err
+	}
+
+	// 2. Update progress in attendances
+	progressQuery := `
+		UPDATE cbt_exam_attendances
+		SET current_question_index = ?,
+		    answered_count = (
+		        SELECT COUNT(*) FROM cbt_student_answers
+		        WHERE exam_id = ? AND student_id = ? AND answer_json != '[]' AND answer_json != '""'
+		    ),
+		    flagged_count = (
+		        SELECT COUNT(*) FROM cbt_student_answers
+		        WHERE exam_id = ? AND student_id = ? AND is_flagged = 1
+		    )
+		WHERE exam_id = ? AND student_id = ?
+	`
+	_, _ = r.db.ExecContext(ctx, progressQuery, p.CurrentIndex, examID, studentID, examID, studentID, examID, studentID)
+	return nil
+}
+
+func (r *Repository) SubmitStudentExam(ctx context.Context, examID, studentID int64) (float64, error) {
+	exam, err := r.GetCbtExam(ctx, examID)
+	if err != nil || exam == nil {
+		return 0, fmt.Errorf("ujian tidak ditemukan")
+	}
+
+	questions, err := r.ListCbtQuestionsByBank(ctx, exam.QuestionBankID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Fetch student answers
+	ansQuery := `SELECT question_id, answer_json FROM cbt_student_answers WHERE exam_id = ? AND student_id = ?`
+	rows, err := r.db.QueryContext(ctx, ansQuery, examID, studentID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	studentAnswers := make(map[int64][]string)
+	for rows.Next() {
+		var qID int64
+		var ansBytes []byte
+		if err := rows.Scan(&qID, &ansBytes); err == nil {
+			var parsed []string
+			if err := json.Unmarshal(ansBytes, &parsed); err == nil {
+				studentAnswers[qID] = parsed
+			} else {
+				var singleStr string
+				if err := json.Unmarshal(ansBytes, &singleStr); err == nil && singleStr != "" {
+					studentAnswers[qID] = []string{singleStr}
+				}
+			}
+		}
+	}
+
+	totalQuestions := len(questions)
+	if totalQuestions == 0 {
+		totalQuestions = 1
+	}
+
+	pointsPerQ := 100.0 / float64(totalQuestions)
+	totalScore := 0.0
+
+	for _, q := range questions {
+		if q.QuestionType == "essay" {
+			continue // Essay requires manual grading
+		}
+
+		var correctKeys []string
+		_ = json.Unmarshal(q.CorrectAnswer, &correctKeys)
+		sAns := studentAnswers[q.ID]
+
+		isCorrect := false
+		if len(correctKeys) > 0 && len(sAns) > 0 {
+			if len(correctKeys) == 1 && len(sAns) == 1 {
+				isCorrect = strings.EqualFold(strings.TrimSpace(correctKeys[0]), strings.TrimSpace(sAns[0]))
+			} else if len(correctKeys) == len(sAns) {
+				// Match all
+				matched := 0
+				for _, ck := range correctKeys {
+					for _, sa := range sAns {
+						if strings.EqualFold(strings.TrimSpace(ck), strings.TrimSpace(sa)) {
+							matched++
+							break
+						}
+					}
+				}
+				if matched == len(correctKeys) {
+					isCorrect = true
+				}
+			}
+		}
+
+		qScore := 0.0
+		if isCorrect {
+			if exam.ScoringMode == "auto_even_100" {
+				qScore = pointsPerQ
+			} else {
+				qScore = q.Points
+			}
+			totalScore += qScore
+		}
+
+		// Update answer score
+		_, _ = r.db.ExecContext(ctx, `
+			UPDATE cbt_student_answers
+			SET score = ?, is_graded = 1
+			WHERE exam_id = ? AND student_id = ? AND question_id = ?
+		`, qScore, examID, studentID, q.ID)
+	}
+
+	if exam.ScoringMode == "auto_even_100" && totalScore > 100.0 {
+		totalScore = 100.0
+	}
+
+	// Update attendance to selesai
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE cbt_exam_attendances
+		SET status = 'selesai',
+		    finished_at = NOW(),
+		    score = ?
+		WHERE exam_id = ? AND student_id = ?
+	`, totalScore, examID, studentID)
+
+	return totalScore, err
+}
+
 

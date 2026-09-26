@@ -206,3 +206,57 @@ type CbtLiveToken struct {
 	SecondsRemaining int    `json:"seconds_remaining"`
 }
 
+// --- MODULE 3 MODELS: STUDENT EXAM PLAYER & AUTOSAVE ---
+
+type CbtStudentLoginPayload struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type CbtStudentAuthResponse struct {
+	Token   string     `json:"token"`
+	Student CbtStudent `json:"student"`
+}
+
+type CbtStudentAnswer struct {
+	ID         int64           `json:"id"`
+	ExamID     int64           `json:"exam_id"`
+	StudentID  int64           `json:"student_id"`
+	QuestionID int64           `json:"question_id"`
+	Answer     json.RawMessage `json:"answer"`
+	IsFlagged  bool            `json:"is_flagged"`
+	Score      float64         `json:"score"`
+	IsGraded   bool            `json:"is_graded"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
+type CbtSaveAnswerPayload struct {
+	QuestionID   int64           `json:"question_id"`
+	Answer       json.RawMessage `json:"answer"`
+	IsFlagged    bool            `json:"is_flagged"`
+	CurrentIndex int             `json:"current_index"`
+}
+
+// Sanitized question sent to students (WITHOUT correct answers / explanations)
+type CbtStudentQuestionView struct {
+	ID           int64               `json:"id"`
+	QuestionType string              `json:"question_type"`
+	QuestionText string              `json:"question_text"`
+	ImageURL     string              `json:"image_url"`
+	AudioURL     string              `json:"audio_url"`
+	Points       float64             `json:"points"`
+	Options      []CbtQuestionOption `json:"options"`
+	SortOrder    int                 `json:"sort_order"`
+}
+
+type CbtStudentExamWorksheet struct {
+	Exam               CbtExam                             `json:"exam"`
+	Student            CbtStudent                          `json:"student"`
+	StartedAt          *time.Time                          `json:"started_at"`
+	RemainingSeconds   int                                 `json:"remaining_seconds"`
+	Status             string                              `json:"status"`
+	Questions          []CbtStudentQuestionView            `json:"questions"`
+	ExistingAnswers    map[int64]CbtStudentAnswer          `json:"existing_answers"`
+}
+
+

@@ -62,3 +62,51 @@ func (m *TokenManager) Verify(tokenValue string) (*Claims, error) {
 
 	return claims, nil
 }
+
+type StudentClaims struct {
+	StudentID  int64  `json:"studentId"`
+	ExamNumber string `json:"examNumber"`
+	Name       string `json:"name"`
+	ClassName  string `json:"className"`
+	jwt.RegisteredClaims
+}
+
+func (m *TokenManager) IssueStudent(s models.CbtStudent) (string, time.Time, error) {
+	now := time.Now()
+	expiresAt := now.Add(24 * time.Hour) // 24 hours exam session
+	claims := StudentClaims{
+		StudentID:  s.ID,
+		ExamNumber: s.ExamNumber,
+		Name:       s.Name,
+		ClassName:  s.ClassName,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   s.ExamNumber,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(m.secret)
+	return signed, expiresAt, err
+}
+
+func (m *TokenManager) VerifyStudent(tokenValue string) (*StudentClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenValue, &StudentClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
+		return m.secret, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*StudentClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid student token")
+	}
+
+	return claims, nil
+}
+
