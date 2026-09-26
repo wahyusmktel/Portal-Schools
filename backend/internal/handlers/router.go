@@ -169,6 +169,54 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Post("/faqs", h.requireCSRF(h.requireAnyRole(h.createFAQ, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Put("/faqs/{id}", h.requireCSRF(h.requireAnyRole(h.updateFAQ, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/faqs/{id}", h.requireCSRF(h.requireAnyRole(h.deleteFAQ, models.RoleSuperadmin, models.RoleAdmin)))
+
+			// CBT Module 1 Routes
+			protected.Get("/cbt/subjects", h.listCbtSubjects)
+			protected.Post("/cbt/subjects", h.requireCSRF(h.requireAnyRole(h.createCbtSubject, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/cbt/subjects/{id}", h.requireCSRF(h.requireAnyRole(h.updateCbtSubject, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/cbt/subjects/{id}", h.requireCSRF(h.requireAnyRole(h.deleteCbtSubject, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Get("/cbt/question-banks", h.listCbtQuestionBanks)
+			protected.Get("/cbt/question-banks/{id}", h.getCbtQuestionBank)
+			protected.Post("/cbt/question-banks", h.requireCSRF(h.requireAnyRole(h.createCbtQuestionBank, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Put("/cbt/question-banks/{id}", h.requireCSRF(h.requireAnyRole(h.updateCbtQuestionBank, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Delete("/cbt/question-banks/{id}", h.requireCSRF(h.requireAnyRole(h.deleteCbtQuestionBank, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Get("/cbt/question-banks/{bankId}/questions", h.listCbtQuestions)
+			protected.Post("/cbt/question-banks/{bankId}/questions", h.requireCSRF(h.requireAnyRole(h.createCbtQuestion, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Put("/cbt/questions/{id}", h.requireCSRF(h.requireAnyRole(h.updateCbtQuestion, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Delete("/cbt/questions/{id}", h.requireCSRF(h.requireAnyRole(h.deleteCbtQuestion, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Post("/cbt/question-banks/{bankId}/import-docx", h.requireCSRF(h.requireAnyRole(h.importCbtDocx, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/cbt/uploads/audio", h.requireCSRF(h.requireAnyRole(h.uploadCbtAudio, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/cbt/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadCbtImage, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Get("/cbt/template-docx", h.downloadCbtDocxTemplate)
+
+			// CBT Module 2 Routes (Exams, Students, Rotating Token, Proctoring, Attendance, Official Reports)
+			protected.Get("/cbt/exams", h.listCbtExams)
+			protected.Get("/cbt/exams/{id}", h.getCbtExam)
+			protected.Post("/cbt/exams", h.requireCSRF(h.requireAnyRole(h.createCbtExam, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Put("/cbt/exams/{id}", h.requireCSRF(h.requireAnyRole(h.updateCbtExam, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/cbt/exams/{id}", h.requireCSRF(h.requireAnyRole(h.deleteCbtExam, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Get("/cbt/exams/{id}/live-token", h.getExamLiveToken)
+			protected.Post("/cbt/exams/{id}/validate-token", h.validateExamToken)
+
+			protected.Get("/cbt/students", h.listCbtStudents)
+			protected.Post("/cbt/students", h.requireCSRF(h.requireAnyRole(h.createCbtStudent, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/cbt/students/batch-generate", h.requireCSRF(h.requireAnyRole(h.batchGenerateCbtStudents, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/cbt/students/{id}", h.requireCSRF(h.requireAnyRole(h.deleteCbtStudent, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Post("/cbt/exams/{id}/assign-class", h.requireCSRF(h.requireAnyRole(h.assignClassToExam, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Get("/cbt/exams/{id}/proctors", h.listExamProctors)
+			protected.Post("/cbt/exams/{id}/proctors", h.requireCSRF(h.requireAnyRole(h.assignExamProctor, models.RoleSuperadmin, models.RoleAdmin)))
+			protected.Delete("/cbt/exams/proctors/{proctorId}", h.requireCSRF(h.requireAnyRole(h.removeExamProctor, models.RoleSuperadmin, models.RoleAdmin)))
+
+			protected.Get("/cbt/exams/{id}/attendances", h.listExamAttendances)
+			protected.Post("/cbt/exams/{id}/start", h.recordStudentStartExam)
+
+			protected.Get("/cbt/exams/{id}/report", h.getExamOfficialReport)
+			protected.Post("/cbt/exams/{id}/report", h.requireCSRF(h.requireAnyRole(h.saveExamOfficialReport, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 		})
 	})
 

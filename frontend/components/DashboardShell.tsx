@@ -32,12 +32,18 @@ import {
   ClipboardList,
   Sparkles,
   Target,
+  Database,
+  Layers,
 } from "lucide-react";
 import { API_URL } from "@/lib/api-config";
 import { logout } from "@/lib/auth-client";
 
 const menu = [
   { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard },
+  { href: "/dashboard/cbt/exams", label: "Jadwal Ujian CBT", icon: Calendar },
+  { href: "/dashboard/cbt/students", label: "Peserta & Kartu CBT", icon: Users },
+  { href: "/dashboard/cbt/banks", label: "Bank Soal CBT", icon: Database },
+  { href: "/dashboard/cbt/subjects", label: "Mapel CBT", icon: Layers },
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
   { href: "/dashboard/hero-slides", label: "Slider Hero", icon: Images },
   { href: "/dashboard/why-choose-us", label: "Why Sekolah", icon: Sparkles },
