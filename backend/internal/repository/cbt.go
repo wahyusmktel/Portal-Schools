@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -1118,5 +1119,327 @@ func (r *Repository) SubmitStudentExam(ctx context.Context, examID, studentID in
 
 	return totalScore, err
 }
+
+// --- MODULE 4: ITEM ANALYSIS, ESSAY GRADING & EXAM RESULTS ---
+
+func (r *Repository) GetExamResults(ctx context.Context, examID int64) ([]models.CbtStudentExamResult, error) {
+	// First get total questions count
+	var totalQ int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(q.id)
+		FROM cbt_exams e
+		JOIN cbt_questions q ON q.bank_id = e.question_bank_id
+		WHERE e.id = ?
+	`, examID).Scan(&totalQ)
+	if err != nil {
+		totalQ = 0
+	}
+
+	query := `
+		SELECT a.student_id, s.exam_number, s.nisn, s.name, s.class_name,
+		       a.status, COALESCE(a.score, 0),
+		       (
+		           SELECT COUNT(*) 
+		           FROM cbt_student_answers sa 
+		           WHERE sa.exam_id = a.exam_id AND sa.student_id = a.student_id AND sa.score > 0
+		       ) AS correct_count,
+		       a.started_at, a.finished_at
+		FROM cbt_exam_attendances a
+		JOIN cbt_students s ON s.id = a.student_id
+		WHERE a.exam_id = ?
+		ORDER BY COALESCE(a.score, 0) DESC, s.name ASC
+	`
+	rows, err := r.db.QueryContext(ctx, query, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.CbtStudentExamResult
+	for rows.Next() {
+		var res models.CbtStudentExamResult
+		res.TotalQuestions = totalQ
+		if err := rows.Scan(
+			&res.StudentID, &res.ExamNumber, &res.NISN, &res.Name, &res.ClassName,
+			&res.Status, &res.Score, &res.CorrectCount,
+			&res.StartedAt, &res.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		results = append(results, res)
+	}
+	return results, rows.Err()
+}
+
+func (r *Repository) GetExamItemAnalysis(ctx context.Context, examID int64) ([]models.CbtItemAnalysis, error) {
+	// 1. Get Exam info
+	exam, err := r.GetCbtExam(ctx, examID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Get all questions in the bank
+	questions, err := r.ListCbtQuestionsByBank(ctx, exam.QuestionBankID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Get students who participated and their total scores to compute Upper and Lower groups
+	type studentScore struct {
+		studentID int64
+		score     float64
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT student_id, COALESCE(score, 0)
+		FROM cbt_exam_attendances
+		WHERE exam_id = ? AND status IN ('sedang_mengerjakan', 'selesai')
+		ORDER BY COALESCE(score, 0) DESC
+	`, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []studentScore
+	for rows.Next() {
+		var ss studentScore
+		if err := rows.Scan(&ss.studentID, &ss.score); err != nil {
+			return nil, err
+		}
+		students = append(students, ss)
+	}
+
+	totalStudents := len(students)
+
+	// Determine upper and lower group sizes (27% rule, minimum 1 if total >= 2)
+	upperGroup := make(map[int64]bool)
+	lowerGroup := make(map[int64]bool)
+	var groupSize int
+	if totalStudents >= 4 {
+		groupSize = int(math.Round(float64(totalStudents) * 0.27))
+		if groupSize < 1 {
+			groupSize = 1
+		}
+	} else if totalStudents >= 2 {
+		groupSize = 1
+	}
+
+	for i := 0; i < groupSize; i++ {
+		upperGroup[students[i].studentID] = true
+	}
+	for i := totalStudents - groupSize; i < totalStudents; i++ {
+		if i >= 0 {
+			lowerGroup[students[i].studentID] = true
+		}
+	}
+
+	// 4. Fetch all answers for this exam
+	ansRows, err := r.db.QueryContext(ctx, `
+		SELECT student_id, question_id, answer, score
+		FROM cbt_student_answers
+		WHERE exam_id = ?
+	`, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer ansRows.Close()
+
+	type ansData struct {
+		answerRaw json.RawMessage
+		score     float64
+	}
+	// map[questionID]map[studentID]ansData
+	qStudentAnswers := make(map[int64]map[int64]ansData)
+	for ansRows.Next() {
+		var sID, qID int64
+		var raw json.RawMessage
+		var sc float64
+		if err := ansRows.Scan(&sID, &qID, &raw, &sc); err != nil {
+			return nil, err
+		}
+		if _, ok := qStudentAnswers[qID]; !ok {
+			qStudentAnswers[qID] = make(map[int64]ansData)
+		}
+		qStudentAnswers[qID][sID] = ansData{answerRaw: raw, score: sc}
+	}
+
+	// 5. Compute metrics for each question
+	var analysisList []models.CbtItemAnalysis
+	for idx, q := range questions {
+		item := models.CbtItemAnalysis{
+			QuestionID:          q.ID,
+			SortOrder:           idx + 1,
+			QuestionText:        q.QuestionText,
+			QuestionType:        q.QuestionType,
+			OptionDistribution:  make(map[string]int),
+			TotalRespondents:    totalStudents,
+		}
+
+		// Parse correct answer label
+		var correctKeys []string
+		_ = json.Unmarshal(q.CorrectAnswer, &correctKeys)
+		if len(correctKeys) > 0 {
+			item.CorrectAnswer = strings.Join(correctKeys, ", ")
+		}
+
+		answersForQ := qStudentAnswers[q.ID]
+		respondentCount := len(answersForQ)
+		if respondentCount == 0 && totalStudents > 0 {
+			// keep 0
+		} else if respondentCount > 0 {
+			item.TotalRespondents = respondentCount
+		}
+
+		correctCount := 0
+		upperCorrect := 0
+		lowerCorrect := 0
+
+		for sID, ad := range answersForQ {
+			// Distractor distribution
+			var sAns []string
+			if err := json.Unmarshal(ad.answerRaw, &sAns); err != nil {
+				var single string
+				if err2 := json.Unmarshal(ad.answerRaw, &single); err2 == nil && single != "" {
+					sAns = []string{single}
+				}
+			}
+			for _, opt := range sAns {
+				optUpper := strings.ToUpper(strings.TrimSpace(opt))
+				if optUpper != "" {
+					item.OptionDistribution[optUpper]++
+				}
+			}
+
+			// Correctness
+			isCorrect := ad.score > 0
+			if isCorrect {
+				correctCount++
+				if upperGroup[sID] {
+					upperCorrect++
+				}
+				if lowerGroup[sID] {
+					lowerCorrect++
+				}
+			}
+		}
+
+		item.CorrectCount = correctCount
+
+		// Difficulty Index P = B / N
+		if item.TotalRespondents > 0 {
+			item.DifficultyIndex = math.Round((float64(correctCount)/float64(item.TotalRespondents))*100) / 100
+		}
+		if item.DifficultyIndex >= 0.70 {
+			item.DifficultyLabel = "Mudah"
+		} else if item.DifficultyIndex >= 0.30 {
+			item.DifficultyLabel = "Sedang"
+		} else {
+			item.DifficultyLabel = "Sukar"
+		}
+
+		// Discrimination Index D = (BA - BB) / nGroup
+		if groupSize > 0 {
+			item.DiscriminationIndex = math.Round((float64(upperCorrect-lowerCorrect)/float64(groupSize))*100) / 100
+		} else {
+			item.DiscriminationIndex = 0
+		}
+
+		if item.DiscriminationIndex >= 0.40 {
+			item.DiscriminationLabel = "Sangat Baik"
+		} else if item.DiscriminationIndex >= 0.30 {
+			item.DiscriminationLabel = "Baik"
+		} else if item.DiscriminationIndex >= 0.20 {
+			item.DiscriminationLabel = "Cukup"
+		} else {
+			item.DiscriminationLabel = "Kurang / Buruk"
+		}
+
+		analysisList = append(analysisList, item)
+	}
+
+	return analysisList, nil
+}
+
+func (r *Repository) GetExamEssaySubmissions(ctx context.Context, examID int64) ([]models.CbtEssaySubmission, error) {
+	query := `
+		SELECT s.id, s.name, s.exam_number,
+		       q.id, q.question_text, q.points,
+		       COALESCE(sa.answer, '""'), COALESCE(sa.score, 0), COALESCE(sa.is_graded, 0)
+		FROM cbt_exams e
+		JOIN cbt_questions q ON q.bank_id = e.question_bank_id AND q.question_type = 'essay'
+		JOIN cbt_exam_attendances a ON a.exam_id = e.id
+		JOIN cbt_students s ON s.id = a.student_id
+		LEFT JOIN cbt_student_answers sa ON sa.exam_id = e.id AND sa.student_id = s.id AND sa.question_id = q.id
+		WHERE e.id = ?
+		ORDER BY q.sort_order ASC, s.name ASC
+	`
+	rows, err := r.db.QueryContext(ctx, query, examID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []models.CbtEssaySubmission
+	for rows.Next() {
+		var sub models.CbtEssaySubmission
+		var rawAns string
+		var isGradedInt int
+		if err := rows.Scan(
+			&sub.StudentID, &sub.StudentName, &sub.ExamNumber,
+			&sub.QuestionID, &sub.QuestionText, &sub.MaxPoints,
+			&rawAns, &sub.Score, &isGradedInt,
+		); err != nil {
+			return nil, err
+		}
+
+		// unmarshal answer text
+		var parsedText string
+		if err := json.Unmarshal([]byte(rawAns), &parsedText); err != nil {
+			parsedText = rawAns
+		}
+		sub.AnswerText = parsedText
+		sub.IsGraded = isGradedInt == 1
+
+		subs = append(subs, sub)
+	}
+	return subs, rows.Err()
+}
+
+func (r *Repository) GradeStudentEssay(ctx context.Context, examID int64, payload models.GradeEssayPayload) error {
+	// 1. Update the student's answer score for this essay question
+	query := `
+		INSERT INTO cbt_student_answers (exam_id, student_id, question_id, answer, score, is_graded, updated_at)
+		VALUES (?, ?, ?, '""', ?, 1, NOW())
+		ON DUPLICATE KEY UPDATE
+		    score = VALUES(score),
+		    is_graded = 1,
+		    updated_at = NOW()
+	`
+	_, err := r.db.ExecContext(ctx, query, examID, payload.StudentID, payload.QuestionID, payload.Score)
+	if err != nil {
+		return err
+	}
+
+	// 2. Recalculate total score for this student in cbt_exam_attendances
+	var totalScore float64
+	err = r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(score), 0)
+		FROM cbt_student_answers
+		WHERE exam_id = ? AND student_id = ?
+	`, examID, payload.StudentID).Scan(&totalScore)
+	if err != nil {
+		return err
+	}
+
+	// 3. Update attendance score
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE cbt_exam_attendances
+		SET score = ?
+		WHERE exam_id = ? AND student_id = ?
+	`, totalScore, examID, payload.StudentID)
+
+	return err
+}
+
 
 

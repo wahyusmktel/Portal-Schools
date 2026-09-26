@@ -227,6 +227,12 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 
 			protected.Get("/cbt/exams/{id}/report", h.getExamOfficialReport)
 			protected.Post("/cbt/exams/{id}/report", h.requireCSRF(h.requireAnyRole(h.saveExamOfficialReport, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+
+			// CBT Module 4 Routes (Item Analysis, Essay Grading, Results)
+			protected.Get("/cbt/exams/{id}/results", h.getCbtExamResults)
+			protected.Get("/cbt/exams/{id}/item-analysis", h.getCbtItemAnalysis)
+			protected.Get("/cbt/exams/{id}/essays", h.getCbtExamEssaySubmissions)
+			protected.Post("/cbt/exams/{id}/grade-essay", h.requireCSRF(h.requireAnyRole(h.gradeCbtStudentEssay, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 		})
 	})
 

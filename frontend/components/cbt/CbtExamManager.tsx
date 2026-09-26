@@ -19,6 +19,7 @@ import {
   BookOpen,
   X,
   UserCheck,
+  BarChart3,
 } from "lucide-react";
 import { CbtExam, CbtQuestionBank, RandomizeMode, ScoringMode } from "@/types/cbt";
 import { API_URL } from "@/lib/api-config";
@@ -393,13 +394,24 @@ export function CbtExamManager() {
                     + Siswa Kelas
                   </button>
 
-                  <Link
-                    href={`/dashboard/cbt/exams/${exam.id}/proctor`}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-100 transition group"
-                  >
-                    <span>Layar Pengawas & Token</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/dashboard/cbt/exams/${exam.id}/analysis`}
+                      className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
+                      title="Lihat Rekap Nilai, Koreksi Esai & Analisis Butir Soal"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Nilai & Analisis</span>
+                    </Link>
+
+                    <Link
+                      href={`/dashboard/cbt/exams/${exam.id}/proctor`}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm shadow-indigo-100 transition group"
+                    >
+                      <span>Pengawas</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

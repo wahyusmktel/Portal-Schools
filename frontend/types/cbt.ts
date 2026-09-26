@@ -187,3 +187,53 @@ export interface CbtStudentExamWorksheet {
   existing_answers: Record<number, CbtStudentAnswer>;
 }
 
+// --- MODULE 4: ITEM ANALYSIS, ESSAY GRADING & RESULTS ---
+
+export interface CbtItemAnalysis {
+  question_id: number;
+  sort_order: number;
+  question_text: string;
+  question_type: string;
+  correct_answer: string;
+  total_respondents: number;
+  correct_count: number;
+  difficulty_index: number;
+  difficulty_label: string; // Sukar, Sedang, Mudah
+  discrimination_index: number;
+  discrimination_label: string; // Sangat Baik, Baik, Cukup, Kurang / Buruk
+  option_distribution: Record<string, number>;
+}
+
+export interface CbtStudentExamResult {
+  student_id: number;
+  exam_number: string;
+  nisn: string;
+  name: string;
+  class_name: string;
+  status: string;
+  score: number;
+  correct_count: number;
+  total_questions: number;
+  started_at?: string;
+  finished_at?: string;
+}
+
+export interface CbtEssaySubmission {
+  student_id: number;
+  student_name: string;
+  exam_number: string;
+  question_id: number;
+  question_text: string;
+  max_points: number;
+  answer_text: string;
+  score: number;
+  is_graded: boolean;
+}
+
+export interface GradeEssayPayload {
+  student_id: number;
+  question_id: number;
+  score: number;
+}
+
+

@@ -250,13 +250,63 @@ type CbtStudentQuestionView struct {
 }
 
 type CbtStudentExamWorksheet struct {
-	Exam               CbtExam                             `json:"exam"`
-	Student            CbtStudent                          `json:"student"`
-	StartedAt          *time.Time                          `json:"started_at"`
-	RemainingSeconds   int                                 `json:"remaining_seconds"`
-	Status             string                              `json:"status"`
-	Questions          []CbtStudentQuestionView            `json:"questions"`
-	ExistingAnswers    map[int64]CbtStudentAnswer          `json:"existing_answers"`
+	Exam             CbtExam                    `json:"exam"`
+	Student          CbtStudent                 `json:"student"`
+	StartedAt        *time.Time                 `json:"started_at"`
+	RemainingSeconds int                        `json:"remaining_seconds"`
+	Status           string                     `json:"status"`
+	Questions        []CbtStudentQuestionView   `json:"questions"`
+	ExistingAnswers  map[int64]CbtStudentAnswer `json:"existing_answers"`
 }
+
+// --- MODULE 4 MODELS: ITEM ANALYSIS, ESSAY GRADING & REPORTS ---
+
+type CbtItemAnalysis struct {
+	QuestionID          int64          `json:"question_id"`
+	SortOrder           int            `json:"sort_order"`
+	QuestionText        string         `json:"question_text"`
+	QuestionType        string         `json:"question_type"`
+	CorrectAnswer       string         `json:"correct_answer"`
+	TotalRespondents    int            `json:"total_respondents"`
+	CorrectCount        int            `json:"correct_count"`
+	DifficultyIndex     float64        `json:"difficulty_index"`
+	DifficultyLabel     string         `json:"difficulty_label"` // Sukar, Sedang, Mudah
+	DiscriminationIndex float64        `json:"discrimination_index"`
+	DiscriminationLabel string         `json:"discrimination_label"` // Sangat Baik, Baik, Cukup, Kurang
+	OptionDistribution  map[string]int `json:"option_distribution"`
+}
+
+type CbtStudentExamResult struct {
+	StudentID      int64      `json:"student_id"`
+	ExamNumber     string     `json:"exam_number"`
+	NISN           string     `json:"nisn"`
+	Name           string     `json:"name"`
+	ClassName      string     `json:"class_name"`
+	Status         string     `json:"status"`
+	Score          float64    `json:"score"`
+	CorrectCount   int        `json:"correct_count"`
+	TotalQuestions int        `json:"total_questions"`
+	StartedAt      *time.Time `json:"started_at"`
+	FinishedAt     *time.Time `json:"finished_at"`
+}
+
+type CbtEssaySubmission struct {
+	StudentID    int64   `json:"student_id"`
+	StudentName  string  `json:"student_name"`
+	ExamNumber   string  `json:"exam_number"`
+	QuestionID   int64   `json:"question_id"`
+	QuestionText string  `json:"question_text"`
+	MaxPoints    float64 `json:"max_points"`
+	AnswerText   string  `json:"answer_text"`
+	Score        float64 `json:"score"`
+	IsGraded     bool    `json:"is_graded"`
+}
+
+type GradeEssayPayload struct {
+	StudentID  int64   `json:"student_id"`
+	QuestionID int64   `json:"question_id"`
+	Score      float64 `json:"score"`
+}
+
 
 
