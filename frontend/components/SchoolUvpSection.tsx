@@ -1,7 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion, useMotionValueEvent, useScroll, useTransform, type MotionValue } from "framer-motion";
-import { BadgeCheck, BriefcaseBusiness, Cpu, Layers3, Route, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, ChevronLeft, ChevronRight, Cpu, Layers3, Route, ShieldCheck, Sparkles, Target } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import type { SchoolUVPItem } from "@/types/content";
 
@@ -17,6 +19,17 @@ const iconMap = {
 };
 
 const pathwayLabels = ["B", "M", "W"];
+
+const itemTags: Record<number, string[]> = {
+  1: ["Magang Industri", "Fast Track PTN", "Wirausaha"],
+  2: ["Digital Product Dev", "Real Projects", "Informatika"],
+  3: ["1 Siswa 5 Portofolio", "Talent Mapping", "Karier"],
+  4: ["Karakter Unggul", "Zero Trash", "Pembinaan Asrama"],
+  5: ["Smart Home", "Cloud Infra", "AI & Animasi"],
+  6: ["SPMB Terarah", "Karakter Siap", "Ekosistem Telkom"]
+};
+
+const chipShortNames = ["BMW Pathway", "COE Dev", "Portofolio", "Karakter", "Kompetensi", "Target 2026"];
 
 export function SchoolUvpSection({ items }: { items: SchoolUVPItem[] }) {
   const ref = useRef<HTMLElement | null>(null);
@@ -66,9 +79,256 @@ export function SchoolUvpSection({ items }: { items: SchoolUVPItem[] }) {
     });
   }
 
+  function handlePrev() {
+    if (active > 0) {
+      scrollToItem(active - 1);
+    }
+  }
+
+  function handleNext() {
+    if (active < sortedItems.length - 1) {
+      scrollToItem(active + 1);
+    }
+  }
+
   return (
-    <section ref={ref} id="uvp-sekolah" className="relative h-[360vh] bg-[#170907] text-white">
-      <div className="sticky top-0 h-screen overflow-hidden">
+    <section ref={ref} id="uvp-sekolah" className="relative h-[280vh] lg:h-[360vh] scroll-mt-20 bg-[#170907] text-white">
+      {/* ============================================================== */}
+      {/* 📱 KHUSUS MOBILE: FUTURISTIC STRATEGY DOSSIER & BMW TERMINAL */}
+      {/* ============================================================== */}
+      <div className="block lg:hidden sticky top-[68px] sm:top-[74px] h-[calc(100dvh-68px)] sm:h-[calc(100dvh-74px)] overflow-hidden text-white">
+        {/* Background visual & circuit */}
+        <div className="absolute inset-0 opacity-40">
+          <Image
+            src="/images/Portal TG Magz Q1 - 2026_1.jpg"
+            alt="UVP SMK Telkom Lampung"
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#170907]/95 via-[#1a0a09]/90 to-[#170907]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_74%_24%,rgba(220,38,38,0.28),transparent_42%)]" />
+        <UvpSignalField progress={lineProgress} />
+
+        {/* Kontainer Flex Setinggi Viewport Mobile */}
+        <div className="relative z-10 flex h-full flex-col justify-between p-3 sm:p-4">
+          
+          {/* 1. BAGIAN ATAS: TECH HUD BAR & JUDUL */}
+          <div className="shrink-0 space-y-1.5">
+            {/* HUD Status Bar */}
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-rosebrand-500/30 bg-rosebrand-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-rosebrand-300 backdrop-blur">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rosebrand-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rosebrand-500" />
+                </span>
+                UVP STRATEGY BLUEPRINT
+              </div>
+
+              <div className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-black backdrop-blur">
+                <span className="text-white">{String(active + 1).padStart(2, "0")}</span>
+                <span className="text-white/40">/</span>
+                <span className="text-white/60">{String(sortedItems.length).padStart(2, "0")}</span>
+              </div>
+            </div>
+
+            {/* Judul & Pengantar Singkat */}
+            <div className="px-1">
+              <h2 className="text-sm sm:text-base font-black leading-snug tracking-tight text-white line-clamp-1">
+                Strategi sekolah yang terasa seperti peta masa depan.
+              </h2>
+            </div>
+
+            {/* BMW Pathway Trio Terminal (Interactive Pathway Switcher) */}
+            <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+              {[
+                { key: "B", label: "Bekerja", hint: "Industri & Magang" },
+                { key: "M", label: "Melanjutkan", hint: "Kuliah & PTN" },
+                { key: "W", label: "Wirausaha", hint: "Bisnis Digital" },
+              ].map((bmw) => (
+                <button
+                  key={bmw.key}
+                  type="button"
+                  onClick={() => scrollToItem(0)}
+                  className={`group relative flex flex-col items-start rounded-xl p-2 text-left transition-all border ${
+                    active === 0
+                      ? "bg-rosebrand-950/90 border-rosebrand-500/80 text-white shadow-md shadow-rosebrand-600/30 ring-1 ring-rosebrand-500/40"
+                      : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded leading-none ${active === 0 ? "bg-rosebrand-600 text-white" : "bg-white/10 text-rosebrand-300"}`}>
+                      {bmw.key}
+                    </span>
+                    <span className="text-[8px] font-black uppercase text-white/40 tracking-wider">PATH</span>
+                  </div>
+                  <p className="text-[11px] font-black text-white mt-1 leading-tight">{bmw.label}</p>
+                  <p className="text-[8.5px] font-semibold text-white/50 leading-tight truncate w-full mt-0.5">{bmw.hint}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Horizontal Cyber-Chip Navigation Strip */}
+            <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-0.5 px-0.5">
+              {sortedItems.map((item, index) => {
+                const Icon = iconMap[item.icon as keyof typeof iconMap] || Sparkles;
+                const isActive = active === index;
+                const chipLabel = chipShortNames[index] || item.title;
+
+                return (
+                  <button
+                    key={`uvp-chip-${item.id}`}
+                    type="button"
+                    onClick={() => scrollToItem(index)}
+                    className={`flex items-center gap-1.5 shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black transition-all ${
+                      isActive
+                        ? "bg-rosebrand-600 text-white shadow-md shadow-rosebrand-600/40 ring-1 ring-white/30 scale-[1.02]"
+                        : "bg-white/10 text-white/65 hover:bg-white/15 hover:text-white border border-white/5"
+                    }`}
+                  >
+                    <Icon size={12} className={isActive ? "text-white" : "text-white/60"} aria-hidden />
+                    <span>{chipLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. BODY: FULL-WIDTH FUTURISTIC DOSSIER CARD */}
+          <div className="flex-1 min-h-0 flex flex-col my-1.5">
+            <AnimatePresence mode="wait">
+              <motion.article
+                key={`uvp-mobile-card-${activeItem.id}`}
+                initial={{ opacity: 0, scale: 0.97, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: -10 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="relative flex-1 min-h-0 rounded-2xl border border-white/20 bg-gradient-to-b from-zinc-900/90 via-[#1e0a0a]/90 to-[#120404]/95 backdrop-blur-xl p-3.5 sm:p-4 shadow-2xl flex flex-col justify-between overflow-hidden"
+              >
+                {/* Decorative Watermark & Ambient Glow */}
+                <div className="pointer-events-none absolute -right-6 -bottom-6 w-36 h-36 rounded-full bg-rosebrand-600/20 blur-3xl" />
+                <div className="pointer-events-none absolute right-3 top-1 text-[72px] sm:text-[88px] font-black text-white/[0.04] select-none leading-none">
+                  {String(active + 1).padStart(2, "0")}
+                </div>
+
+                {/* Card Top Row */}
+                <div className="relative z-10 shrink-0">
+                  <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-rosebrand-600 to-rosebrand-500 text-white shadow-lg shadow-rosebrand-600/40 ring-1 ring-white/20">
+                        <ActiveIcon size={20} aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <span className="inline-block rounded-full border border-rosebrand-500/40 bg-rosebrand-950/80 px-2.5 py-0.5 text-[9.5px] font-black uppercase text-rose-300">
+                          {activeItem.category || "UVP Unggulan"}
+                        </span>
+                        <p className="text-[10px] font-bold text-white/50 truncate mt-0.5">
+                          {activeItem.highlight || "Strategi Terintegrasi"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Judul & Subtitle */}
+                  <div className="mt-2">
+                    <h3 className="text-base sm:text-lg font-black leading-snug text-white">
+                      {activeItem.title}
+                    </h3>
+                    {activeItem.subtitle && (
+                      <p className="text-xs font-black text-rosebrand-400 mt-0.5">
+                        {activeItem.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Feature Tags / Key Insights */}
+                  {itemTags[activeItem.id] && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {itemTags[activeItem.id].map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[9.5px] font-bold text-white/80"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Deskripsi Lengkap (Scrollable jika teks panjang) */}
+                <div className="relative z-10 flex-1 min-h-0 my-2 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/20">
+                  <p className="text-xs sm:text-sm font-medium leading-relaxed text-white/75">
+                    {activeItem.description}
+                  </p>
+                </div>
+
+                {/* Card Footer Controls */}
+                <div className="relative z-10 shrink-0 pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                  <Link
+                    href="/spmb"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-rosebrand-600 px-3.5 text-xs font-black text-white transition hover:bg-rosebrand-500 shadow-md shadow-rosebrand-600/30 active:scale-95"
+                  >
+                    <span>Pilih Jalur SPMB</span>
+                    <ArrowRight size={13} aria-hidden />
+                  </Link>
+
+                  {/* Tombol Navigasi Cepat Kiri/Kanan */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handlePrev}
+                      disabled={active === 0}
+                      aria-label="Strategi sebelumnya"
+                      className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition disabled:opacity-25 disabled:pointer-events-none hover:bg-white/20 active:scale-95"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={active === sortedItems.length - 1}
+                      aria-label="Strategi berikutnya"
+                      className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-white/10 text-white transition disabled:opacity-25 disabled:pointer-events-none hover:bg-white/20 active:scale-95"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </motion.article>
+            </AnimatePresence>
+          </div>
+
+          {/* 3. SEGMENTED PROGRESS TRACKER BAWAH */}
+          <div className="flex items-center gap-1 py-0.5 shrink-0 px-1">
+            {sortedItems.map((item, index) => (
+              <button
+                key={`uvp-seg-${item.id}`}
+                type="button"
+                onClick={() => scrollToItem(index)}
+                aria-label={`Ke strategi ${index + 1}`}
+                className="relative flex-1 h-1.5 rounded-full overflow-hidden bg-white/15 transition-all"
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    active === index
+                      ? "w-full bg-rosebrand-500 shadow-sm shadow-rosebrand-500"
+                      : active > index
+                      ? "w-full bg-white/50"
+                      : "w-0"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* 💻 KHUSUS DESKTOP (TIDAK BERUBAH SAMA SEKALI) */}
+      {/* ============================================================== */}
+      <div className="hidden lg:block sticky top-0 h-screen overflow-hidden">
         <motion.div
           className="absolute inset-[-6%] bg-cover bg-center"
           style={{
