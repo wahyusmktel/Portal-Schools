@@ -56,7 +56,7 @@ export function Header({ logoUrl }: HeaderProps) {
   }, []);
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${isScrolled ? 'pt-0 px-0' : 'pt-6 px-4 md:px-8'}`}>
+    <header className={`fixed inset-x-0 top-0 z-[80] transition-all duration-300 ${isScrolled ? 'pt-0 px-0' : 'pt-6 px-4 md:px-8'}`}>
       <div 
         className={`mx-auto flex w-full items-center justify-between gap-4 backdrop-blur-xl transition-all duration-300 ease-out ${
           isScrolled 
