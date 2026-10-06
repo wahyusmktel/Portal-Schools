@@ -1,16 +1,21 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   BriefcaseBusiness,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  GraduationCap,
   Network,
   Palette,
   TerminalSquare
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { Major } from "@/types/content";
 
@@ -22,6 +27,19 @@ const majorIcons = {
 
 const fallbackCover =
   "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1600&q=82";
+
+function getMajorAbbr(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes("jaringan akses") || lower.includes("tjat")) return "TJAT";
+  if (lower.includes("komputer") || lower.includes("tkj")) return "TKJ";
+  if (lower.includes("perangkat lunak") || lower.includes("rpl")) return "RPL";
+  if (lower.includes("animasi")) return "Animasi";
+  const words = name.split(" ");
+  if (words.length > 1) {
+    return words.map((w) => w[0]).join("").toUpperCase();
+  }
+  return name.slice(0, 10);
+}
 
 export function MajorShowcase({ majors }: { majors: Major[] }) {
   const [active, setActive] = useState(0);
@@ -37,51 +55,63 @@ export function MajorShowcase({ majors }: { majors: Major[] }) {
   }
 
   return (
-    <section id="jurusan" className="relative bg-white">
-      <div className="pointer-events-none absolute inset-y-0 right-4 z-40 hidden lg:block">
-        <div className="pointer-events-auto sticky top-[calc(50vh-92px)] grid gap-3 rounded-full bg-zinc-950/90 p-2 text-white shadow-soft backdrop-blur">
-          <button
-            type="button"
-            aria-label="Jurusan sebelumnya"
-            onClick={() => goTo(active - 1)}
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition hover:bg-rosebrand-500"
-          >
-            <ArrowUp size={19} aria-hidden />
-          </button>
-          <div className="grid gap-2 px-1 py-1">
-            {majors.map((major, index) => (
-              <button
-                key={major.slug}
-                type="button"
-                aria-label={`Buka ${major.name}`}
-                onClick={() => goTo(index)}
-                className={`mx-auto h-3 rounded-full transition ${
-                  active === index ? "w-3 bg-rosebrand-500" : "w-2 bg-white/50 hover:bg-white/80"
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            aria-label="Jurusan berikutnya"
-            onClick={() => goTo(active + 1)}
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition hover:bg-rosebrand-500"
-          >
-            <ArrowDown size={19} aria-hidden />
-          </button>
-        </div>
+    <section id="jurusan" className="relative bg-white scroll-mt-16">
+      {/* ============================================================== */}
+      {/* 📱 KHUSUS MOBILE: MENU JURUSAN & OPTIMALISASI KONTEN LENGKAP */}
+      {/* ============================================================== */}
+      <div className="block lg:hidden">
+        <MobileMajorShowcase majors={majors} />
       </div>
 
-      {majors.map((major, index) => (
-        <MajorScrollScene
-          key={major.slug}
-          id={sectionIds[index]}
-          major={major}
-          index={index}
-          total={majors.length}
-          onEnter={() => setActive(index)}
-        />
-      ))}
+      {/* ============================================================== */}
+      {/* 💻 KHUSUS DESKTOP (TIDAK BERUBAH) */}
+      {/* ============================================================== */}
+      <div className="hidden lg:block">
+        <div className="pointer-events-none absolute inset-y-0 right-4 z-40">
+          <div className="pointer-events-auto sticky top-[calc(50vh-92px)] grid gap-3 rounded-full bg-zinc-950/90 p-2 text-white shadow-soft backdrop-blur">
+            <button
+              type="button"
+              aria-label="Jurusan sebelumnya"
+              onClick={() => goTo(active - 1)}
+              className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition hover:bg-rosebrand-500"
+            >
+              <ArrowUp size={19} aria-hidden />
+            </button>
+            <div className="grid gap-2 px-1 py-1">
+              {majors.map((major, index) => (
+                <button
+                  key={major.slug}
+                  type="button"
+                  aria-label={`Buka ${major.name}`}
+                  onClick={() => goTo(index)}
+                  className={`mx-auto h-3 rounded-full transition ${
+                    active === index ? "w-3 bg-rosebrand-500" : "w-2 bg-white/50 hover:bg-white/80"
+                  }`}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-label="Jurusan berikutnya"
+              onClick={() => goTo(active + 1)}
+              className="grid h-11 w-11 place-items-center rounded-full bg-white/10 transition hover:bg-rosebrand-500"
+            >
+              <ArrowDown size={19} aria-hidden />
+            </button>
+          </div>
+        </div>
+
+        {majors.map((major, index) => (
+          <MajorScrollScene
+            key={major.slug}
+            id={sectionIds[index]}
+            major={major}
+            index={index}
+            total={majors.length}
+            onEnter={() => setActive(index)}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -218,5 +248,237 @@ function MajorScrollScene({
         </div>
       </div>
     </section>
+  );
+}
+
+function MobileMajorShowcase({ majors }: { majors: Major[] }) {
+  const [mobileActive, setMobileActive] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  if (majors.length === 0) return null;
+
+  const currentMajor = majors[mobileActive] || majors[0];
+  const Icon = majorIcons[currentMajor.icon as keyof typeof majorIcons] || Network;
+  const curriculum = Array.isArray(currentMajor.curriculum) ? currentMajor.curriculum : [];
+  const careerProspects = Array.isArray(currentMajor.careerProspects) ? currentMajor.careerProspects : [];
+  const coverImage = currentMajor.coverImage || fallbackCover;
+  const currentAbbr = getMajorAbbr(currentMajor.name);
+
+  function handleSelect(index: number) {
+    setMobileActive(index);
+    if (containerRef.current) {
+      const topOffset = containerRef.current.getBoundingClientRect().top + window.scrollY - 70;
+      window.scrollTo({ top: topOffset, behavior: "smooth" });
+    }
+  }
+
+  function handleNext() {
+    if (mobileActive < majors.length - 1) {
+      handleSelect(mobileActive + 1);
+    } else {
+      handleSelect(0);
+    }
+  }
+
+  function handlePrev() {
+    if (mobileActive > 0) {
+      handleSelect(mobileActive - 1);
+    } else {
+      handleSelect(majors.length - 1);
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="py-7 px-4 sm:px-6 bg-slate-50/70 border-b border-zinc-200/80">
+      {/* 1. Header Pengantar */}
+      <div className="mb-4">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-rosebrand-200 bg-rosebrand-50 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-rosebrand-700">
+          <GraduationCap size={14} className="text-rosebrand-600" />
+          <span>Kompetensi Keahlian</span>
+        </div>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-zinc-900 leading-tight">
+          Pilihan Jurusan Masa Depan
+        </h2>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-600">
+          Pendidikan vokasi teknologi terakreditasi dengan kurikulum industri dan peluang kerja nyata.
+        </p>
+      </div>
+
+      {/* 2. Menu Tab Jurusan Mobile (Sticky) */}
+      <div className="sticky top-[64px] sm:top-[68px] z-30 -mx-4 px-4 py-2.5 bg-white/95 backdrop-blur-md border-y border-zinc-200/80 shadow-xs mb-5">
+        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {majors.map((major, index) => {
+            const TabIcon = majorIcons[major.icon as keyof typeof majorIcons] || Network;
+            const isTabActive = mobileActive === index;
+            const abbr = getMajorAbbr(major.name);
+
+            return (
+              <button
+                key={`mobile-tab-${major.slug}`}
+                type="button"
+                onClick={() => handleSelect(index)}
+                className={`relative flex items-center gap-1.5 shrink-0 rounded-xl px-3 py-2 text-xs font-black transition-all duration-200 ${
+                  isTabActive
+                    ? "bg-rosebrand-600 text-white shadow-md shadow-rosebrand-600/30 scale-[1.02]"
+                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200/80 hover:text-zinc-900"
+                }`}
+              >
+                <TabIcon size={14} className={isTabActive ? "text-white" : "text-zinc-500"} />
+                <span>{abbr}</span>
+                <span className={`text-[10px] ml-0.5 px-1 py-0.2 rounded font-extrabold ${isTabActive ? "bg-white/20 text-white" : "bg-zinc-200/70 text-zinc-500"}`}>
+                  0{index + 1}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Konten Lengkap Jurusan Aktif (Tampil Penuh, Semua Terbaca) */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentMajor.slug}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="rounded-3xl border border-zinc-200/90 bg-white p-4 sm:p-5 shadow-sm space-y-5"
+        >
+          {/* Cover Visual Card */}
+          <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-zinc-950 shadow-md">
+            <Image
+              src={coverImage}
+              alt={`Cover jurusan ${currentMajor.name}`}
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/30 to-transparent" />
+            
+            {/* Top Badges */}
+            <div className="absolute top-3 inset-x-3 flex items-center justify-between">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-rosebrand-600 text-white shadow-md">
+                <Icon size={20} aria-hidden />
+              </span>
+              <span className="rounded-full bg-black/60 backdrop-blur-md px-3 py-1 text-[11px] font-black text-white/90 border border-white/20">
+                0{mobileActive + 1} / 0{majors.length}
+              </span>
+            </div>
+
+            {/* Bottom Overlay Label */}
+            <div className="absolute bottom-3 inset-x-3 text-white">
+              <div className="inline-block rounded-md bg-rosebrand-600/90 backdrop-blur px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                {currentAbbr}
+              </div>
+              <p className="mt-1 text-sm font-black text-white drop-shadow-sm line-clamp-1">
+                {currentMajor.name}
+              </p>
+            </div>
+          </div>
+
+          {/* Judul & Ringkasan Lengkap */}
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-rosebrand-50 border border-rosebrand-200 px-2.5 py-0.5 text-[10px] font-black uppercase text-rosebrand-700">
+                Program Keahlian Terakreditasi
+              </span>
+            </div>
+            <h3 className="mt-2 text-xl font-black text-zinc-900 leading-snug">
+              {currentMajor.name}
+            </h3>
+            <p className="mt-2 text-xs sm:text-sm leading-relaxed text-zinc-600 font-medium">
+              {currentMajor.summary}
+            </p>
+          </div>
+
+          {/* Fokus Kurikulum (Semua Terbaca Jelas) */}
+          <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-800">
+              <CheckCircle2 size={16} className="text-rosebrand-600" />
+              <span>Fokus Kurikulum Industri</span>
+            </div>
+
+            {curriculum.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {/* Highlight Kompetensi Utama */}
+                <div className="rounded-xl border border-rosebrand-200/80 bg-rosebrand-50/70 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-rosebrand-600">
+                    Materi Utama Unggulan
+                  </p>
+                  <p className="mt-0.5 text-xs sm:text-sm font-black text-zinc-900">
+                    {curriculum[0]}
+                  </p>
+                </div>
+
+                {/* Daftar Topik Kurikulum Lainnya */}
+                {curriculum.slice(1).map((item, idx) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5 rounded-xl border border-zinc-200/60 bg-white p-2.5 text-xs font-bold text-zinc-700 shadow-2xs"
+                  >
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-zinc-100 text-[10px] font-black text-zinc-600 mt-0.5">
+                      {idx + 2}
+                    </span>
+                    <span className="leading-snug">{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Prospek Pekerjaan (Semua Terbaca Jelas) */}
+          <div className="rounded-2xl border border-rosebrand-200/60 bg-rosebrand-50/40 p-4">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-rosebrand-800">
+              <BriefcaseBusiness size={16} className="text-rosebrand-600" />
+              <span>Prospek Karier & Peluang Kerja</span>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {careerProspects.map((prospect) => (
+                <span
+                  key={prospect}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rosebrand-200/80 bg-white px-3 py-2 text-xs font-bold text-zinc-800 shadow-2xs"
+                >
+                  <span className="h-2 w-2 rounded-full bg-rosebrand-500 shrink-0" />
+                  <span>{prospect}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Action Button & Next/Prev Navigation */}
+          <div className="pt-2 space-y-2.5">
+            <Link
+              href="/spmb"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-950 py-3.5 px-4 text-xs font-black text-white hover:bg-rosebrand-600 transition shadow-md active:scale-95"
+            >
+              <span>Konsultasi / Daftar Jurusan {currentAbbr} di SPMB</span>
+              <ArrowRight size={14} />
+            </Link>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white py-2.5 px-3 text-xs font-bold text-zinc-700 hover:bg-zinc-100 active:scale-95 shadow-2xs"
+              >
+                <ChevronLeft size={15} />
+                <span>Sebelumnya</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-zinc-200 bg-white py-2.5 px-3 text-xs font-bold text-zinc-700 hover:bg-zinc-100 active:scale-95 shadow-2xs"
+              >
+                <span>Berikutnya</span>
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
