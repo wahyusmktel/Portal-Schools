@@ -49,7 +49,8 @@ const menu = [
   { href: "/dashboard/why-choose-us", label: "Why Sekolah", icon: Sparkles },
   { href: "/dashboard/school-uvp", label: "UVP Sekolah", icon: Target },
   { href: "/dashboard/teaching-modules", label: "Modul Ajar", icon: BookOpenCheck },
-  { href: "/dashboard/articles", label: "Artikel Utama", icon: FileText },
+  { href: "/dashboard/articles", label: "Artikel & Berita", icon: FileText },
+  { href: "/dashboard/comments", label: "Moderasi Komentar", icon: MessageCircle },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
   { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },
   { href: "/dashboard/spmb", label: "Report SPMB", icon: ClipboardList },
@@ -97,6 +98,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     if (role === "admin-spmb" && pathname !== "/dashboard/spmb" && pathname !== "/dashboard/login") {
       router.replace("/dashboard/spmb");
     }
+    if (
+      role === "redaksi" &&
+      !pathname.startsWith("/dashboard/articles") &&
+      !pathname.startsWith("/dashboard/comments") &&
+      pathname !== "/dashboard/login"
+    ) {
+      router.replace("/dashboard/articles");
+    }
   }, [pathname, role, router]);
 
   if (pathname === "/dashboard/login") {
@@ -112,6 +121,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const visibleMenu = menu.filter((item) => {
     if (role === "admin-spmb") {
       return item.href === "/dashboard/spmb";
+    }
+    if (role === "redaksi") {
+      return item.href === "/dashboard/articles" || item.href === "/dashboard/comments";
     }
     if (item.href === "/dashboard/spmb") {
       return role === "superadmin" || role === "admin";

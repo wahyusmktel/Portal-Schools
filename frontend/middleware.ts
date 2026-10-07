@@ -33,6 +33,9 @@ async function redirectAuthenticatedUser(request: NextRequest, pathname: string)
   if (user.role === "admin-spmb") {
     return NextResponse.redirect(new URL("/dashboard/spmb", request.url));
   }
+  if (user.role === "redaksi") {
+    return NextResponse.redirect(new URL("/dashboard/articles", request.url));
+  }
   return NextResponse.redirect(new URL("/dashboard", request.url));
 }
 
@@ -46,6 +49,13 @@ async function validateDashboardSession(request: NextRequest, pathname: string) 
   }
   if (user.role === "admin-spmb" && pathname !== "/dashboard/spmb") {
     return NextResponse.redirect(new URL("/dashboard/spmb", request.url));
+  }
+  if (
+    user.role === "redaksi" &&
+    !pathname.startsWith("/dashboard/articles") &&
+    !pathname.startsWith("/dashboard/comments")
+  ) {
+    return NextResponse.redirect(new URL("/dashboard/articles", request.url));
   }
 
   return NextResponse.next();

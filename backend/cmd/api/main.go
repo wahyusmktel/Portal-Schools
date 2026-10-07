@@ -34,6 +34,10 @@ func main() {
 		log.Fatalf("superadmin seed failed: %v", err)
 	}
 
+	if err := repo.SeedRedaksi(context.Background(), "Redaksi Sekolah", "redaksi@smktelkom-lpg.sch.id", "Redaksistella0101!"); err != nil {
+		log.Printf("warning: redaksi seed failed: %v", err)
+	}
+
 	tokenManager := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	router := handlers.NewRouter(cfg, repo, tokenManager)
 

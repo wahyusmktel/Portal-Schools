@@ -43,6 +43,34 @@ func (r *Repository) SeedSuperadmin(ctx context.Context, name string, email stri
 	return err
 }
 
+func (r *Repository) SeedRedaksi(ctx context.Context, name string, email string, password string) error {
+	var count int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = ?", strings.ToLower(email)).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		_, err = r.db.ExecContext(ctx, `
+			INSERT INTO users (name, email, password_hash, role, is_active)
+			VALUES (?, ?, ?, 'redaksi', true)
+		`, name, strings.ToLower(email), hash)
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE users 
+		SET name = ?, password_hash = ?, role = 'redaksi', is_active = true 
+		WHERE email = ?
+	`, name, hash, strings.ToLower(email))
+	return err
+}
+
 func (r *Repository) FindUserByEmail(ctx context.Context, email string) (models.User, error) {
 	var user models.User
 	err := r.db.QueryRowContext(ctx, `
@@ -80,7 +108,7 @@ func (r *Repository) CreateUser(ctx context.Context, name string, email string, 
 	if name == "" || email == "" || len(password) < 8 {
 		return 0, errors.New("nama, email, dan password minimal 8 karakter wajib diisi")
 	}
-	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB {
+	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB && role != models.RoleRedaksi {
 		role = models.RoleContributor
 	}
 
@@ -1249,7 +1277,7 @@ func (r *Repository) UpdateUser(ctx context.Context, id int64, name string, emai
 	if name == "" || email == "" {
 		return errors.New("nama dan email wajib diisi")
 	}
-	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB {
+	if role != models.RoleAdmin && role != models.RoleContributor && role != models.RoleSuperadmin && role != models.RoleAdminSPMB && role != models.RoleRedaksi {
 		role = models.RoleContributor
 	}
 	result, err := r.db.ExecContext(ctx, `

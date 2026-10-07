@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageCircle, CheckCircle, XCircle } from "lucide-react";
+import { MessageCircle, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { formatDate } from "@/lib/article-utils";
 import { API_URL } from "@/lib/api";
 import { getCookie } from "@/lib/auth-client";
@@ -62,6 +62,30 @@ export function CommentManager() {
         fetchComments();
       } else {
         setNotice("Gagal mengubah status komentar.");
+      }
+    } catch (err) {
+      setNotice("Terjadi kesalahan jaringan.");
+    }
+  }
+
+  async function deleteComment(id: number) {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus komentar ini secara permanen?")) {
+      return;
+    }
+    try {
+      const csrf = getCookie("csrf_token");
+      const res = await fetch(`${API_URL}/admin/comments/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "X-CSRF-Token": csrf
+        }
+      });
+      if (res.ok) {
+        setNotice("Komentar berhasil dihapus.");
+        fetchComments();
+      } else {
+        setNotice("Gagal menghapus komentar.");
       }
     } catch (err) {
       setNotice("Terjadi kesalahan jaringan.");
@@ -139,12 +163,19 @@ export function CommentManager() {
                         {c.status !== "rejected" && (
                           <button
                             onClick={() => updateStatus(c.id, "rejected")}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 transition hover:bg-amber-100"
                             title="Tolak"
                           >
                             <XCircle size={16} />
                           </button>
                         )}
+                        <button
+                          onClick={() => deleteComment(c.id)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-600 transition hover:bg-red-100"
+                          title="Hapus Komentar"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>

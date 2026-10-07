@@ -72,3 +72,8 @@ func (r *Repository) UpdateCommentStatus(ctx context.Context, id int64, status m
 	_, err := r.db.ExecContext(ctx, "UPDATE article_comments SET status = ? WHERE id = ?", status, id)
 	return err
 }
+
+func (r *Repository) DeleteComment(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM article_comments WHERE id = ?", id)
+	return err
+}

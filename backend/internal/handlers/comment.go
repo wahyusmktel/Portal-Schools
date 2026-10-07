@@ -110,3 +110,19 @@ func (h *Handler) updateCommentStatus(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Status komentar berhasil diupdate."})
 }
+
+func (h *Handler) deleteComment(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "id tidak valid")
+		return
+	}
+
+	if err := h.repo.DeleteComment(r.Context(), id); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menghapus komentar")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Komentar berhasil dihapus."})
+}
