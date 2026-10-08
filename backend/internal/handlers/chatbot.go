@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -23,8 +24,11 @@ type chatMessage struct {
 }
 
 func (h *Handler) aiChat(w http.ResponseWriter, r *http.Request) {
-	if h.cfg.GoogleAIAPIKey == "" {
-		httpx.Error(w, http.StatusServiceUnavailable, "Sobat Stella belum aktif. API key AI belum dikonfigurasi di server.")
+	setting, _ := h.repo.GetAISetting(r.Context())
+	adminAIConfigured := setting.IsActive && strings.TrimSpace(setting.APIKey) != ""
+
+	if !adminAIConfigured && h.cfg.GoogleAIAPIKey == "" {
+		httpx.Error(w, http.StatusServiceUnavailable, "Sobat Stella belum aktif. Silakan aktifkan layanan AI dan atur API Key di menu Config AI (Dashboard Superadmin).")
 		return
 	}
 
@@ -44,10 +48,10 @@ func (h *Handler) aiChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 35*time.Second)
 	defer cancel()
 
-	reply, err := h.generateSobatStellaReply(ctx, messages)
+	reply, err := h.generateSobatStellaReply(ctx, messages, setting, adminAIConfigured)
 	if err != nil {
 		log.Printf("sobat stella error: %v", err)
 		status, message := classifySobatStellaError(err)
@@ -93,7 +97,100 @@ func normalizeChatMessages(messages []chatMessage) []chatMessage {
 	return result
 }
 
-func (h *Handler) generateSobatStellaReply(ctx context.Context, messages []chatMessage) (string, error) {
+func (h *Handler) generateSobatStellaReply(ctx context.Context, messages []chatMessage, setting models.AISetting, adminAIConfigured bool) (string, error) {
+	if adminAIConfigured {
+		reply, err := h.generateSobatStellaReplyWithAdminSetting(ctx, messages, setting)
+		if err == nil && strings.TrimSpace(reply) != "" {
+			return reply, nil
+		}
+		log.Printf("sobat stella admin AI error, checking fallback: %v", err)
+		if h.cfg.GoogleAIAPIKey != "" {
+			return h.generateSobatStellaReplyLegacyGemini(ctx, messages)
+		}
+		return "", err
+	}
+
+	return h.generateSobatStellaReplyLegacyGemini(ctx, messages)
+}
+
+func (h *Handler) generateSobatStellaReplyWithAdminSetting(ctx context.Context, messages []chatMessage, setting models.AISetting) (string, error) {
+	systemPrompt := h.sobatStellaSystemPrompt(ctx)
+
+	endpoint := strings.TrimRight(setting.BaseURL, "/")
+	if !strings.HasSuffix(endpoint, "/chat/completions") && !strings.Contains(endpoint, ":generateContent") {
+		endpoint += "/chat/completions"
+	}
+
+	chatMsgs := make([]map[string]string, 0, len(messages)+1)
+	chatMsgs = append(chatMsgs, map[string]string{
+		"role":    "system",
+		"content": systemPrompt,
+	})
+
+	for _, m := range messages {
+		role := m.Role
+		if role == "model" {
+			role = "assistant"
+		}
+		chatMsgs = append(chatMsgs, map[string]string{
+			"role":    role,
+			"content": m.Content,
+		})
+	}
+
+	modelName := strings.TrimSpace(setting.Model)
+	if modelName == "" {
+		modelName = "glm-5.2"
+	}
+
+	reqBody, err := json.Marshal(map[string]interface{}{
+		"model":       modelName,
+		"messages":    chatMsgs,
+		"stream":      false,
+		"max_tokens":  1200,
+		"temperature": 0.5,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+setting.APIKey)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	client := &http.Client{Timeout: 35 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("AI Server error %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	rawText, err := extractAIText(respBytes)
+	if err != nil {
+		return "", err
+	}
+
+	// Clean reasoning tags from DeepSeek/reasoning models
+	reThink := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	rawText = reThink.ReplaceAllString(rawText, "")
+
+	return cleanSobatStellaReply(rawText), nil
+}
+
+func (h *Handler) generateSobatStellaReplyLegacyGemini(ctx context.Context, messages []chatMessage) (string, error) {
 	systemPrompt := h.sobatStellaSystemPrompt(ctx)
 
 	contents := make([]geminiContent, 0, len(messages))
@@ -167,16 +264,13 @@ func classifySobatStellaError(err error) (int, string) {
 	message := strings.ToLower(err.Error())
 
 	if strings.Contains(message, "api key") || strings.Contains(message, "apikey") || strings.Contains(message, "permission") || strings.Contains(message, "unauthenticated") {
-		if strings.Contains(message, "denied access") || strings.Contains(message, "permission_denied") {
-			return http.StatusBadGateway, "Project Google AI untuk Sobat Stella ditolak aksesnya oleh Gemini API. Gunakan project/API key Google AI Studio lain atau hubungi Google Support."
-		}
-		return http.StatusBadGateway, "Konfigurasi API key Sobat Stella belum valid. Periksa GOOGLE_AI_API_KEY di backend."
+		return http.StatusBadGateway, "Konfigurasi API key Sobat Stella belum valid. Periksa konfigurasi AI di menu Config AI (Dashboard Superadmin)."
 	}
-	if strings.Contains(message, "quota") || strings.Contains(message, "rate") || strings.Contains(message, "resource_exhausted") {
+	if strings.Contains(message, "quota") || strings.Contains(message, "rate") || strings.Contains(message, "resource_exhausted") || strings.Contains(message, "too many") {
 		return http.StatusTooManyRequests, "Kuota atau rate limit AI sedang penuh. Coba lagi beberapa saat lagi."
 	}
 	if strings.Contains(message, "model") || strings.Contains(message, "not found") || strings.Contains(message, "not_supported") {
-		return http.StatusBadGateway, "Model AI tidak tersedia untuk API key ini. Periksa GOOGLE_AI_MODEL di backend."
+		return http.StatusBadGateway, "Model AI tidak tersedia untuk API key ini. Periksa konfigurasi Model di menu Config AI (Dashboard Superadmin)."
 	}
 	if strings.Contains(message, "deadline") || strings.Contains(message, "timeout") || strings.Contains(message, "context canceled") {
 		return http.StatusGatewayTimeout, "Koneksi ke layanan AI terlalu lama. Coba lagi beberapa saat lagi."
