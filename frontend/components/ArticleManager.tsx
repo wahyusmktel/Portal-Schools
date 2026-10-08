@@ -18,7 +18,14 @@ import {
   Minimize2,
   Sparkles,
   Loader2,
-  Wand2
+  Wand2,
+  Globe,
+  ExternalLink,
+  Download,
+  CheckCircle2,
+  AlertCircle,
+  Link2,
+  Code2
 } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { API_URL } from "@/lib/api";
@@ -73,17 +80,130 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
 
   // AI Generator Modal State
   const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiParagraphs, setAiParagraphs] = useState<number | string>(5);
-  const [aiSentences, setAiSentences] = useState<number | string>("");
-  const [aiCategory, setAiCategory] = useState("Teknologi");
+  const [aiReady, setAiReady] = useState(true);
+  const [aiMode, setAiMode] = useState<"social" | "manual">("social");
+  const [aiSocialUrl, setAiSocialUrl] = useState("");
+  const [aiExtracting, setAiExtracting] = useState(false);
+  const [aiExtractError, setAiExtractError] = useState<string | null>(null);
+  const [aiExtractedData, setAiExtractedData] = useState<{
+    platform: string;
+    source_url: string;
+    title: string;
+    caption: string;
+    image_url: string;
+    author: string;
+  } | null>(null);
+  const [aiExtractedCaption, setAiExtractedCaption] = useState("");
+  const [aiExtraInstructions, setAiExtraInstructions] = useState("");
+  const [aiSelectedCoverImageUrl, setAiSelectedCoverImageUrl] = useState("");
+  const [aiUseExtractedImage, setAiUseExtractedImage] = useState(true);
+  const [aiRecommended, setAiRecommended] = useState(true);
+  const [aiParagraphCount, setAiParagraphCount] = useState<number>(5);
+  const [aiSentencesPerParagraph, setAiSentencesPerParagraph] = useState<number>(3);
+  const [aiIncludeCodeSnippets, setAiIncludeCodeSnippets] = useState(false);
+  const [aiManualInstructions, setAiManualInstructions] = useState("");
+  const [aiCategory, setAiCategory] = useState("Sekolah");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  async function checkAIStatus() {
+    try {
+      const res = await fetch(`${API_URL}/ai/status`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiReady(Boolean(data.ready));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleExtractUrl() {
+    const url = aiSocialUrl.trim();
+    if (!url) {
+      setAiExtractError("Tempel tautan postingan Instagram, YouTube, TikTok, Facebook, atau web berita terlebih dahulu.");
+      return;
+    }
+
+    setAiExtracting(true);
+    setAiExtractError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/ai/extract-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCookie("csrf_token")
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const resData = await res.json().catch(() => null);
+
+      if (!res.ok || !resData?.success) {
+        throw new Error(resData?.message || "Gagal mengekstrak konten dari tautan tersebut.");
+      }
+
+      const d = resData.data;
+      setAiExtractedData(d);
+      setAiExtractedCaption(d.caption || d.title || "");
+      if (d.image_url) {
+        setAiSelectedCoverImageUrl(d.image_url);
+        setAiUseExtractedImage(true);
+      }
+
+      // Auto detect category
+      const textToScan = `${d.caption || ""} ${d.title || ""}`.toLowerCase();
+      if (textToScan.includes("juara") || textToScan.includes("prestasi") || textToScan.includes("kejuaraan") || textToScan.includes("medali") || textToScan.includes("lomba") || textToScan.includes("tanding")) {
+        setAiCategory("Prestasi");
+      } else if (textToScan.includes("workshop") || textToScan.includes("kegiatan") || textToScan.includes("pelatihan") || textToScan.includes("kunjungan") || textToScan.includes("upacara") || textToScan.includes("study tour")) {
+        setAiCategory("Kegiatan");
+      } else if (textToScan.includes("pengumuman") || textToScan.includes("jadwal") || textToScan.includes("pemberitahuan") || textToScan.includes("edaran")) {
+        setAiCategory("Pengumuman");
+      } else if (textToScan.includes("akademik") || textToScan.includes("ujian") || textToScan.includes("kurikulum") || textToScan.includes("kelulusan") || textToScan.includes("rapor")) {
+        setAiCategory("Akademik");
+      } else if (textToScan.includes("coding") || textToScan.includes("software") || textToScan.includes("cloud") || textToScan.includes("cyber") || textToScan.includes("jaringan") || textToScan.includes("komputer") || textToScan.includes("teknologi") || textToScan.includes("ai")) {
+        setAiCategory("Teknologi");
+      }
+    } catch (err: any) {
+      setAiExtractError(err?.message || "Gagal mengambil konten dari URL.");
+    } finally {
+      setAiExtracting(false);
+    }
+  }
+
   async function handleGenerateAIArticle(e?: FormEvent) {
     if (e) e.preventDefault();
-    if (!aiTopic.trim()) {
-      setAiError("Detail atau topik artikel wajib diisi.");
+    if (aiLoading) return;
+
+    if (aiMode === "social") {
+      if (!aiExtractedCaption.trim()) {
+        if (aiSocialUrl.trim()) {
+          await handleExtractUrl();
+          if (!aiExtractedCaption.trim()) {
+            setAiError("Masukkan tautan media sosial dan klik 'Ambil Konten' atau tempel caption terlebih dahulu.");
+            return;
+          }
+        } else {
+          setAiError("Masukkan tautan media sosial dan klik 'Ambil Konten' atau tempel caption terlebih dahulu.");
+          return;
+        }
+      }
+    } else {
+      if (!aiManualInstructions.trim()) {
+        setAiError("Instruksi atau topik artikel manual wajib diisi.");
+        return;
+      }
+    }
+
+    if (!aiRecommended && (
+      aiParagraphCount < 2 || aiParagraphCount > 12 ||
+      aiSentencesPerParagraph < 2 || aiSentencesPerParagraph > 8
+    )) {
+      setAiError("Pengaturan panjang belum valid. Periksa jumlah paragraf (2-12) dan kalimat (2-8).");
       return;
     }
 
@@ -91,6 +211,18 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
     setAiError(null);
 
     try {
+      const payload = {
+        topic: aiMode === "manual" ? aiManualInstructions.trim() : (aiExtractedCaption.trim() || aiSocialUrl.trim()),
+        category: aiCategory.trim() || "Sekolah",
+        use_ai_recommendation: aiRecommended,
+        paragraphs: aiRecommended ? 5 : Number(aiParagraphCount) || 5,
+        sentencesPerParagraph: aiRecommended ? 3 : Number(aiSentencesPerParagraph) || 3,
+        include_code_snippets: aiIncludeCodeSnippets,
+        source_url: aiMode === "social" && aiSocialUrl.trim() ? aiSocialUrl.trim() : "",
+        source_caption: aiMode === "social" && aiExtractedCaption.trim() ? aiExtractedCaption.trim() : "",
+        extra_instructions: (aiMode === "social" ? aiExtraInstructions : "").trim()
+      };
+
       const res = await fetch(`${API_URL}/ai/generate-article`, {
         method: "POST",
         credentials: "include",
@@ -98,36 +230,58 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
           "Content-Type": "application/json",
           "X-CSRF-Token": getCookie("csrf_token")
         },
-        body: JSON.stringify({
-          topic: aiTopic.trim(),
-          paragraphs: Number(aiParagraphs) || 5,
-          sentencesPerParagraph: Number(aiSentences) || 0,
-          category: aiCategory.trim() || "Sekolah"
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.message || "Gagal menghasilkan artikel dengan AI.");
+        throw new Error(data?.message || "Stella AI gagal menghasilkan artikel.");
+      }
+
+      // Download cover permanently to school server if user selected extracted image
+      let permanentCover = "";
+      if (aiUseExtractedImage && aiSelectedCoverImageUrl) {
+        permanentCover = aiSelectedCoverImageUrl;
+        try {
+          const dlRes = await fetch(`${API_URL}/ai/download-cover`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": getCookie("csrf_token")
+            },
+            body: JSON.stringify({ url: aiSelectedCoverImageUrl })
+          });
+          if (dlRes.ok) {
+            const dlData = await dlRes.json();
+            if (dlData?.url) permanentCover = dlData.url;
+          }
+        } catch {
+          // fallback to original image url
+        }
       }
 
       setForm({
         title: data.title || "",
         excerpt: data.excerpt || "",
         content: data.content || "",
-        coverImage: "",
+        coverImage: permanentCover,
         category: data.category || aiCategory || "Sekolah",
         status: "published"
       });
+
+      if (permanentCover) {
+        resetCoverPreview(permanentCover);
+      }
 
       setModalMode("create");
       setAiModalOpen(false);
       setNotice({
         type: "success",
-        message: "✨ Artikel SEO berhasil dihasilkan AI! Silakan cek kembali dan klik Simpan."
+        message: `✨ Artikel berhasil disusun oleh Stella AI (${data.paragraph_count || 5} paragraf)! Silakan tinjau dan simpan.`
       });
     } catch (err: any) {
-      setAiError(err?.message || "Gagal menghasilkan artikel dengan AI.");
+      setAiError(err?.message || "Gagal menghasilkan artikel dengan Stella AI.");
     } finally {
       setAiLoading(false);
     }
@@ -174,6 +328,7 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
   useEffect(() => {
     void refreshArticles(false);
     void loadCurrentRole();
+    void checkAIStatus();
   }, []);
 
   useEffect(() => {
@@ -650,6 +805,32 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
               </div>
             </div>
 
+            {/* Quick Stella AI Trigger Banner */}
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-red-200 bg-gradient-to-r from-red-50/90 via-rose-50/50 to-white p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-600 to-rose-600 text-white shadow-md shadow-red-500/20">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-zinc-900">Hasilkan Artikel Otomatis dengan Stella AI</p>
+                  <p className="text-[11px] font-semibold text-zinc-600">
+                    Ekstrak postingan dari <strong>Instagram, YouTube, TikTok, Web</strong> atau gunakan <strong>topik manual</strong> dengan standar SEO Google Page 1.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiError(null);
+                  setAiModalOpen(true);
+                }}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md shadow-red-600/20 transition hover:brightness-110"
+              >
+                <Sparkles size={14} />
+                Buka Stella AI
+              </button>
+            </div>
+
             <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
               <div className="grid gap-4">
                 <Field label="Judul Artikel" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
@@ -778,159 +959,429 @@ export function ArticleManager({ initialArticles }: ArticleManagerProps) {
         </div>
       ) : null}
 
-      {/* AI Generator Modal */}
+      {/* Stella AI Generator Modal */}
       {aiModalOpen && (
-        <div className="fixed inset-0 z-[100] grid place-items-center bg-zinc-950/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-2xl overflow-hidden rounded-[12px] bg-white p-6 shadow-2xl border border-zinc-100 grid gap-5">
-            <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-rosebrand-600 text-white shadow-md">
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-zinc-950/60 p-3 sm:p-4 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white p-5 sm:p-7 shadow-2xl border border-red-100 grid gap-5 max-h-[92vh] overflow-y-auto">
+            {/* Header matching Sisfo */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-zinc-100 pb-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-red-600 to-rose-600 text-white flex items-center justify-center shadow-md shadow-red-500/20">
                   <Sparkles size={20} />
-                </span>
+                </div>
                 <div>
-                  <h2 className="text-xl font-black text-zinc-900">Hasilkan Artikel dengan AI (SEO Google Page 1)</h2>
-                  <p className="text-xs font-semibold text-zinc-500">
-                    Otomatis buat artikel berstruktur SEO, internal link portal, & external link kredibel.
+                  <h3 className="text-base font-black text-zinc-900 flex items-center gap-2">
+                    <span>Hasilkan Artikel dengan Stella AI</span>
+                  </h3>
+                  <p className="text-xs leading-5 text-zinc-600 mt-0.5">
+                    Generate artikel otomatis dari <strong>URL Instagram/Medsos/Web</strong> atau susun dari <strong>topik manual</strong>.
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setAiModalOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {aiError && (
-              <div className="rounded-[8px] bg-rose-50 border border-rose-200 p-3.5 text-xs font-bold text-rose-800">
-                {aiError}
-              </div>
-            )}
-
-            <form onSubmit={handleGenerateAIArticle} className="grid gap-4">
-              {/* Field 1: Topik / Detail */}
-              <div className="grid gap-2">
-                <label className="text-sm font-extrabold text-zinc-800 flex items-center gap-2">
-                  1. Artikel tentang apa? (Detail / Prompt) *
-                </label>
-                <textarea
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  rows={4}
-                  required
-                  placeholder="Contoh: Artikel tentang inovasi pembelajaran coding di jurusan RPL SMK Telkom Lampung, dilengkapi tanggapan positif Kepala Sekolah mengenai lulusan yang siap kerja dan kuliah."
-                  className="rounded-[8px] border border-zinc-200 bg-zinc-50/50 p-3.5 text-sm font-semibold text-zinc-800 outline-none transition focus:border-rosebrand-500 focus:bg-white focus:ring-4 focus:ring-rosebrand-100"
-                />
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[11px] font-bold text-zinc-400">Rekomendasi Prompt:</span>
-                  {[
-                    "Pembelajaran Jurusan RPL & Project-Based Learning",
-                    "Kegiatan Praktikum Jurusan TKJ & Cloud Infra",
-                    "Teknologi 5G & Fiber Optic Jurusan TJAT",
-                    "Prestasi Lomba Animasi & Konten Digital Siswa",
-                    "Pendapat Kepala Sekolah tentang Beasiswa SPMB 2026"
-                  ].map((promptText) => (
-                    <button
-                      key={promptText}
-                      type="button"
-                      onClick={() => setAiTopic(promptText)}
-                      className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-bold text-zinc-600 hover:bg-rosebrand-50 hover:text-rosebrand-700 transition"
-                    >
-                      + {promptText}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Field 2 & 3: Paragraf & Kalimat */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <label className="text-sm font-extrabold text-zinc-800">
-                    2. Berapa Paragraf?
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={15}
-                    value={aiParagraphs}
-                    onChange={(e) => setAiParagraphs(e.target.value)}
-                    className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
-                  />
-                  <p className="text-[11px] font-semibold text-zinc-400">Default: 5 paragraf</p>
-                </div>
-
-                <div className="grid gap-2">
-                  <label className="text-sm font-extrabold text-zinc-800">
-                    3. Berapa Kalimat per Paragraf? <span className="text-xs font-normal text-zinc-400">(Opsional)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={aiSentences}
-                    onChange={(e) => setAiSentences(e.target.value)}
-                    placeholder="Kosongkan = Otomatis/Random"
-                    className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
-                  />
-                  <p className="text-[11px] font-semibold text-zinc-400">Kosongkan untuk penyesuaian alami</p>
-                </div>
-              </div>
-
-              {/* Field 4: Kategori */}
-              <div className="grid gap-2">
-                <label className="text-sm font-extrabold text-zinc-800">
-                  4. Kategori Artikel
-                </label>
-                <input
-                  list="ai-category-options"
-                  value={aiCategory}
-                  onChange={(e) => setAiCategory(e.target.value)}
-                  placeholder="Teknologi, Pembelajaran, Berita, Prestasi..."
-                  className="h-11 rounded-[8px] border border-zinc-200 bg-zinc-50/50 px-4 text-sm font-bold text-zinc-800 outline-none focus:border-rosebrand-500 focus:bg-white"
-                />
-                <datalist id="ai-category-options">
-                  {["Teknologi", "Pembelajaran", "Berita", "Prestasi", "Sekolah", "E-Sport"].map((cat) => (
-                    <option key={cat} value={cat} />
-                  ))}
-                </datalist>
-              </div>
-
-              <div className="rounded-[8px] bg-rosebrand-50/70 p-3.5 border border-rosebrand-100 flex items-start gap-2.5 text-xs text-rosebrand-900 font-semibold">
-                <Sparkles size={16} className="shrink-0 text-rosebrand-600 mt-0.5" />
-                <span>
-                  <strong>Fitur Otomatis SEO:</strong> AI akan menghasilkan Judul Catchy, Meta Excerpt, HTML Sub-heading, Internal Links (ke /jurusan, /spmb, /profil, /prestasi), dan External Links kredibel untuk mengoptimalkan Google Page One.
+              <div className="flex items-center gap-2 self-start">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 ${
+                    aiReady ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${aiReady ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                  <span>{aiReady ? "Siap digunakan" : "Belum dikonfigurasi"}</span>
                 </span>
-              </div>
-
-              <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setAiModalOpen(false)}
-                  className="h-11 rounded-[8px] border border-zinc-200 px-5 text-sm font-extrabold text-zinc-700 hover:bg-zinc-50"
+                  className="grid h-8 w-8 place-items-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition"
+                  title="Tutup"
                 >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={aiLoading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-gradient-to-r from-amber-500 via-rose-500 to-rosebrand-600 px-6 text-sm font-extrabold text-white shadow-md transition hover:brightness-110 disabled:opacity-60"
-                >
-                  {aiLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Membuat Artikel SEO (AI)...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={18} />
-                      Buat Artikel Sekarang
-                    </>
-                  )}
+                  <X size={16} />
                 </button>
               </div>
-            </form>
+            </div>
+
+            {aiError && (
+              <div className="rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-xs font-bold text-rose-800 flex items-start gap-2">
+                <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                <div>{aiError}</div>
+              </div>
+            )}
+
+            {/* Mode Selector Tabs */}
+            <div>
+              <div className="inline-flex p-1 bg-zinc-100 rounded-xl border border-zinc-200 shadow-sm gap-1">
+                <button
+                  type="button"
+                  onClick={() => setAiMode("social")}
+                  className={`px-3.5 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                    aiMode === "social"
+                      ? "bg-red-600 text-white font-bold shadow-sm"
+                      : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 font-medium"
+                  }`}
+                >
+                  <Link2 size={14} />
+                  <span>Dari URL Medsos / Web</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-black tracking-wider ${
+                      aiMode === "social" ? "bg-red-700 text-white" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    AJAIB ✨
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMode("manual")}
+                  className={`px-3.5 py-2 rounded-lg text-xs transition-all flex items-center gap-2 ${
+                    aiMode === "manual"
+                      ? "bg-red-600 text-white font-bold shadow-sm"
+                      : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 font-medium"
+                  }`}
+                >
+                  <Pencil size={14} />
+                  <span>Instruksi Topik Manual</span>
+                </button>
+              </div>
+            </div>
+
+            {/* TAB 1: Dari URL Medsos / Web */}
+            {aiMode === "social" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-1.5">
+                    Masukkan Tautan Media Sosial / Berita Web
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <Globe size={16} />
+                      </div>
+                      <input
+                        type="url"
+                        value={aiSocialUrl}
+                        onChange={(e) => setAiSocialUrl(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleExtractUrl();
+                          }
+                        }}
+                        className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 placeholder-zinc-400"
+                        placeholder="Contoh: https://www.instagram.com/p/DeMXQrTgdS5/ atau link berita web"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleExtractUrl()}
+                      disabled={aiExtracting || !aiSocialUrl.trim()}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-zinc-900 text-white font-bold text-xs rounded-xl hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
+                    >
+                      {aiExtracting ? (
+                        <>
+                          <Loader2 size={15} className="animate-spin" />
+                          <span>Mengambil Data...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download size={15} />
+                          <span>Ambil Konten</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-500 flex-wrap">
+                    <span className="font-medium">Mendukung:</span>
+                    <span className="px-2 py-0.5 bg-pink-100 text-pink-700 rounded-md font-semibold">Instagram</span>
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-md font-semibold">YouTube</span>
+                    <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-md font-semibold border border-zinc-200">TikTok</span>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md font-semibold">Facebook</span>
+                    <span className="px-2 py-0.5 bg-zinc-200 text-zinc-800 rounded-md font-semibold">Web Berita / Blog</span>
+                  </div>
+                </div>
+
+                {/* Scrape Error Notice */}
+                {aiExtractError && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <p className="font-bold">{aiExtractError}</p>
+                        <p className="text-[11px] text-amber-700">
+                          Tips: Anda tetap dapat menempelkan caption atau ringkasan berita secara langsung di kotak teks di bawah ini, lalu Stella AI akan langsung menyusun artikelnya!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Box Hasil Ekstraksi */}
+                {(aiExtractedData || aiExtractedCaption) && (
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
+                            aiExtractedData?.platform === "Instagram"
+                              ? "bg-pink-100 text-pink-700"
+                              : aiExtractedData?.platform === "YouTube"
+                              ? "bg-red-100 text-red-700"
+                              : aiExtractedData?.platform === "TikTok"
+                              ? "bg-zinc-100 text-zinc-800"
+                              : aiExtractedData?.platform === "Facebook"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {aiExtractedData?.platform || "Konten Sumber"}
+                        </span>
+                        {aiExtractedData?.author && (
+                          <span className="text-xs font-semibold text-zinc-600">
+                            oleh <strong>{aiExtractedData.author}</strong>
+                          </span>
+                        )}
+                      </div>
+                      {aiSocialUrl && (
+                        <a
+                          href={aiSocialUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-medium text-red-600 hover:underline flex items-center gap-1"
+                        >
+                          <span>Buka tautan</span>
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Gambar Preview & Pilihan Cover */}
+                    {aiSelectedCoverImageUrl && (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-white rounded-xl border border-zinc-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={aiSelectedCoverImageUrl}
+                          alt="Cover preview"
+                          className="w-16 h-16 object-cover rounded-lg border border-zinc-200 shrink-0"
+                        />
+                        <div className="flex-1 space-y-1">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={aiUseExtractedImage}
+                              onChange={(e) => setAiUseExtractedImage(e.target.checked)}
+                              className="rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                            />
+                            <span className="text-xs font-bold text-zinc-800">
+                              Gunakan foto ini otomatis sebagai Cover Berita
+                            </span>
+                          </label>
+                          <p className="text-[11px] text-zinc-500">
+                            Foto akan diunduh dan disimpan secara permanen di server sekolah.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Editable Caption Textarea */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-zinc-700">
+                          Teks / Caption Sumber (Dapat Disunting)
+                        </label>
+                        <span className="text-[11px] text-zinc-400">
+                          {aiExtractedCaption.length} karakter
+                        </span>
+                      </div>
+                      <textarea
+                        value={aiExtractedCaption}
+                        onChange={(e) => setAiExtractedCaption(e.target.value)}
+                        rows={5}
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs font-mono text-zinc-800 focus:ring-2 focus:ring-red-500 focus:border-red-500 leading-relaxed"
+                        placeholder="Teks atau caption hasil ekstraksi akan muncul di sini..."
+                      />
+                      <p className="text-[11px] text-zinc-500 mt-1">
+                        Anda dapat menambahkan atau membetulkan informasi (misal: nama guru, lokasi, atau tanggal) sebelum artikel digenerate.
+                      </p>
+                    </div>
+
+                    {/* Extra Instructions */}
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 mb-1.5">
+                        Instruksi Tambahan dari Redaksi (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={aiExtraInstructions}
+                        onChange={(e) => setAiExtraInstructions(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-zinc-200 rounded-xl text-xs text-zinc-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="Contoh: Berikan apresiasi khusus dari Kepala Sekolah dan harapan prestasi ke tingkat nasional."
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: Instruksi Topik Manual */}
+            {aiMode === "manual" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 mb-2">
+                    Instruksi Topik / Arahan Artikel
+                  </label>
+                  <textarea
+                    value={aiManualInstructions}
+                    onChange={(e) => setAiManualInstructions(e.target.value)}
+                    rows={4}
+                    maxLength={3000}
+                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 leading-relaxed"
+                    placeholder="Contoh: Buat artikel tentang prestasi siswa SMK Telkom Lampung di ajang LKS tingkat provinsi. Jelaskan persiapan, cabang lomba, dan motivasi bagi siswa lain."
+                  />
+                  <div className="flex justify-between gap-4 mt-1">
+                    <p className="text-[11px] text-zinc-500">
+                      Sertakan tujuan pembaca, topik, sudut pembahasan, atau fakta yang wajib digunakan.
+                    </p>
+                    <span className="text-[11px] text-zinc-400">
+                      {aiManualInstructions.length}/3000
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-3">
+                    <span className="text-[11px] font-bold text-zinc-400">Rekomendasi Topik:</span>
+                    {[
+                      "Pembelajaran Jurusan RPL & Project-Based Learning",
+                      "Kegiatan Praktikum Jurusan TKJ & Cloud Infra",
+                      "Teknologi 5G & Fiber Optic Jurusan TJAT",
+                      "Prestasi Lomba Animasi & Konten Digital Siswa",
+                      "Pendapat Kepala Sekolah tentang Beasiswa SPMB 2026"
+                    ].map((promptText) => (
+                      <button
+                        key={promptText}
+                        type="button"
+                        onClick={() => setAiManualInstructions(promptText)}
+                        className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-bold text-zinc-600 hover:bg-red-50 hover:text-red-700 transition"
+                      >
+                        + {promptText}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Category Selector */}
+            <div className="grid gap-2">
+              <label className="text-xs font-bold text-zinc-700">Kategori Berita / Artikel</label>
+              <input
+                list="ai-category-options"
+                value={aiCategory}
+                onChange={(e) => setAiCategory(e.target.value)}
+                placeholder="Prestasi, Kegiatan, Akademik, Kesiswaan, Pengumuman, Teknologi..."
+                className="h-10 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 text-xs font-bold text-zinc-800 outline-none focus:bg-white focus:ring-2 focus:ring-red-500"
+              />
+              <datalist id="ai-category-options">
+                {["Akademik", "Kesiswaan", "Kegiatan", "Prestasi", "Pengumuman", "Teknologi", "Sekolah", "Lainnya"].map((cat) => (
+                  <option key={cat} value={cat} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Shared AI Options */}
+            <div className="pt-4 border-t border-zinc-200/80 space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiRecommended}
+                  onChange={(e) => setAiRecommended(e.target.checked)}
+                  className="mt-0.5 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                />
+                <span>
+                  <span className="block text-xs font-bold text-zinc-800">
+                    Rekomendasi panjang terbaik berdasarkan Stella AI
+                  </span>
+                  <span className="block text-[11px] text-zinc-500">
+                    Stella otomatis menyesuaikan struktur paragraf dan kedalaman narasi sesuai kategori berita.
+                  </span>
+                </span>
+              </label>
+
+              {!aiRecommended && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6 pt-1">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-600 mb-1">Jumlah Paragraf</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={12}
+                      value={aiParagraphCount}
+                      onChange={(e) => setAiParagraphCount(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-xs font-bold text-zinc-800 focus:ring-2 focus:ring-red-500"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-0.5">Antara 2 sampai 12 paragraf.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-600 mb-1">Kalimat per Paragraf</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={8}
+                      value={aiSentencesPerParagraph}
+                      onChange={(e) => setAiSentencesPerParagraph(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg text-xs font-bold text-zinc-800 focus:ring-2 focus:ring-red-500"
+                    />
+                    <p className="text-[10px] text-zinc-400 mt-0.5">Antara 2 sampai 8 kalimat.</p>
+                  </div>
+                </div>
+              )}
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiIncludeCodeSnippets}
+                  onChange={(e) => setAiIncludeCodeSnippets(e.target.checked)}
+                  className="mt-0.5 rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                />
+                <span>
+                  <span className="block text-xs font-bold text-zinc-800">
+                    Sertakan snippet kode teknologi (jika artikel tutorial)
+                  </span>
+                  <span className="block text-[11px] text-zinc-500">
+                    Stella menambahkan blok kode dengan syntax highlight yang dapat disalin langsung.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div className="pt-4 border-t border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setAiModalOpen(false)}
+                className="h-11 rounded-xl border border-zinc-200 px-5 text-xs font-extrabold text-zinc-700 hover:bg-zinc-50 transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleGenerateAIArticle()}
+                disabled={
+                  aiLoading ||
+                  !aiReady ||
+                  (aiMode === "social" && !aiExtractedCaption.trim() && !aiSocialUrl.trim()) ||
+                  (aiMode === "manual" && !aiManualInstructions.trim())
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-xs sm:text-sm rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-red-600/20 transition-all"
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Stella sedang menyusun artikel...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    <span>{aiMode === "social" ? "✨ Hasilkan Artikel dari URL" : "✨ Hasilkan Artikel"}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

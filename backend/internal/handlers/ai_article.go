@@ -5,8 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -19,13 +23,453 @@ type generateArticleRequest struct {
 	Paragraphs            int    `json:"paragraphs"`
 	SentencesPerParagraph int    `json:"sentencesPerParagraph"`
 	Category              string `json:"category"`
+	SourceURL             string `json:"source_url"`
+	SourceCaption         string `json:"source_caption"`
+	ExtraInstructions     string `json:"extra_instructions"`
+	UseRecommendation     bool   `json:"use_ai_recommendation"`
+	IncludeCodeSnippets   bool   `json:"include_code_snippets"`
 }
 
 type generateArticleResponse struct {
-	Title    string `json:"title"`
-	Excerpt  string `json:"excerpt"`
-	Category string `json:"category"`
-	Content  string `json:"content"`
+	Title          string `json:"title"`
+	Excerpt        string `json:"excerpt"`
+	Category       string `json:"category"`
+	Content        string `json:"content"`
+	ParagraphCount int    `json:"paragraph_count"`
+	SentenceCount  int    `json:"sentence_count"`
+}
+
+type extractURLRequest struct {
+	URL string `json:"url"`
+}
+
+type extractedData struct {
+	Platform  string `json:"platform"`
+	SourceURL string `json:"source_url"`
+	Title     string `json:"title"`
+	Caption   string `json:"caption"`
+	ImageURL  string `json:"image_url"`
+	Author    string `json:"author"`
+}
+
+func (h *Handler) getAIStatus(w http.ResponseWriter, r *http.Request) {
+	setting, err := h.repo.GetAISetting(r.Context())
+	ready := err == nil && setting.IsActive && strings.TrimSpace(setting.APIKey) != ""
+	httpx.JSON(w, http.StatusOK, map[string]interface{}{
+		"ready": ready,
+	})
+}
+
+func (h *Handler) extractSocialOrWebURL(w http.ResponseWriter, r *http.Request) {
+	var req extractURLRequest
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "payload tidak valid")
+		return
+	}
+
+	req.URL = strings.TrimSpace(req.URL)
+	if req.URL == "" {
+		httpx.Error(w, http.StatusBadRequest, "URL wajib diisi")
+		return
+	}
+
+	parsedURL, err := url.ParseRequestURI(req.URL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		httpx.JSON(w, http.StatusUnprocessableEntity, map[string]interface{}{
+			"success": false,
+			"message": "Format URL tidak valid. Pastikan menyertakan https://",
+		})
+		return
+	}
+
+	platform := detectPlatform(req.URL)
+
+	// 1. YouTube oEmbed
+	if platform == "YouTube" {
+		data, err := fetchYouTubeOEmbed(req.URL)
+		if err == nil && (data.Title != "" || data.Caption != "") {
+			httpx.JSON(w, http.StatusOK, map[string]interface{}{
+				"success": true,
+				"data":    data,
+			})
+			return
+		}
+	}
+
+	// 2. TikTok oEmbed
+	if platform == "TikTok" {
+		data, err := fetchTikTokOEmbed(req.URL)
+		if err == nil && (data.Title != "" || data.Caption != "") {
+			httpx.JSON(w, http.StatusOK, map[string]interface{}{
+				"success": true,
+				"data":    data,
+			})
+			return
+		}
+	}
+
+	// 3. Instagram, Facebook, Web, fallback: Fetch HTML
+	htmlContent, err := fetchHTMLWithUserAgents(req.URL)
+	if err != nil || strings.TrimSpace(htmlContent) == "" {
+		httpx.JSON(w, http.StatusUnprocessableEntity, map[string]interface{}{
+			"success":    false,
+			"platform":   platform,
+			"source_url": req.URL,
+			"message":    "Tidak dapat mengakses konten dari tautan tersebut (server tujuan menolak atau waktu habis).",
+		})
+		return
+	}
+
+	data := parseMetadata(htmlContent, platform, req.URL)
+	if strings.TrimSpace(data.Caption) == "" && strings.TrimSpace(data.Title) == "" {
+		httpx.JSON(w, http.StatusUnprocessableEntity, map[string]interface{}{
+			"success":    false,
+			"platform":   platform,
+			"source_url": req.URL,
+			"message":    "Tidak ada teks atau caption yang dapat diekstrak secara otomatis dari URL ini. Anda dapat menempelkan caption secara manual.",
+		})
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    data,
+	})
+}
+
+func detectPlatform(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "Website"
+	}
+	host := strings.ToLower(u.Host)
+	if strings.Contains(host, "instagram.com") {
+		return "Instagram"
+	}
+	if strings.Contains(host, "youtube.com") || strings.Contains(host, "youtu.be") {
+		return "YouTube"
+	}
+	if strings.Contains(host, "tiktok.com") {
+		return "TikTok"
+	}
+	if strings.Contains(host, "facebook.com") || strings.Contains(host, "fb.watch") {
+		return "Facebook"
+	}
+	if strings.Contains(host, "twitter.com") || strings.Contains(host, "x.com") {
+		return "X (Twitter)"
+	}
+	return "Website"
+}
+
+func fetchYouTubeOEmbed(rawURL string) (*extractedData, error) {
+	oembedURL := fmt.Sprintf("https://www.youtube.com/oembed?url=%s&format=json", url.QueryEscape(rawURL))
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(oembedURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("oembed failed")
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Title        string `json:"title"`
+		AuthorName   string `json:"author_name"`
+		ThumbnailURL string `json:"thumbnail_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return &extractedData{
+		Platform:  "YouTube",
+		SourceURL: rawURL,
+		Title:     strings.TrimSpace(data.Title),
+		Caption:   strings.TrimSpace(data.Title),
+		ImageURL:  strings.TrimSpace(data.ThumbnailURL),
+		Author:    strings.TrimSpace(data.AuthorName),
+	}, nil
+}
+
+func fetchTikTokOEmbed(rawURL string) (*extractedData, error) {
+	oembedURL := fmt.Sprintf("https://www.tiktok.com/oembed?url=%s", url.QueryEscape(rawURL))
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(oembedURL)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("oembed failed")
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Title        string `json:"title"`
+		AuthorName   string `json:"author_name"`
+		ThumbnailURL string `json:"thumbnail_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	return &extractedData{
+		Platform:  "TikTok",
+		SourceURL: rawURL,
+		Title:     strings.TrimSpace(data.Title),
+		Caption:   strings.TrimSpace(data.Title),
+		ImageURL:  strings.TrimSpace(data.ThumbnailURL),
+		Author:    strings.TrimSpace(data.AuthorName),
+	}, nil
+}
+
+func fetchHTMLWithUserAgents(rawURL string) (string, error) {
+	userAgents := []string{
+		"facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+		"Twitterbot/1.0",
+		"WhatsApp/2.21.12.21 A",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+	}
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	for _, ua := range userAgents {
+		req, err := http.NewRequest("GET", rawURL, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", ua)
+		req.Header.Set("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+		resp, err := client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB max
+			resp.Body.Close()
+			if readErr == nil && len(bodyBytes) > 200 {
+				return string(bodyBytes), nil
+			}
+		}
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}
+
+	return "", fmt.Errorf("failed to fetch HTML with all user-agents")
+}
+
+func parseMetadata(htmlContent string, platform string, rawURL string) *extractedData {
+	ogTitle := getMetaContent(htmlContent, "og:title")
+	if ogTitle == "" {
+		ogTitle = getHTMLTitle(htmlContent)
+	}
+	ogDesc := getMetaContent(htmlContent, "og:description")
+	if ogDesc == "" {
+		ogDesc = getMetaContent(htmlContent, "description")
+	}
+	ogImage := getMetaContent(htmlContent, "og:image")
+	author := getMetaContent(htmlContent, "og:site_name")
+	if author == "" {
+		author = getMetaContent(htmlContent, "author")
+	}
+
+	title := ogTitle
+	caption := ogDesc
+
+	if platform == "Instagram" {
+		t, c, a := extractInstagramContent(ogTitle, ogDesc)
+		title = t
+		caption = c
+		if a != "" {
+			author = a
+		}
+	} else if platform == "Website" {
+		if len(caption) < 150 {
+			bodyText := extractArticleBodyText(htmlContent)
+			if len(bodyText) > len(caption) {
+				caption = bodyText
+			}
+		}
+	}
+
+	return &extractedData{
+		Platform:  platform,
+		SourceURL: rawURL,
+		Title:     strings.TrimSpace(stripTags(title)),
+		Caption:   strings.TrimSpace(caption),
+		ImageURL:  strings.TrimSpace(ogImage),
+		Author:    strings.TrimSpace(stripTags(author)),
+	}
+}
+
+func extractInstagramContent(ogTitle, ogDesc string) (string, string, string) {
+	ogTitle = html.UnescapeString(ogTitle)
+	ogDesc = html.UnescapeString(ogDesc)
+
+	account := ""
+	caption := ""
+
+	reAcc := regexp.MustCompile(`(?i)^(.*?)\s+(?:di|on)\s+Instagram`)
+	if match := reAcc.FindStringSubmatch(ogTitle); len(match) > 1 {
+		account = strings.TrimSpace(match[1])
+	}
+
+	reQuote := regexp.MustCompile(`(?s):\s*["“](.*?)["”]\s*$`)
+	if match := reQuote.FindStringSubmatch(ogTitle); len(match) > 1 {
+		caption = strings.TrimSpace(match[1])
+	} else if match := reQuote.FindStringSubmatch(ogDesc); len(match) > 1 {
+		caption = strings.TrimSpace(match[1])
+	}
+
+	if caption == "" {
+		reCleanTitle := regexp.MustCompile(`(?i)^(.*?)\s+(?:di|on)\s+Instagram:\s*`)
+		cleanTitle := reCleanTitle.ReplaceAllString(ogTitle, "")
+		reCleanDesc := regexp.MustCompile(`(?s)^.*?:\s*`)
+		cleanDesc := reCleanDesc.ReplaceAllString(ogDesc, "")
+		if len(cleanTitle) > len(cleanDesc) {
+			caption = cleanTitle
+		} else {
+			caption = cleanDesc
+		}
+	}
+
+	title := ""
+	lines := strings.Split(caption, "\n")
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l != "" {
+			// Remove hashtags
+			reHash := regexp.MustCompile(`#\S+`)
+			cleanLine := strings.TrimSpace(reHash.ReplaceAllString(l, ""))
+			if len(cleanLine) > 120 {
+				cleanLine = cleanLine[:117] + "..."
+			}
+			title = cleanLine
+			break
+		}
+	}
+	if title == "" {
+		title = "Kabar Terbaru SMK Telkom Lampung"
+	}
+
+	return title, caption, account
+}
+
+func extractArticleBodyText(htmlContent string) string {
+	// Try article containers
+	containers := []string{`article`, `main`, `div[^>]*class="[^"]*(?:detail__body|read__content|entry-content)[^"]*"`}
+	for _, tag := range containers {
+		tagBase := strings.Split(tag, "[")[0]
+		re := regexp.MustCompile(fmt.Sprintf(`(?is)<%s[^>]*>(.*?)</%s>`, tag, tagBase))
+		if match := re.FindStringSubmatch(htmlContent); len(match) > 1 {
+			txt := stripTags(match[1])
+			reSpaces := regexp.MustCompile(`\s+`)
+			txt = strings.TrimSpace(reSpaces.ReplaceAllString(txt, " "))
+			if len(txt) > 150 {
+				if len(txt) > 3000 {
+					txt = txt[:3000]
+				}
+				return txt
+			}
+		}
+	}
+
+	// Fallback to <p> tags
+	reP := regexp.MustCompile(`(?is)<p[^>]*>(.*?)</p>`)
+	pMatches := reP.FindAllStringSubmatch(htmlContent, -1)
+	var paragraphs []string
+	for _, m := range pMatches {
+		if len(m) > 1 {
+			cleaned := strings.TrimSpace(stripTags(m[1]))
+			if len(cleaned) > 40 {
+				paragraphs = append(paragraphs, cleaned)
+			}
+		}
+	}
+	if len(paragraphs) > 0 {
+		if len(paragraphs) > 10 {
+			paragraphs = paragraphs[:10]
+		}
+		res := strings.Join(paragraphs, "\n\n")
+		if len(res) > 3000 {
+			res = res[:3000]
+		}
+		return res
+	}
+
+	return ""
+}
+
+func getMetaContent(htmlContent string, nameOrProp string) string {
+	quoted := regexp.QuoteMeta(nameOrProp)
+	p1 := regexp.MustCompile(fmt.Sprintf(`(?is)<meta\s+[^>]*(?:property|name)=["']%s["'][^>]*content=["'](.*?)["']`, quoted))
+	if match := p1.FindStringSubmatch(htmlContent); len(match) > 1 {
+		return html.UnescapeString(match[1])
+	}
+	p2 := regexp.MustCompile(fmt.Sprintf(`(?is)<meta\s+[^>]*content=["'](.*?)["'][^>]*(?:property|name)=["']%s["']`, quoted))
+	if match := p2.FindStringSubmatch(htmlContent); len(match) > 1 {
+		return html.UnescapeString(match[1])
+	}
+	return ""
+}
+
+func getHTMLTitle(htmlContent string) string {
+	re := regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+	if match := re.FindStringSubmatch(htmlContent); len(match) > 1 {
+		return html.UnescapeString(match[1])
+	}
+	return ""
+}
+
+func (h *Handler) downloadCoverImage(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := httpx.DecodeJSON(r, &req); err != nil || strings.TrimSpace(req.URL) == "" {
+		httpx.Error(w, http.StatusBadRequest, "URL gambar tidak valid")
+		return
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	imgReq, err := http.NewRequestWithContext(r.Context(), "GET", req.URL, nil)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "URL tidak valid")
+		return
+	}
+	imgReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(imgReq)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		httpx.Error(w, http.StatusBadGateway, "Gagal mengunduh gambar dari sumber")
+		return
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil || len(bodyBytes) < 50 {
+		httpx.Error(w, http.StatusBadRequest, "Gambar kosong atau tidak dapat diunduh")
+		return
+	}
+
+	contentType := http.DetectContentType(bodyBytes)
+	extension := ".jpg"
+	if strings.Contains(contentType, "png") {
+		extension = ".png"
+	} else if strings.Contains(contentType, "webp") {
+		extension = ".webp"
+	} else if strings.Contains(contentType, "gif") {
+		extension = ".gif"
+	}
+
+	targetDir := filepath.Join("uploads", "images")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal membuat folder upload")
+		return
+	}
+
+	filename := fmt.Sprintf("cover-%d%s", time.Now().UnixNano(), extension)
+	targetPath := filepath.Join(targetDir, filename)
+	if err := os.WriteFile(targetPath, bodyBytes, 0644); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "gagal menyimpan gambar cover")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{
+		"url": absoluteUploadURL(r, "/uploads/images/"+filename),
+	})
 }
 
 func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +486,18 @@ func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Topic = strings.TrimSpace(req.Topic)
+	req.SourceCaption = strings.TrimSpace(req.SourceCaption)
+	req.SourceURL = strings.TrimSpace(req.SourceURL)
+	req.ExtraInstructions = strings.TrimSpace(req.ExtraInstructions)
+
+	if req.Topic == "" && req.SourceCaption != "" {
+		req.Topic = req.SourceCaption
+	} else if req.Topic == "" && req.SourceURL != "" {
+		req.Topic = "Artikel dari tautan " + req.SourceURL
+	}
+
 	if req.Topic == "" {
-		httpx.Error(w, http.StatusBadRequest, "topik artikel wajib diisi")
+		httpx.Error(w, http.StatusBadRequest, "topik atau materi sumber artikel wajib diisi")
 		return
 	}
 
@@ -57,9 +511,52 @@ func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sentencesConstraint := "panjang kalimat dinamis dan alami sesuai konteks"
-	if req.SentencesPerParagraph > 0 {
-		sentencesConstraint = fmt.Sprintf("sekitar %d kalimat per paragraf", req.SentencesPerParagraph)
+	schoolName := "SMK Telkom Lampung"
+
+	var sourceInstruction string
+	if req.SourceCaption != "" || req.SourceURL != "" {
+		sourceInstruction = fmt.Sprintf(`Materi Sumber Asli (Postingan Media Sosial / Web):
+%s- Teks / Caption Sumber:
+"""
+%s
+"""
+
+Instruksi Pengolahan Sumber:
+1. Olah materi sumber di atas menjadi artikel berita resmi %s yang lengkap, kaya informasi, bernada positif, dan inspiratif.
+2. Ubah format ringkas media sosial menjadi narasi berita jurnalistik utuh dengan struktur piramida terbalik (lead 5W+1H yang memikat, detail pencapaian/kegiatan/peristiwa, kutipan atau apresiasi yang relevan dari Kepala Sekolah atau Guru Pembimbing, serta pesan penutup yang membangun).
+3. Pertahankan fakta-fakta spesifik yang ada pada sumber (seperti nama siswa, cabang lomba, kategori, tempat, tanggal, penghargaan). Jangan mengubah atau mengarang data faktual di luar apa yang ada pada sumber atau instruksi tambahan.
+4. Buat judul berita jurnalistik yang menarik, lugas, dan resmi (hindari hashtag atau format status media sosial).
+`,
+			func() string {
+				if req.SourceURL != "" {
+					return fmt.Sprintf("- Tautan Sumber: %s\n", req.SourceURL)
+				}
+				return ""
+			}(),
+			req.SourceCaption,
+			schoolName,
+		)
+	}
+
+	topicInstruction := ""
+	if req.ExtraInstructions != "" {
+		topicInstruction = fmt.Sprintf("Instruksi redaksi tambahan:\n%s\n", req.ExtraInstructions)
+	} else if req.Topic != "" && sourceInstruction == "" {
+		topicInstruction = fmt.Sprintf("Topik / Arahan artikel:\n%s\n", req.Topic)
+	}
+
+	lengthInstruction := "Tentukan panjang terbaik berdasarkan kategori berita. Gunakan 3-7 paragraf dan 2-5 kalimat per paragraf."
+	if !req.UseRecommendation && req.Paragraphs > 0 {
+		sentencesPart := "sekitar 3-4 kalimat per paragraf"
+		if req.SentencesPerParagraph > 0 {
+			sentencesPart = fmt.Sprintf("sekitar %d kalimat per paragraf", req.SentencesPerParagraph)
+		}
+		lengthInstruction = fmt.Sprintf("Buat tepat %d paragraf dengan %s.", req.Paragraphs, sentencesPart)
+	}
+
+	codeInstruction := "Jangan memaksakan contoh kode kecuali artikel bertema tutorial teknologi."
+	if req.IncludeCodeSnippets {
+		codeInstruction = "Sertakan contoh kode teknologi yang relevan dan siap dipelajari. Gunakan fenced code block dengan nama bahasa pemrograman (misal: ```php, ```python, ```javascript) serta berikan penjelasan singkat."
 	}
 
 	categoryConstraint := "pilih kategori yang relevan seperti 'Berita', 'Teknologi', 'Pembelajaran', 'Prestasi', atau 'Sekolah'"
@@ -67,14 +564,13 @@ func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
 		categoryConstraint = fmt.Sprintf("kategori HARUS '%s'", req.Category)
 	}
 
-	prompt := fmt.Sprintf(`Anda adalah Jurnalis Pendidikan & SEO Content Specialist profesional untuk website resmi SMK Telkom Lampung (web.smktelkom-lpg.id).
+	prompt := fmt.Sprintf(`Anda adalah Jurnalis Pendidikan & SEO Content Specialist profesional untuk website resmi %s (web.smktelkom-lpg.id).
 Tugas Anda adalah menulis artikel berkualitas tinggi, organik, dan berbobot yang dioptimalkan untuk peringkat Halaman 1 Google (Google Page 1 SEO).
 
 Detail Permintaan Artikel:
-- Topik / Detail: %s
-- Jumlah Paragraf: Exactly %d paragraf utama
-- Kalimat: %s
 - Kategori: %s
+%s%s- Aturan Panjang: %s
+- Ketentuan Kode: %s
 
 ATURAN STRUKTUR & SEO WAJIB:
 1. JUDUL HUMANIS & ORGANIK (SANGAT PENTING):
@@ -83,9 +579,9 @@ ATURAN STRUKTUR & SEO WAJIB:
    - DILARANG menggunakan kata awalan klise robotik seperti "Mengenal X:", "Menjelajahi X:", atau "Panduan Lengkap:".
    - Buat judul mengalir natural dengan sudut pandang menarik, relevan dengan siswa/pelajar, membangkitkan rasa ingin tahu pembaca, dan tetap mengandung kata kunci utama secara organik untuk menduduki Google Page 1 (panjang ideal 50-65 karakter).
    - Contoh gaya humanis yang disukai:
-     * "Alasan Mengapa Laptop Intel Core i3 Masih Jadi Andalan Belajar Siswa SMK"
-     * "Seberapa Tangguh Intel Core i3 Menemani Kebutuhan Praktikum dan Tugas Harian Siswa?"
-     * "Melihat Alasan Kuat Mengapa Prosesor Intel Core i3 Tetap Relevan untuk Pelajar"
+     * "Alasan Mengapa Siswa SMK Telkom Lampung Meraih Juara di Kompetisi Nasional"
+     * "Seberapa Tangguh Ekosistem Digital Menemani Kebutuhan Praktikum dan Tugas Harian Siswa?"
+     * "Melihat Alasan Kuat Mengapa Pendidikan Vokasi Tetap Relevan untuk Generasi Muda"
 
 2. RINGKASAN/EXCERPT:
    - Buat meta description 140-160 karakter yang menggugah pembaca, informatif, dan mengundang klik di hasil pencarian Google.
@@ -94,7 +590,7 @@ ATURAN STRUKTUR & SEO WAJIB:
    - Gunakan <h2> dan <h3> untuk sub-judul yang rapi dan terstruktur alami.
    - Gunakan tag <p> untuk setiap paragraf.
    - Gunakan <strong> untuk menekankan poin kunci.
-   - Sisipkan kutipan atau opini realistis dari Guru atau Kepala Sekolah (misal: Kepala SMK Telkom Lampung) untuk meningkatkan kredibilitas & otoritas artikel di mata Google (E-E-A-T).
+   - Sisipkan kutipan atau opini realistis dari Guru Pembimbing atau Kepala Sekolah (misal: Kepala SMK Telkom Lampung) untuk meningkatkan kredibilitas & otoritas artikel di mata Google (E-E-A-T).
 
 4. INTERNAL & EXTERNAL LINK OTOMATIS:
    - Selipkan LINK INTERNAL alami menggunakan tag <a href="..."> dengan anchor text yang relevan:
@@ -114,7 +610,7 @@ Format JSON:
   "excerpt": "...",
   "category": "...",
   "content": "..."
-}`, req.Topic, req.Paragraphs, sentencesConstraint, categoryConstraint)
+}`, schoolName, categoryConstraint, sourceInstruction, topicInstruction, lengthInstruction, codeInstruction)
 
 	endpoint := strings.TrimRight(setting.BaseURL, "/")
 	if !strings.HasSuffix(endpoint, "/chat/completions") && !strings.Contains(endpoint, ":generateContent") {
@@ -419,6 +915,28 @@ func finalizeArticleResponse(res generateArticleResponse, fallbackTopic string) 
 			res.Excerpt = plain
 		}
 	}
+
+	// Count paragraphs
+	pCount := 0
+	reP := regexp.MustCompile(`(?i)<p[^>]*>.*?</p>`)
+	pMatches := reP.FindAllString(res.Content, -1)
+	if len(pMatches) > 0 {
+		pCount = len(pMatches)
+	} else {
+		parts := strings.Split(res.Content, "\n\n")
+		pCount = len(parts)
+	}
+	res.ParagraphCount = pCount
+
+	// Count sentences
+	cleanText := stripTags(res.Content)
+	reSent := regexp.MustCompile(`(?i)[.!?]+(?:\s+|$)`)
+	sentMatches := reSent.FindAllString(cleanText, -1)
+	res.SentenceCount = len(sentMatches)
+	if res.SentenceCount == 0 && pCount > 0 {
+		res.SentenceCount = pCount * 3
+	}
+
 	return res
 }
 
@@ -514,10 +1032,10 @@ func extractJSONStringField(jsonStr string, fieldName string) string {
 	return strings.TrimSpace(buf.String())
 }
 
-func stripTags(html string) string {
+func stripTags(htmlStr string) string {
 	var buf strings.Builder
 	inTag := false
-	for _, r := range html {
+	for _, r := range htmlStr {
 		if r == '<' {
 			inTag = true
 			continue
