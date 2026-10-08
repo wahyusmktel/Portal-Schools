@@ -100,6 +100,20 @@ const menu: MenuItem[] = [
   { href: "/dashboard/ai-config", label: "Config AI", icon: Bot },
 ];
 
+function isChildActive(pathname: string, href: string, allHrefs: string[]) {
+  if (pathname === href) return true;
+  if (pathname.startsWith(href + "/")) {
+    const hasMoreSpecific = allHrefs.some(
+      (other) =>
+        other !== href &&
+        (pathname === other || pathname.startsWith(other + "/")) &&
+        other.length > href.length
+    );
+    return !hasMoreSpecific;
+  }
+  return false;
+}
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -153,10 +167,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    CBT: true,
-    "Administrasi SPMB": true,
-  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroup = (label: string) => {
     setOpenGroups((prev) => ({
@@ -164,16 +175,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       [label]: !prev[label],
     }));
   };
-
-  // Keep groups open if navigating into their subroutes
-  useEffect(() => {
-    if (pathname.startsWith("/dashboard/cbt")) {
-      setOpenGroups((prev) => ({ ...prev, CBT: true }));
-    }
-    if (pathname.startsWith("/dashboard/spmb")) {
-      setOpenGroups((prev) => ({ ...prev, "Administrasi SPMB": true }));
-    }
-  }, [pathname]);
 
   const visibleMenu = menu.filter((item) => {
     if (role === "admin-spmb") {
@@ -212,10 +213,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const renderNavItems = (onItemClick?: () => void) => {
     return visibleMenu.map((item) => {
       if (item.type === "group") {
-        const isGroupActive = item.children.some(
-          (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/")
+        const childHrefs = item.children.map((sub) => sub.href);
+        const isGroupActive = item.children.some((sub) =>
+          isChildActive(pathname, sub.href, childHrefs)
         );
-        const isOpen = openGroups[item.label] ?? true;
+        const isOpen = Boolean(openGroups[item.label]);
         return (
           <div key={item.label} className="grid gap-1">
             <button
@@ -223,12 +225,18 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               onClick={() => toggleGroup(item.label)}
               className={`flex w-full items-center justify-between rounded-[8px] px-4 py-3 text-sm font-bold transition select-none ${
                 isGroupActive
-                  ? "bg-rosebrand-50/70 text-rosebrand-700 font-extrabold"
+                  ? isOpen
+                    ? "bg-rosebrand-50/50 text-rosebrand-700 font-bold"
+                    : "bg-rosebrand-50 text-rosebrand-700 font-bold shadow-xs"
                   : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
               }`}
             >
               <div className="flex items-center gap-3">
-                <item.icon size={18} className={isGroupActive ? "text-rosebrand-600" : "text-zinc-500"} aria-hidden />
+                <item.icon
+                  size={18}
+                  className={isGroupActive ? "text-rosebrand-600" : "text-zinc-500"}
+                  aria-hidden
+                />
                 <span>{item.label}</span>
               </div>
               <ChevronDown
@@ -243,7 +251,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             {isOpen && (
               <div className="ml-5 mt-0.5 grid gap-1 border-l-2 border-rosebrand-100 pl-2.5 py-1">
                 {item.children.map((sub) => {
-                  const isSubActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+                  const isSubActive = isChildActive(pathname, sub.href, childHrefs);
                   return (
                     <Link
                       key={sub.href}
@@ -255,7 +263,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                           : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
                       }`}
                     >
-                      <sub.icon size={15} className={isSubActive ? "text-rosebrand-600" : "text-zinc-400"} aria-hidden />
+                      <sub.icon
+                        size={15}
+                        className={isSubActive ? "text-rosebrand-600" : "text-zinc-400"}
+                        aria-hidden
+                      />
                       <span>{sub.label}</span>
                     </Link>
                   );
@@ -266,7 +278,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         );
       }
 
-      const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+      const isActive =
+        pathname === item.href ||
+        (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
       return (
         <Link
           key={item.href}
