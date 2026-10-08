@@ -115,6 +115,7 @@ Format JSON:
 			{"role": "system", "content": "You are a professional SEO content writer. Always output clean valid JSON only with keys: title, excerpt, category, content."},
 			{"role": "user", "content": prompt},
 		},
+		"stream":      false,
 		"max_tokens":  3500,
 		"temperature": 0.7,
 	})
@@ -131,6 +132,7 @@ Format JSON:
 
 	aiReq.Header.Set("Content-Type", "application/json")
 	aiReq.Header.Set("Authorization", "Bearer "+setting.APIKey)
+	aiReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	resp, err := client.Do(aiReq)
 	if err != nil {
@@ -176,12 +178,46 @@ func extractAIText(respBytes []byte) (string, error) {
 		}
 	}
 
-	// 2. Generic JSON unmarshal
+	// 2. Check if this is an SSE stream response (data: lines)
+	trimmedStr := strings.TrimSpace(string(respBytes))
+	if strings.HasPrefix(trimmedStr, "data:") || strings.Contains(trimmedStr, "\ndata:") {
+		var sb strings.Builder
+		for _, line := range strings.Split(trimmedStr, "\n") {
+			line = strings.TrimSpace(line)
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			chunkJSON := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if chunkJSON == "[DONE]" || chunkJSON == "" {
+				continue
+			}
+			var chunk struct {
+				Choices []struct {
+					Delta struct {
+						Content          string `json:"content"`
+						ReasoningContent string `json:"reasoning_content"`
+					} `json:"delta"`
+					Text string `json:"text"`
+				} `json:"choices"`
+			}
+			if err := json.Unmarshal([]byte(chunkJSON), &chunk); err == nil && len(chunk.Choices) > 0 {
+				if chunk.Choices[0].Delta.Content != "" {
+					sb.WriteString(chunk.Choices[0].Delta.Content)
+				} else if chunk.Choices[0].Text != "" {
+					sb.WriteString(chunk.Choices[0].Text)
+				}
+			}
+		}
+		if sb.Len() > 0 {
+			return sb.String(), nil
+		}
+	}
+
+	// 3. Generic JSON unmarshal
 	var raw map[string]interface{}
 	if err := json.Unmarshal(respBytes, &raw); err != nil {
-		trimmed := strings.TrimSpace(string(respBytes))
-		if trimmed != "" {
-			return trimmed, nil
+		if trimmedStr != "" {
+			return trimmedStr, nil
 		}
 		return "", fmt.Errorf("respons AI bukan JSON valid: %v", err)
 	}

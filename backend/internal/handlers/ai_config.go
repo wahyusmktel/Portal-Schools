@@ -91,6 +91,7 @@ func (h *Handler) testAIConnection(w http.ResponseWriter, r *http.Request) {
 		"messages": []map[string]string{
 			{"role": "user", "content": "Hello! Please respond with a brief confirmation 'Koneksi AI Berhasil'."},
 		},
+		"stream": false,
 	})
 
 	client := &http.Client{Timeout: 20 * time.Second}
@@ -102,6 +103,7 @@ func (h *Handler) testAIConnection(w http.ResponseWriter, r *http.Request) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
 	resp, err := client.Do(req)
 	if err != nil {
