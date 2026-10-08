@@ -32,18 +32,45 @@ import {
   ClipboardList,
   Sparkles,
   Target,
+  ChevronDown,
   Database,
   Layers,
+  Laptop,
 } from "lucide-react";
 import { API_URL } from "@/lib/api-config";
 import { logout } from "@/lib/auth-client";
 
-const menu = [
+type MenuItem =
+  | {
+      type?: "link";
+      href: string;
+      label: string;
+      icon: any;
+    }
+  | {
+      type: "group";
+      label: string;
+      icon: any;
+      children: {
+        href: string;
+        label: string;
+        icon: any;
+      }[];
+    };
+
+const menu: MenuItem[] = [
   { href: "/dashboard", label: "Ringkasan", icon: LayoutDashboard },
-  { href: "/dashboard/cbt/exams", label: "Jadwal Ujian CBT", icon: Calendar },
-  { href: "/dashboard/cbt/students", label: "Peserta & Kartu CBT", icon: Users },
-  { href: "/dashboard/cbt/banks", label: "Bank Soal CBT", icon: Database },
-  { href: "/dashboard/cbt/subjects", label: "Mapel CBT", icon: Layers },
+  {
+    type: "group",
+    label: "CBT",
+    icon: Laptop,
+    children: [
+      { href: "/dashboard/cbt/exams", label: "Jadwal Ujian CBT", icon: Calendar },
+      { href: "/dashboard/cbt/students", label: "Peserta & Kartu CBT", icon: Users },
+      { href: "/dashboard/cbt/banks", label: "Bank Soal CBT", icon: Database },
+      { href: "/dashboard/cbt/subjects", label: "Mapel CBT", icon: Layers },
+    ],
+  },
   { href: "/dashboard/school-profile", label: "Profil Sekolah", icon: Building },
   { href: "/dashboard/hero-slides", label: "Slider Hero", icon: Images },
   { href: "/dashboard/why-choose-us", label: "Why Sekolah", icon: Sparkles },
@@ -118,21 +145,120 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
+  const [isCbtOpen, setIsCbtOpen] = useState(true);
+
+  // Keep CBT open if navigating to a CBT route
+  useEffect(() => {
+    if (pathname.startsWith("/dashboard/cbt")) {
+      setIsCbtOpen(true);
+    }
+  }, [pathname]);
+
   const visibleMenu = menu.filter((item) => {
     if (role === "admin-spmb") {
-      return item.href === "/dashboard/spmb";
+      return "href" in item && item.href === "/dashboard/spmb";
     }
     if (role === "redaksi") {
-      return item.href === "/dashboard/articles" || item.href === "/dashboard/comments";
+      return "href" in item && (item.href === "/dashboard/articles" || item.href === "/dashboard/comments");
     }
-    if (item.href === "/dashboard/spmb") {
+    if (role === "contributor") {
+      if (item.type === "group") return false;
+      return (
+        item.href === "/dashboard" ||
+        item.href === "/dashboard/articles" ||
+        item.href === "/dashboard/announcements" ||
+        item.href === "/dashboard/agendas" ||
+        item.href === "/dashboard/teaching-modules"
+      );
+    }
+    if ("href" in item) {
+      if (item.href === "/dashboard/spmb") {
+        return role === "superadmin" || role === "admin";
+      }
+      if (item.href === "/dashboard/users" || item.href === "/dashboard/ai-config") {
+        return role === "superadmin";
+      }
+    }
+    if (item.type === "group" && item.label === "CBT") {
       return role === "superadmin" || role === "admin";
-    }
-    if (item.href === "/dashboard/users" || item.href === "/dashboard/ai-config") {
-      return role === "superadmin";
     }
     return true;
   });
+
+  const renderNavItems = (onItemClick?: () => void) => {
+    return visibleMenu.map((item) => {
+      if (item.type === "group") {
+        const isGroupActive = item.children.some(
+          (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/")
+        );
+        return (
+          <div key={item.label} className="grid gap-1">
+            <button
+              type="button"
+              onClick={() => setIsCbtOpen((prev) => !prev)}
+              className={`flex w-full items-center justify-between rounded-[8px] px-4 py-3 text-sm font-bold transition select-none ${
+                isGroupActive
+                  ? "bg-rosebrand-50/70 text-rosebrand-700 font-extrabold"
+                  : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon size={18} className={isGroupActive ? "text-rosebrand-600" : "text-zinc-500"} aria-hidden />
+                <span>{item.label}</span>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`text-zinc-400 transition-transform duration-200 ${
+                  isCbtOpen ? "rotate-180 text-rosebrand-600" : ""
+                }`}
+                aria-hidden
+              />
+            </button>
+
+            {isCbtOpen && (
+              <div className="ml-5 mt-0.5 grid gap-1 border-l-2 border-rosebrand-100 pl-2.5 py-1">
+                {item.children.map((sub) => {
+                  const isSubActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={onItemClick}
+                      className={`flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-xs font-bold transition ${
+                        isSubActive
+                          ? "bg-rosebrand-50 text-rosebrand-700 shadow-xs"
+                          : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
+                      }`}
+                    >
+                      <sub.icon size={15} className={isSubActive ? "text-rosebrand-600" : "text-zinc-400"} aria-hidden />
+                      <span>{sub.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onItemClick}
+          className={`flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold transition ${
+            isActive
+              ? "bg-rosebrand-50 text-rosebrand-700 shadow-sm"
+              : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
+          }`}
+        >
+          <item.icon size={18} aria-hidden />
+          {item.label}
+        </Link>
+      );
+    });
+  };
 
   return (
     <div className="min-h-screen bg-softgray">
@@ -147,23 +273,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </span>
         </Link>
         <nav className="smooth-sidebar-scroll mt-10 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
-          {visibleMenu.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href} 
-                className={`flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold transition ${
-                  isActive 
-                    ? "bg-rosebrand-50 text-rosebrand-700 shadow-sm" 
-                    : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
-                }`}
-              >
-                <item.icon size={18} aria-hidden />
-                {item.label}
-              </Link>
-            );
-          })}
+          {renderNavItems()}
         </nav>
         <div className="mt-4 grid gap-2 border-t border-zinc-100 pt-4">
           <Link href="/" className="flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-100">
@@ -222,24 +332,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
             
             <nav className="smooth-sidebar-scroll mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1 pb-4">
-              {visibleMenu.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-                return (
-                  <Link 
-                    key={item.href} 
-                    href={item.href} 
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-[8px] px-4 py-3 text-sm font-bold transition ${
-                      isActive 
-                        ? "bg-rosebrand-50 text-rosebrand-700 shadow-sm" 
-                        : "text-zinc-600 hover:bg-zinc-50 hover:text-rosebrand-600"
-                    }`}
-                  >
-                    <item.icon size={18} aria-hidden />
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {renderNavItems(() => setIsMobileMenuOpen(false))}
             </nav>
 
             <div className="grid gap-2 pt-4 border-t border-zinc-100">
