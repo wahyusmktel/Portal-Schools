@@ -67,8 +67,8 @@ func (h *Handler) generateAIArticle(w http.ResponseWriter, r *http.Request) {
 		categoryConstraint = fmt.Sprintf("kategori HARUS '%s'", req.Category)
 	}
 
-	prompt := fmt.Sprintf(`Anda adalah SEO Content Writer & Jurnalis Pendidikan profesional untuk website resmi SMK Telkom Lampung (web.smktelkom-lpg.id).
-Tugas Anda adalah menulis artikel berkualitas tinggi yang dioptimalkan untuk peringkat Halaman 1 Google (Google Page 1 SEO).
+	prompt := fmt.Sprintf(`Anda adalah Jurnalis Pendidikan & SEO Content Specialist profesional untuk website resmi SMK Telkom Lampung (web.smktelkom-lpg.id).
+Tugas Anda adalah menulis artikel berkualitas tinggi, organik, dan berbobot yang dioptimalkan untuk peringkat Halaman 1 Google (Google Page 1 SEO).
 
 Detail Permintaan Artikel:
 - Topik / Detail: %s
@@ -77,13 +77,25 @@ Detail Permintaan Artikel:
 - Kategori: %s
 
 ATURAN STRUKTUR & SEO WAJIB:
-1. JUDUL: Buat judul yang sangat menarik (click-worthy), mengandung kata kunci utama, dan berstandar SEO (tanpa tanda petik ganda di dalam string judul).
-2. RINGKASAN/EXCERPT: Buat meta description / ringkasan artikel 140-160 karakter yang menggugah pembaca.
+1. JUDUL HUMANIS & ORGANIK (SANGAT PENTING):
+   - Buat judul yang mengalir alami seperti ditulis oleh jurnalis manusia profesional, BUKAN hasil template robot/AI.
+   - DILARANG KERAS menggunakan tanda titik dua (:) atau format formulaik kaku seperti "Topik: Penjelasan".
+   - DILARANG menggunakan kata awalan klise robotik seperti "Mengenal X:", "Menjelajahi X:", atau "Panduan Lengkap:".
+   - Buat judul mengalir natural dengan sudut pandang menarik, relevan dengan siswa/pelajar, membangkitkan rasa ingin tahu pembaca, dan tetap mengandung kata kunci utama secara organik untuk menduduki Google Page 1 (panjang ideal 50-65 karakter).
+   - Contoh gaya humanis yang disukai:
+     * "Alasan Mengapa Laptop Intel Core i3 Masih Jadi Andalan Belajar Siswa SMK"
+     * "Seberapa Tangguh Intel Core i3 Menemani Kebutuhan Praktikum dan Tugas Harian Siswa?"
+     * "Melihat Alasan Kuat Mengapa Prosesor Intel Core i3 Tetap Relevan untuk Pelajar"
+
+2. RINGKASAN/EXCERPT:
+   - Buat meta description 140-160 karakter yang menggugah pembaca, informatif, dan mengundang klik di hasil pencarian Google.
+
 3. KONTEN DENGAN HTML MODEREN:
-   - Gunakan <h2> dan <h3> untuk sub-judul yang rapi dan terstruktur.
+   - Gunakan <h2> dan <h3> untuk sub-judul yang rapi dan terstruktur alami.
    - Gunakan tag <p> untuk setiap paragraf.
    - Gunakan <strong> untuk menekankan poin kunci.
-   - Sisipkan kutipan atau opini realistis dari Guru atau Kepala Sekolah (misal: Kepala SMK Telkom Lampung) untuk meningkatkan otoritas artikel.
+   - Sisipkan kutipan atau opini realistis dari Guru atau Kepala Sekolah (misal: Kepala SMK Telkom Lampung) untuk meningkatkan kredibilitas & otoritas artikel di mata Google (E-E-A-T).
+
 4. INTERNAL & EXTERNAL LINK OTOMATIS:
    - Selipkan LINK INTERNAL alami menggunakan tag <a href="..."> dengan anchor text yang relevan:
      * '/jurusan' (atau '/jurusan/rpl', '/jurusan/tkj', '/jurusan/tjat', '/jurusan/animasi')
@@ -112,12 +124,12 @@ Format JSON:
 	reqBody, _ := json.Marshal(map[string]interface{}{
 		"model": setting.Model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a professional SEO content writer. Always output clean valid JSON only with keys: title, excerpt, category, content."},
+			{"role": "system", "content": "You are an experienced, award-winning human education journalist and SEO specialist. You write natural, compelling, human-toned articles without robotic clichés. Never use colons (:) in titles. Always output clean valid JSON only with keys: title, excerpt, category, content."},
 			{"role": "user", "content": prompt},
 		},
 		"stream":      false,
 		"max_tokens":  3500,
-		"temperature": 0.7,
+		"temperature": 0.75,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
@@ -377,6 +389,25 @@ func finalizeArticleResponse(res generateArticleResponse, fallbackTopic string) 
 	if strings.TrimSpace(res.Title) == "" {
 		res.Title = fallbackTopic
 	}
+
+	// Remove any robotic colons and format title naturally
+	if strings.Contains(res.Title, ":") {
+		parts := strings.SplitN(res.Title, ":", 2)
+		if len(parts) == 2 {
+			p1 := strings.TrimSpace(parts[0])
+			p2 := strings.TrimSpace(parts[1])
+			if strings.HasPrefix(strings.ToLower(p1), "mengenal ") || strings.HasPrefix(strings.ToLower(p1), "panduan ") {
+				res.Title = p1 + " dan " + p2
+			} else if len(p1) > 0 && len(p2) > 0 {
+				res.Title = p1 + " - " + p2
+			} else {
+				res.Title = p1 + p2
+			}
+		}
+		res.Title = strings.ReplaceAll(res.Title, ":", "")
+	}
+	res.Title = strings.TrimSpace(res.Title)
+
 	if strings.TrimSpace(res.Category) == "" {
 		res.Category = "Sekolah"
 	}
