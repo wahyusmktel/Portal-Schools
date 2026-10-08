@@ -80,7 +80,15 @@ const menu: MenuItem[] = [
   { href: "/dashboard/comments", label: "Moderasi Komentar", icon: MessageCircle },
   { href: "/dashboard/agendas", label: "Agenda Kegiatan", icon: Calendar },
   { href: "/dashboard/announcements", label: "Pengumuman", icon: Megaphone },
-  { href: "/dashboard/spmb", label: "Report SPMB", icon: ClipboardList },
+  {
+    type: "group",
+    label: "Administrasi SPMB",
+    icon: ClipboardList,
+    children: [
+      { href: "/dashboard/spmb/piket", label: "Jadwal Piket SPMB", icon: Calendar },
+      { href: "/dashboard/spmb", label: "Report SPMB", icon: Users },
+    ],
+  },
   { href: "/dashboard/facilities", label: "Fasilitas", icon: Building2 },
   { href: "/dashboard/majors", label: "Jurusan", icon: BookOpen },
   { href: "/dashboard/employees", label: "Pegawai", icon: UserCheck },
@@ -122,7 +130,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (role === "admin-spmb" && pathname !== "/dashboard/spmb" && pathname !== "/dashboard/login") {
+    if (role === "admin-spmb" && !pathname.startsWith("/dashboard/spmb") && pathname !== "/dashboard/login") {
       router.replace("/dashboard/spmb");
     }
     if (
@@ -145,18 +153,32 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  const [isCbtOpen, setIsCbtOpen] = useState(true);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    CBT: true,
+    "Administrasi SPMB": true,
+  });
 
-  // Keep CBT open if navigating to a CBT route
+  const toggleGroup = (label: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [label]: !prev[label],
+    }));
+  };
+
+  // Keep groups open if navigating into their subroutes
   useEffect(() => {
     if (pathname.startsWith("/dashboard/cbt")) {
-      setIsCbtOpen(true);
+      setOpenGroups((prev) => ({ ...prev, CBT: true }));
+    }
+    if (pathname.startsWith("/dashboard/spmb")) {
+      setOpenGroups((prev) => ({ ...prev, "Administrasi SPMB": true }));
     }
   }, [pathname]);
 
   const visibleMenu = menu.filter((item) => {
     if (role === "admin-spmb") {
-      return "href" in item && item.href === "/dashboard/spmb";
+      if (item.type === "group" && item.label === "Administrasi SPMB") return true;
+      return "href" in item && item.href.startsWith("/dashboard/spmb");
     }
     if (role === "redaksi") {
       return "href" in item && (item.href === "/dashboard/articles" || item.href === "/dashboard/comments");
@@ -172,15 +194,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       );
     }
     if ("href" in item) {
-      if (item.href === "/dashboard/spmb") {
-        return role === "superadmin" || role === "admin";
-      }
       if (item.href === "/dashboard/users" || item.href === "/dashboard/ai-config") {
         return role === "superadmin";
       }
     }
-    if (item.type === "group" && item.label === "CBT") {
-      return role === "superadmin" || role === "admin";
+    if (item.type === "group") {
+      if (item.label === "CBT") {
+        return role === "superadmin" || role === "admin";
+      }
+      if (item.label === "Administrasi SPMB") {
+        return role === "superadmin" || role === "admin" || role === "admin-spmb";
+      }
     }
     return true;
   });
@@ -191,11 +215,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         const isGroupActive = item.children.some(
           (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/")
         );
+        const isOpen = openGroups[item.label] ?? true;
         return (
           <div key={item.label} className="grid gap-1">
             <button
               type="button"
-              onClick={() => setIsCbtOpen((prev) => !prev)}
+              onClick={() => toggleGroup(item.label)}
               className={`flex w-full items-center justify-between rounded-[8px] px-4 py-3 text-sm font-bold transition select-none ${
                 isGroupActive
                   ? "bg-rosebrand-50/70 text-rosebrand-700 font-extrabold"
@@ -209,13 +234,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               <ChevronDown
                 size={16}
                 className={`text-zinc-400 transition-transform duration-200 ${
-                  isCbtOpen ? "rotate-180 text-rosebrand-600" : ""
+                  isOpen ? "rotate-180 text-rosebrand-600" : ""
                 }`}
                 aria-hidden
               />
             </button>
 
-            {isCbtOpen && (
+            {isOpen && (
               <div className="ml-5 mt-0.5 grid gap-1 border-l-2 border-rosebrand-100 pl-2.5 py-1">
                 {item.children.map((sub) => {
                   const isSubActive = pathname === sub.href || pathname.startsWith(sub.href + "/");

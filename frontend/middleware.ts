@@ -47,7 +47,7 @@ async function validateDashboardSession(request: NextRequest, pathname: string) 
     response.cookies.delete("csrf_token");
     return response;
   }
-  if (user.role === "admin-spmb" && pathname !== "/dashboard/spmb") {
+  if (user.role === "admin-spmb" && !pathname.startsWith("/dashboard/spmb")) {
     return NextResponse.redirect(new URL("/dashboard/spmb", request.url));
   }
   if (
