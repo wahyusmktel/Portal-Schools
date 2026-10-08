@@ -21,6 +21,9 @@ const config: Config = {
       },
       boxShadow: {
         soft: "0 18px 70px rgba(39, 39, 42, 0.10)"
+      },
+      fontFamily: {
+        roboto: ["var(--font-roboto)", "Roboto", "Helvetica Neue", "Arial", "sans-serif"]
       }
     }
   },
