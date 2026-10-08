@@ -81,7 +81,10 @@ func (h *Handler) testAIConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
+	endpoint := strings.TrimRight(baseURL, "/")
+	if !strings.HasSuffix(endpoint, "/chat/completions") && !strings.Contains(endpoint, ":generateContent") {
+		endpoint += "/chat/completions"
+	}
 
 	reqBody, _ := json.Marshal(map[string]interface{}{
 		"model": model,
@@ -90,7 +93,7 @@ func (h *Handler) testAIConnection(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: 20 * time.Second}
 	req, err := http.NewRequestWithContext(r.Context(), "POST", endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "URL Endpoint tidak valid: "+err.Error())
@@ -118,18 +121,10 @@ func (h *Handler) testAIConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var aiResult struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	_ = json.Unmarshal(respBytes, &aiResult)
-
-	outputContent := ""
-	if len(aiResult.Choices) > 0 {
-		outputContent = aiResult.Choices[0].Message.Content
+	outputContent, extractErr := extractAIText(respBytes)
+	if extractErr != nil {
+		httpx.Error(w, http.StatusBadRequest, "Respons dari AI diterima tetapi format tidak dikenali: "+extractErr.Error())
+		return
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]interface{}{

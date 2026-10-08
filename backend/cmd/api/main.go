@@ -49,9 +49,9 @@ func main() {
 		Addr:              ":" + cfg.HTTPPort,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       20 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {

@@ -104,7 +104,10 @@ Format JSON:
   "content": "..."
 }`, req.Topic, req.Paragraphs, sentencesConstraint, categoryConstraint)
 
-	endpoint := strings.TrimRight(setting.BaseURL, "/") + "/chat/completions"
+	endpoint := strings.TrimRight(setting.BaseURL, "/")
+	if !strings.HasSuffix(endpoint, "/chat/completions") && !strings.Contains(endpoint, ":generateContent") {
+		endpoint += "/chat/completions"
+	}
 
 	reqBody, _ := json.Marshal(map[string]interface{}{
 		"model": setting.Model,
@@ -112,14 +115,14 @@ Format JSON:
 			{"role": "system", "content": "You are a professional SEO content writer. Always output clean valid JSON only with keys: title, excerpt, category, content."},
 			{"role": "user", "content": prompt},
 		},
-		"max_tokens":  2000,
+		"max_tokens":  3500,
 		"temperature": 0.7,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
 	defer cancel()
 
-	client := &http.Client{Timeout: 35 * time.Second}
+	client := &http.Client{Timeout: 75 * time.Second}
 	aiReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "URL AI Endpoint tidak valid: "+err.Error())
@@ -147,57 +150,201 @@ Format JSON:
 		return
 	}
 
-	var aiResult struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.Unmarshal(respBytes, &aiResult); err != nil || len(aiResult.Choices) == 0 {
-		httpx.Error(w, http.StatusInternalServerError, "Format respons AI tidak dikenali")
+	rawContent, err := extractAIText(respBytes)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	rawContent := aiResult.Choices[0].Message.Content
 	articleRes := parseAIArticleResponse(rawContent, req.Topic)
-
 	httpx.JSON(w, http.StatusOK, articleRes)
+}
+
+func extractAIText(respBytes []byte) (string, error) {
+	// 1. Check for upstream error payload inside JSON
+	var errObj struct {
+		Error *struct {
+			Message string `json:"message"`
+			Code    any    `json:"code"`
+			Type    string `json:"type"`
+		} `json:"error"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(respBytes, &errObj); err == nil {
+		if errObj.Error != nil && strings.TrimSpace(errObj.Error.Message) != "" {
+			return "", fmt.Errorf("AI provider error: %s", errObj.Error.Message)
+		}
+	}
+
+	// 2. Generic JSON unmarshal
+	var raw map[string]interface{}
+	if err := json.Unmarshal(respBytes, &raw); err != nil {
+		trimmed := strings.TrimSpace(string(respBytes))
+		if trimmed != "" {
+			return trimmed, nil
+		}
+		return "", fmt.Errorf("respons AI bukan JSON valid: %v", err)
+	}
+
+	// 3. OpenAI Chat Completions: choices[0].message
+	if choices, ok := raw["choices"].([]interface{}); ok && len(choices) > 0 {
+		if choiceMap, ok := choices[0].(map[string]interface{}); ok {
+			if msgMap, ok := choiceMap["message"].(map[string]interface{}); ok {
+				// String content
+				if contentStr, ok := msgMap["content"].(string); ok && strings.TrimSpace(contentStr) != "" {
+					return contentStr, nil
+				}
+				// Array of content parts: [{"type": "text", "text": "..."}]
+				if contentArr, ok := msgMap["content"].([]interface{}); ok {
+					var sb strings.Builder
+					for _, item := range contentArr {
+						if partMap, ok := item.(map[string]interface{}); ok {
+							if txt, ok := partMap["text"].(string); ok {
+								sb.WriteString(txt)
+							}
+						}
+					}
+					if sb.Len() > 0 {
+						return sb.String(), nil
+					}
+				}
+				// Reasoning content (DeepSeek R1, GLM-5, Qwen, etc.)
+				if reasonStr, ok := msgMap["reasoning_content"].(string); ok && strings.TrimSpace(reasonStr) != "" {
+					return reasonStr, nil
+				}
+			}
+			// Delta (streaming format if proxy forwarded chunk)
+			if deltaMap, ok := choiceMap["delta"].(map[string]interface{}); ok {
+				if contentStr, ok := deltaMap["content"].(string); ok && strings.TrimSpace(contentStr) != "" {
+					return contentStr, nil
+				}
+			}
+			// Text (legacy completion format)
+			if textStr, ok := choiceMap["text"].(string); ok && strings.TrimSpace(textStr) != "" {
+				return textStr, nil
+			}
+		}
+	}
+
+	// 4. Google Gemini native candidates: candidates[0].content.parts[0].text
+	if cands, ok := raw["candidates"].([]interface{}); ok && len(cands) > 0 {
+		if candMap, ok := cands[0].(map[string]interface{}); ok {
+			if contentMap, ok := candMap["content"].(map[string]interface{}); ok {
+				if partsArr, ok := contentMap["parts"].([]interface{}); ok {
+					var sb strings.Builder
+					for _, part := range partsArr {
+						if partMap, ok := part.(map[string]interface{}); ok {
+							if txt, ok := partMap["text"].(string); ok {
+								sb.WriteString(txt)
+							}
+						}
+					}
+					if sb.Len() > 0 {
+						return sb.String(), nil
+					}
+				}
+			}
+		}
+	}
+
+	// 5. Anthropic Claude native: content[0].text
+	if contentArr, ok := raw["content"].([]interface{}); ok && len(contentArr) > 0 {
+		var sb strings.Builder
+		for _, part := range contentArr {
+			if partMap, ok := part.(map[string]interface{}); ok {
+				if txt, ok := partMap["text"].(string); ok {
+					sb.WriteString(txt)
+				}
+			}
+		}
+		if sb.Len() > 0 {
+			return sb.String(), nil
+		}
+	}
+
+	// 6. Direct root string fields (output, response, text, result, generated_text, message)
+	for _, k := range []string{"output", "response", "text", "result", "generated_text", "message"} {
+		if val, ok := raw[k].(string); ok && strings.TrimSpace(val) != "" {
+			return val, nil
+		}
+	}
+
+	preview := string(respBytes)
+	if len(preview) > 300 {
+		preview = preview[:297] + "..."
+	}
+	return "", fmt.Errorf("Format respons AI tidak dikenali: %s", preview)
 }
 
 func parseAIArticleResponse(rawContent string, fallbackTopic string) generateArticleResponse {
 	rawContent = strings.TrimSpace(rawContent)
-	if idx := strings.Index(rawContent, "{"); idx != -1 {
-		if lastIdx := strings.LastIndex(rawContent, "}"); lastIdx > idx {
-			rawContent = rawContent[idx : lastIdx+1]
+
+	// Remove thinking blocks from reasoning models
+	reThink := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	rawContent = reThink.ReplaceAllString(rawContent, "")
+	rawContent = strings.TrimSpace(rawContent)
+
+	// Strip markdown code fences if wrapped in ```json ... ``` or ``` ... ```
+	reCodeBlock := regexp.MustCompile("(?s)```(?:json)?\\s*(\\{.*?\\})\\s*```")
+	if match := reCodeBlock.FindStringSubmatch(rawContent); len(match) > 1 {
+		rawContent = match[1]
+	} else {
+		rawContent = strings.TrimPrefix(rawContent, "```json")
+		rawContent = strings.TrimPrefix(rawContent, "```")
+		rawContent = strings.TrimSuffix(rawContent, "```")
+		rawContent = strings.TrimSpace(rawContent)
+	}
+
+	targetJSON := rawContent
+	if idx := strings.Index(targetJSON, "{"); idx != -1 {
+		if lastIdx := strings.LastIndex(targetJSON, "}"); lastIdx > idx {
+			targetJSON = targetJSON[idx : lastIdx+1]
 		}
 	}
 
 	var res generateArticleResponse
-	if err := json.Unmarshal([]byte(rawContent), &res); err == nil && res.Title != "" && res.Content != "" {
-		return res
+	if err := json.Unmarshal([]byte(targetJSON), &res); err == nil && res.Title != "" && res.Content != "" {
+		return finalizeArticleResponse(res, fallbackTopic)
 	}
 
-	sanitized := sanitizeJSONStringLiterals(rawContent)
+	sanitized := sanitizeJSONStringLiterals(targetJSON)
 	if err := json.Unmarshal([]byte(sanitized), &res); err == nil && res.Title != "" && res.Content != "" {
-		return res
+		return finalizeArticleResponse(res, fallbackTopic)
 	}
 
-	res.Title = extractJSONStringField(rawContent, "title")
-	res.Excerpt = extractJSONStringField(rawContent, "excerpt")
-	res.Category = extractJSONStringField(rawContent, "category")
-	res.Content = extractJSONStringField(rawContent, "content")
+	res.Title = extractJSONStringField(targetJSON, "title")
+	res.Excerpt = extractJSONStringField(targetJSON, "excerpt")
+	res.Category = extractJSONStringField(targetJSON, "category")
+	res.Content = extractJSONStringField(targetJSON, "content")
 
 	if res.Title == "" {
-		res.Title = fallbackTopic
+		res.Title = extractJSONStringField(rawContent, "title")
+	}
+	if res.Excerpt == "" {
+		res.Excerpt = extractJSONStringField(rawContent, "excerpt")
 	}
 	if res.Category == "" {
-		res.Category = "Teknologi"
+		res.Category = extractJSONStringField(rawContent, "category")
 	}
+	if res.Content == "" {
+		res.Content = extractJSONStringField(rawContent, "content")
+	}
+
 	if res.Content == "" {
 		res.Content = rawContent
 	}
-	if res.Excerpt == "" {
+
+	return finalizeArticleResponse(res, fallbackTopic)
+}
+
+func finalizeArticleResponse(res generateArticleResponse, fallbackTopic string) generateArticleResponse {
+	if strings.TrimSpace(res.Title) == "" {
+		res.Title = fallbackTopic
+	}
+	if strings.TrimSpace(res.Category) == "" {
+		res.Category = "Sekolah"
+	}
+	if strings.TrimSpace(res.Excerpt) == "" {
 		plain := stripTags(res.Content)
 		if len(plain) > 155 {
 			res.Excerpt = plain[:152] + "..."
@@ -205,7 +352,6 @@ func parseAIArticleResponse(rawContent string, fallbackTopic string) generateArt
 			res.Excerpt = plain
 		}
 	}
-
 	return res
 }
 
