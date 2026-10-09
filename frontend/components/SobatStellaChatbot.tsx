@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, ChevronLeft, ChevronRight, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,7 +34,18 @@ export function SobatStellaChatbot() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior
+      });
+    }
+  };
 
   useEffect(() => {
     try {
@@ -52,6 +63,24 @@ export function SobatStellaChatbot() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Auto-scroll ke bawah saat percakapan bertambah, user mengirim pesan, atau bot merespon
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer1 = setTimeout(() => {
+      scrollToBottom("smooth");
+    }, 50);
+
+    const timer2 = setTimeout(() => {
+      scrollToBottom("smooth");
+    }, 250);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [messages, isLoading, isOpen]);
 
   const handleDragStart = () => {
     isDraggingRef.current = true;
@@ -71,7 +100,7 @@ export function SobatStellaChatbot() {
   };
 
   const shouldHide = pathname?.startsWith("/dashboard");
-  const visibleMessages = useMemo(() => messages.slice(-10), [messages]);
+  const visibleMessages = messages;
 
   if (shouldHide) {
     return null;
@@ -79,7 +108,10 @@ export function SobatStellaChatbot() {
 
   function openChat() {
     setIsOpen(true);
-    window.setTimeout(() => inputRef.current?.focus(), 120);
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+      scrollToBottom("auto");
+    }, 120);
   }
 
   async function submitMessage(event?: FormEvent<HTMLFormElement>, quickText?: string) {
@@ -92,6 +124,7 @@ export function SobatStellaChatbot() {
     setInput("");
     setError("");
     setIsLoading(true);
+    window.setTimeout(() => scrollToBottom("smooth"), 40);
 
     try {
       const apiMessages = nextMessages
@@ -136,6 +169,7 @@ export function SobatStellaChatbot() {
       ]);
     } finally {
       setIsLoading(false);
+      window.setTimeout(() => scrollToBottom("smooth"), 60);
     }
   }
 
@@ -157,7 +191,7 @@ export function SobatStellaChatbot() {
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 30, scale: 0.96 }}
+              exit={{ opacity: 0, y: 30, scale: 1 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
               className="pointer-events-auto relative z-10 flex h-[min(640px,calc(100dvh-90px))] w-full flex-col overflow-hidden rounded-[20px] sm:rounded-[12px] border border-zinc-200 bg-white shadow-2xl sm:w-[390px]"
             >
@@ -187,7 +221,10 @@ export function SobatStellaChatbot() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto bg-zinc-50 px-4 py-4">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 space-y-3 overflow-y-auto bg-zinc-50 px-4 py-4 scroll-smooth"
+              >
                 {visibleMessages.map((message, index) => {
                   const isUser = message.role === "user";
                   return (
@@ -210,6 +247,7 @@ export function SobatStellaChatbot() {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} className="h-0 w-full" />
               </div>
 
               <div className="border-t border-zinc-100 bg-white p-4">
