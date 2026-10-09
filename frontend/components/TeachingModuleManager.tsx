@@ -1,8 +1,7 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import { Download, Edit2, Eye, FileText, ImagePlus, Loader2, Plus, Save, Trash2, X } from "lucide-react";
+import { ChangeEvent, FormEvent, useMemo, useState, type ReactNode } from "react";
+import { Download, DownloadCloud, Edit2, Eye, FileText, Globe, ImagePlus, Loader2, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import { adminFetch, responseMessage } from "@/lib/auth-client";
 import { normalizeImageUrl } from "@/lib/image-url";
 import type { TeachingModule } from "@/types/content";
@@ -49,12 +48,100 @@ export function TeachingModuleManager({ initialItems }: TeachingModuleManagerPro
   const [coverUploading, setCoverUploading] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
 
+  // State untuk Impor dari Remote URL
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [remoteUrl, setRemoteUrl] = useState("");
+  const [autoSaveImport, setAutoSaveImport] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgressText, setImportProgressText] = useState("");
+
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)), [items]);
 
   function openCreateModal() {
     setForm({ ...emptyForm, sortOrder: items.length + 1 });
     setNotice(null);
     setModalMode("create");
+  }
+
+  async function handleImportRemote(event?: FormEvent) {
+    event?.preventDefault();
+    const url = remoteUrl.trim();
+    if (!url) return;
+
+    setImporting(true);
+    setImportProgressText("Menghubungi server sumber & mendeteksi data modul...");
+    setNotice(null);
+
+    try {
+      setImportProgressText("Mendeteksi katalog, mengunduh cover & file PDF ke server...");
+      const response = await adminFetch("/teaching-modules/import-remote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          autoSave: autoSaveImport,
+          isPublished: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await responseMessage(response, "Gagal mengimpor modul dari remote URL"));
+      }
+
+      const data = await response.json();
+
+      if (autoSaveImport && data.id) {
+        const newModule: TeachingModule = {
+          id: data.id,
+          title: data.title,
+          slug: data.slug || slugPreview(data.title),
+          description: data.description,
+          subject: data.subject,
+          gradeLevel: data.gradeLevel,
+          authorName: data.authorName,
+          coverImage: data.coverImage,
+          fileUrl: data.fileUrl,
+          fileSize: data.fileSize,
+          pageCount: data.pageCount,
+          sortOrder: items.length + 1,
+          isPublished: data.isPublished,
+          viewCount: 0,
+          downloadCount: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        setItems((current) => [...current, newModule]);
+        setNotice({ type: "success", message: `Modul "${data.title}" berhasil diunduh dan dipublikasikan!` });
+        setImportModalOpen(false);
+        setRemoteUrl("");
+      } else {
+        setForm({
+          title: data.title || "",
+          description: data.description || "",
+          subject: data.subject || "Umum",
+          gradeLevel: data.gradeLevel || "Semua Tingkat",
+          authorName: data.authorName || "SMK Telkom Lampung",
+          coverImage: data.coverImage || "",
+          fileUrl: data.fileUrl || "",
+          fileSize: data.fileSize || 0,
+          pageCount: data.pageCount || 0,
+          sortOrder: items.length + 1,
+          isPublished: true
+        });
+        setImportModalOpen(false);
+        setRemoteUrl("");
+        setModalMode("create");
+        setNotice({
+          type: "success",
+          message: `Data & PDF modul berhasil diunduh ke server (${formatFileSize(data.fileSize)}${data.pageCount ? `, ${data.pageCount} halaman` : ""}). Silakan periksa lalu simpan.`
+        });
+      }
+    } catch (error: any) {
+      setNotice({ type: "error", message: error.message || "Gagal mengimpor modul remote." });
+    } finally {
+      setImporting(false);
+      setImportProgressText("");
+    }
   }
 
   function openEditModal(item: TeachingModule) {
@@ -211,10 +298,24 @@ export function TeachingModuleManager({ initialItems }: TeachingModuleManagerPro
           <h2 className="text-xl font-black text-zinc-950">Data Modul Ajar</h2>
           <p className="mt-1 text-sm font-semibold text-zinc-500">{items.length} modul tersimpan.</p>
         </div>
-        <button type="button" onClick={openCreateModal} className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-rosebrand-500 px-5 text-sm font-extrabold text-white transition hover:bg-rosebrand-600">
-          <Plus size={18} aria-hidden />
-          Tambah Modul
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setImportModalOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] border border-rosebrand-200 bg-rosebrand-50 px-4 text-sm font-extrabold text-rosebrand-700 transition hover:bg-rosebrand-100 active:scale-95 shadow-sm"
+          >
+            <DownloadCloud size={18} aria-hidden />
+            Impor dari Remote URL
+          </button>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-rosebrand-500 px-5 text-sm font-extrabold text-white transition hover:bg-rosebrand-600 active:scale-95 shadow-sm"
+          >
+            <Plus size={18} aria-hidden />
+            Tambah Manual
+          </button>
+        </div>
       </div>
 
       {notice && (
@@ -269,9 +370,21 @@ export function TeachingModuleManager({ initialItems }: TeachingModuleManagerPro
                 <p className="text-sm font-extrabold uppercase text-rosebrand-600">{modalMode === "edit" ? "Edit Modul" : "Tambah Modul"}</p>
                 <h2 className="mt-2 text-2xl font-black text-zinc-950">{modalMode === "edit" ? form.title : "Modul ajar baru"}</h2>
               </div>
-              <button type="button" onClick={closeModal} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200">
-                <X size={18} aria-hidden />
-              </button>
+              <div className="flex items-center gap-2">
+                {modalMode === "create" && (
+                  <button
+                    type="button"
+                    onClick={() => setImportModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-[8px] border border-rosebrand-200 bg-rosebrand-50 px-3 py-2 text-xs font-black text-rosebrand-700 hover:bg-rosebrand-100 transition shadow-sm"
+                  >
+                    <DownloadCloud size={14} />
+                    Impor Otomatis dari URL
+                  </button>
+                )}
+                <button type="button" onClick={closeModal} className="grid h-10 w-10 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200">
+                  <X size={18} aria-hidden />
+                </button>
+              </div>
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
@@ -337,6 +450,123 @@ export function TeachingModuleManager({ initialItems }: TeachingModuleManagerPro
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL IMPOR DARI REMOTE URL */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-[95] grid place-items-center bg-zinc-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-[12px] bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-rosebrand-100 text-rosebrand-600">
+                  <DownloadCloud size={20} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-black text-zinc-950">Impor Modul dari Remote URL</h3>
+                  <p className="text-xs font-semibold text-zinc-500">
+                    Otomatis deteksi data, unduh cover & file PDF langsung ke server
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!importing) setImportModalOpen(false);
+                }}
+                disabled={importing}
+                className="grid h-9 w-9 place-items-center rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleImportRemote} className="mt-5 grid gap-4">
+              <div>
+                <label className="text-sm font-bold text-zinc-700">Link / URL Halaman Modul atau Buku</label>
+                <div className="relative mt-2">
+                  <input
+                    type="url"
+                    value={remoteUrl}
+                    onChange={(e) => setRemoteUrl(e.target.value)}
+                    disabled={importing}
+                    placeholder="Contoh: https://buku.kemendikdasmen.go.id/katalog/Kelas-VI-Tema-8-Bumiku"
+                    required
+                    className="w-full rounded-[8px] border border-zinc-200 pl-4 pr-10 py-3 text-sm font-semibold outline-none transition focus:border-rosebrand-500 disabled:bg-zinc-50"
+                  />
+                  <Globe className="absolute right-3.5 top-3.5 text-zinc-400" size={18} />
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-zinc-400">Contoh link katalog Kemendikdasmen:</span>
+                  <button
+                    type="button"
+                    onClick={() => setRemoteUrl("https://buku.kemendikdasmen.go.id/katalog/Kelas-VI-Tema-8-Bumiku")}
+                    className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-bold text-rosebrand-600 hover:bg-rosebrand-50 transition"
+                  >
+                    Kelas VI Tema 8 Bumiku
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[8px] border border-amber-200 bg-amber-50/60 p-3.5 text-xs font-semibold text-amber-900">
+                <p className="font-extrabold flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-amber-600" />
+                  Sistem otomatis melakukan:
+                </p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-800">
+                  <li>Mendeteksi judul, deskripsi, mata pelajaran, jenjang kelas, dan penulis/penerbit</li>
+                  <li>Mengunduh cover thumbnail dan menyimpannya ke folder media server</li>
+                  <li>Mengunduh file PDF asli ke penyimpanan server lokal (mandiri tanpa bergantung link luar)</li>
+                </ul>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-[8px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold text-zinc-700 cursor-pointer hover:bg-zinc-100/70 transition">
+                <input
+                  type="checkbox"
+                  checked={autoSaveImport}
+                  onChange={(e) => setAutoSaveImport(e.target.checked)}
+                  disabled={importing}
+                  className="h-4 w-4 rounded border-zinc-300 text-rosebrand-600 focus:ring-rosebrand-500"
+                />
+                <span>Langsung simpan & publikasikan ke daftar modul</span>
+              </label>
+
+              {importing && (
+                <div className="flex items-center gap-3 rounded-[8px] border border-rosebrand-200 bg-rosebrand-50/80 p-3.5 text-xs font-bold text-rosebrand-700">
+                  <Loader2 size={18} className="animate-spin shrink-0 text-rosebrand-600" />
+                  <span>{importProgressText || "Sedang memproses dan mengunduh berkas..."}</span>
+                </div>
+              )}
+
+              <div className="mt-2 flex justify-end gap-3 border-t border-zinc-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  disabled={importing}
+                  className="rounded-[8px] border border-zinc-200 px-4 py-2.5 text-sm font-extrabold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={importing || !remoteUrl.trim()}
+                  className="inline-flex items-center gap-2 rounded-[8px] bg-rosebrand-500 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-rosebrand-600 disabled:opacity-50 shadow-sm active:scale-95"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Sedang Mengunduh...
+                    </>
+                  ) : (
+                    <>
+                      <DownloadCloud size={16} />
+                      Deteksi & Unduh ke Server
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

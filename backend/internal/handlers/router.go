@@ -152,6 +152,7 @@ func NewRouter(cfg config.Config, repo *repository.Repository, tokens *auth.Toke
 			protected.Put("/school-uvp/{id}", h.requireCSRF(h.requireAnyRole(h.updateSchoolUVPItem, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Delete("/school-uvp/{id}", h.requireCSRF(h.requireAnyRole(h.deleteSchoolUVPItem, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/teaching-modules", h.requireCSRF(h.requireAnyRole(h.createTeachingModule, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
+			protected.Post("/teaching-modules/import-remote", h.requireCSRF(h.requireAnyRole(h.importRemoteTeachingModule, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Put("/teaching-modules/{id}", h.requireCSRF(h.requireAnyRole(h.updateTeachingModule, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor)))
 			protected.Delete("/teaching-modules/{id}", h.requireCSRF(h.requireAnyRole(h.deleteTeachingModule, models.RoleSuperadmin, models.RoleAdmin)))
 			protected.Post("/uploads/images", h.requireCSRF(h.requireAnyRole(h.uploadImage, models.RoleSuperadmin, models.RoleAdmin, models.RoleContributor, models.RoleRedaksi)))
